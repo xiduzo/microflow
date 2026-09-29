@@ -1,4 +1,4 @@
-//! The `Figma` node.
+//! The `Figma` node — a design-tool bridge to the Figma and Penpot plugins.
 
 pub(crate) mod codegen;
 pub(crate) mod config;

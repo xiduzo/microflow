@@ -1,142 +1,104 @@
 ---
-title: Manipulating variables
-description: Three ways to send data between hardware and Figma variables.
+title: Using variables with Microflow
+description: Read and change your Figma variables from a Microflow Studio flow, in both directions.
 ---
 
-There are three ways to exchange data between your hardware and Figma variables.
+You use your MHB variables in Studio through the [Design variable](/docs/microflow-studio/nodes/express/figma) node. One node links to one variable. Add a node for each variable you want to use.
 
 ---
 
-## 1. Hardware → Figma (publishing updates)
+## Link a variable to a node
 
-When your hardware sends a value update via Microflow Studio, the corresponding Figma variable updates instantly. This affects:
+1. Run the plugin in your Figma file. Check that its **MQTT** dot is green.
+2. In Studio, add a **Design variable** node to your flow.
+3. In the node settings, select the **Broker** that the plugin uses.
+4. Check that the plugin uses the node's Bridge ID. See [MQTT settings](/docs/microflow-hardware-bridge/mqtt#the-bridge-id).
+5. Open the node's **variable** list and pick your variable. When a Figma and a Penpot plugin are both connected, the names end in "(Figma)" or "(Penpot)".
 
-- The variable value in Figma's variable panel
-- Any designs that use that variable
-- Any prototypes actively using that variable
+The node's inputs change to match the type of the variable.
 
-**Example:** A light sensor reads 750. Microflow Studio publishes that value. A Figma variable called `brightness` updates to 750, and any design element tied to that variable reflects the change.
+## Hardware → Figma
 
-<Callout type="info" title="This happens automatically">
-You do not need to set up or know about MQTT topics to use this feature. Microflow Studio and the Hardware Bridge handle all the messaging for you behind the scenes. The details below are for advanced users who want to integrate other tools.
-</Callout>
+Connect a value to one of the node's inputs. The plugin writes the new value into the variable, and Figma redraws every layer that uses it.
 
-<details>
-<summary>Advanced: MQTT topic format</summary>
+| Variable type | Inputs | What they do |
+| --- | --- | --- |
+| Boolean | `true`, `toggle`, `false` | Set the variable to true, flip it, or set it to false. |
+| Number | `set`, `increment`, `decrement`, `reset` | `set` uses the incoming number. `increment` and `decrement` add or subtract the incoming number (`true` counts as 1). `reset` sets 0. |
+| String | `set` | Set the variable to the incoming text. |
+| Color | `red`, `green`, `blue`, `opacity` | Change one channel. Red, green and blue take 0–255. Opacity takes 0–100. |
 
-MQTT routes messages using "topics" — structured strings that act like addresses. Each variable has its own unique topic, based on your settings and the variable's ID in Figma.
+**Example:** Potentiometer → Map (0–1023 to 0–100) → the `set` input of a Number variable. Studio ships this flow as the **Sensor to Figma or Penpot** template.
 
-**Example publishing topic:**
+A value that does not fit the variable's type is dropped. For example, the text `hello` cannot set a Number variable.
+
+## Figma → hardware
+
+Change the variable in Figma. The plugin checks for changes four times a second and sends the new value. The node sends it out of its `change` output. Connect `change` to the rest of your flow.
+
+**Example:** a Number variable from 0 to 100 → Map (0–100 to 0–255) → LED on pin 9. Studio ships this flow as the **Figma or Penpot to LED** template.
+
+The `change` output fires for every new value: a change made in Figma, and a change made through the node's own inputs.
+
+---
+
+## Advanced: MQTT topics
+
+Other MQTT clients can use the same variables, for example a script, a Raspberry Pi or your own firmware. The plugin's **Variables** page has two copy buttons for each variable: the topic that changes it, and the topic that carries its value.
+
+Every topic starts with `microflow/{bridgeId}/{client}/`. `{client}` is the sender: `figma`, `penpot`, or `app` for Studio.
+
+| Topic | Sender | Payload | Retained |
+| --- | --- | --- | --- |
+| `{tool}/status` | plugin (last will) | `connected` / `disconnected` | yes |
+| `{tool}/variables` | plugin | `{[id]: {id, name, resolvedType}}` | yes |
+| `{tool}/variable/{wireId}` | plugin | JSON value | no |
+| `app/status` | Studio | `connected` / `disconnected` | yes |
+| `app/variables/request` | Studio | empty | no |
+| `app/variable/{wireId}` | plugin, answering a request | JSON value | no |
+| `app/variable/{wireId}/set` | Studio | JSON value | no |
+
+`{tool}` is `figma` for this plugin. `{wireId}` is the variable's ID in a form that is safe in a topic: the Figma ID `VariableID:1:25` becomes `1-25`.
+
+For example, with the Bridge ID `calm_lynx_4821`:
+
+```sh
+# Print every value change of variable 1:25
+mosquitto_sub -h test.mosquitto.org -t microflow/calm_lynx_4821/figma/variable/1-25
+
+# Set variable 1:25 to 42
+mosquitto_pub -h test.mosquitto.org -t microflow/calm_lynx_4821/app/variable/1-25/set -m 42
 ```
-microflow/v1/xiduzo/YOUR_APP_NAME/variable/VariableID:1:25/set
-```
 
-| Segment | Meaning |
+Values are not retained. A new subscriber gets a value only when it next changes. To get all current values at once, publish an empty message to `microflow/{bridgeId}/{you}/variables/request`, where `{you}` is a name for your client other than `figma` or `penpot`. The plugin answers on `microflow/{bridgeId}/{you}/variable/{wireId}`.
+
+### Payloads
+
+The plugin reads a payload as JSON when it can, and as plain text when it cannot. Then it converts the value to the variable's type:
+
+| Type | Accepted payloads |
 | --- | --- |
-| `microflow/v1` | Base topic for the Hardware Bridge |
-| `xiduzo` | Your configured [identifier](/docs/microflow-hardware-bridge/variables#mqtt-settings) |
-| `YOUR_APP_NAME` | A name for your client — any string without spaces (e.g. `my-app`) |
-| `variable` | Message type: a variable update |
-| `VariableID:1:25` | The Figma variable ID (in this case, `1:25`) |
-| `set` | The action to perform |
+| Boolean | `true` / `false`, `on` / `off`, `yes` / `no`, `1` / `0`. Any other number is true unless it is 0. |
+| Number | `42`, `-1.5`, `3,5`, `12px` (the unit is ignored), `true` (becomes 1). |
+| String | Any text or number. |
+| Color | `{"r":1,"g":0,"b":0,"a":1}` (each channel 0–1), `#ff0000`, `#ff000080`, `rgb(255, 0, 0)`, `rgba(0 0 255 / 0.5)`. |
 
-</details>
+The plugin drops a value that does not fit. It sends colors as `{"r", "g", "b", "a"}` with each channel from 0 to 1.
 
----
-
-## 2. Figma → Hardware (subscribing to updates)
-
-When you change a variable value in Figma's variable panel, the Hardware Bridge automatically publishes that change over MQTT. Any hardware that is subscribed to that variable's topic will receive the update.
-
-**Example:** You change a color variable in Figma. Your hardware receives the new color value and updates an RGB LED.
-
-<Callout type="info" title="This happens automatically">
-You do not need to configure anything for this direction. When you change a variable in Figma's variable panel, the Hardware Bridge automatically sends the update to your hardware.
-</Callout>
-
-<details>
-<summary>Advanced: MQTT subscribing topic format</summary>
-
-**Example subscribing topic:**
-```
-microflow/v1/xiduzo/plugin/variable/VariableID:1:25
-```
-
-| Segment | Meaning |
-| --- | --- |
-| `microflow/v1` | Base topic for the Hardware Bridge |
-| `xiduzo` | Your configured identifier |
-| `plugin` | Identifies this message as coming from the Figma plugin |
-| `variable` | Message type: a variable update |
-| `VariableID:1:25` | The Figma variable ID |
-
-</details>
+A `set` message for an ID that the plugin does not own is ignored. This lets the Figma and Penpot plugins share one Bridge ID.
 
 ---
 
-## 3. Updating variables from a running prototype
+## Limitations
 
-<Callout type="warn" title="Help us make this simpler">
-We think this flow is more complicated than it needs to be, and ideally Figma would support this natively.
+- **Editor only.** Figma does not run plugins in prototypes. The bridge links hardware to the variables of a file that is open in the editor. A change made in a running prototype does not reach the plugin.
+- **Keep the plugin open.** When you close the plugin, the link stops. Studio then shows "Figma plugin is not connected" on the node.
+- **Default mode only.** Other modes of a collection are not linked.
+- **Shared brokers.** On a public broker, the Bridge ID is the only thing that keeps your values apart from other people's. Use your [own broker](/docs/how-to/run-your-own-mqtt-broker) for anything private.
 
-If you agree, please upvote or comment on [this Figma forum post](https://forum.figma.com/ask-the-community-7/communicating-between-prototype-and-figma-plugin-13868) to show Figma there is demand for it.
-</Callout>
+## Related
 
-Updating a variable from within a running Figma prototype (e.g. when a user clicks something in the prototype) is not straightforward, because Figma does not allow plugins to directly receive events from prototypes.
-
-**The workaround:** The prototype opens a small webpage, which then opens Microflow Studio on your computer to trigger the variable update.
-
-### Requirements
-
-- Microflow Studio must be installed and running
-- The Microflow Hardware Bridge plugin must be open in Figma
-- The prototype should be running (ideally in a browser, not inside Figma)
-
-### How to set it up
-
-1. In your Figma prototype, add an interaction to a frame (for example: "On click")
-2. Set the action to **Open link**
-3. Use a link in this format:
-
-```
-https://microflow.vercel.app/set/VariableID:1:25/YOUR_VALUE
-```
-
-Replace `VariableID:1:25` with your actual variable ID (find it in Figma's variable panel), and `YOUR_VALUE` with the value you want to set.
-
-### Supported value formats
-
-| Variable type | Example values |
-| --- | --- |
-| Number | `123` or `12.3` |
-| String | `Hello` or `"Hello, World!"` |
-| Boolean | `true` or `false` |
-| Color | ⚠ Not implemented yet |
-
-<Callout type="info" title="Image placeholder">
-  Screenshot showing how to set the "Open link" action on a Figma prototype interaction.
-</Callout>
-
-### What happens step by step
-
-1. A user interacts with the prototype (e.g. clicks a button)
-2. The prototype opens a webpage in a new window
-3. The webpage triggers Microflow Studio to open on your computer
-4. The webpage closes itself
-5. Microflow Studio sends the update to the Figma plugin via MQTT
-6. The Figma variable updates, and your hardware receives the change
-
-```mermaid
-sequenceDiagram
-    Figma prototype ->> Microflow website: Open link
-    Microflow website ->> Microflow studio: Open Microflow Studio
-    Microflow website ->> Microflow website: Close webpage
-    Microflow studio ->> Microflow hardware bridge: Update variable
-    Microflow hardware bridge ->> Figma prototype: Update variable
-```
-
-### Known issues
-
-**The webpage does not open Microflow Studio correctly.**
-
-You can test whether the deep link is working on your machine by [clicking here](microflow-studio://link-web). If Microflow Studio opens, everything is configured correctly.
+- Node reference: [Design variable](/docs/microflow-studio/nodes/express/figma)
+- How-to: [Send a sensor reading to Figma or Penpot](/docs/how-to/send-a-sensor-to-figma)
+- How-to: [Control hardware from Figma or Penpot](/docs/how-to/control-hardware-from-figma)
+- Troubleshooting: [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)

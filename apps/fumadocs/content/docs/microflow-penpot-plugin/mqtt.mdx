@@ -1,42 +1,66 @@
 ---
-title: MQTT settings (Penpot)
-description: Configure which MQTT broker the Penpot plugin connects to.
+title: MQTT settings
+description: Connect the Penpot plugin to an MQTT broker and pair it with Studio through the Bridge ID.
 ---
 
-The Microflow plugin for Penpot uses MQTT to receive values from Microflow Studio. The defaults work out-of-the-box on a public broker — change them only when you have a reason.
+The plugin and Microflow Studio send messages to each other through an **MQTT broker**, a server that passes messages between programs. They must use the same broker and the same **Bridge ID**.
 
-## Default server
+Click the gear icon on the plugin's home screen to open the MQTT settings. Click **Save MQTT settings** to connect. The plugin does not connect until you have saved a Bridge ID.
 
-Both Microflow Studio and the Penpot plugin ship pointed at a free public MQTT broker. Plug both in, and they find each other automatically.
-
-<Callout type="warn" title="Public means public">
-The default broker is shared with anyone else using Microflow. Use it for prototyping, not for sensitive data. Move to your own broker for anything you do not want third parties to be able to read.
-</Callout>
-
-## Changing the broker
-
-In Penpot, open the Microflow plugin and go to **Settings**. The fields are:
+## Settings
 
 | Setting | What it does |
 | --- | --- |
-| **Identifier** | A unique client name. Defaults to a generated random string — change only if you have several plugins on the same broker and need to debug them. |
-| **Host** | The broker's hostname or IP. `mqtt://localhost:1883` for a local broker. |
-| **Port** | Connection port. `1883` for plain MQTT, `8883` for MQTT over TLS, `9001` for WebSockets. |
-| **Username** | Required only if your broker is configured with auth. |
-| **Password** | Required only if your broker is configured with auth. |
+| **Bridge ID** | Pairs the plugin with Studio. It must be the same as the Bridge ID that Studio shows. Use 5 to 64 characters: letters, digits, `-` and `_`. The dice button makes a random one. |
+| **Broker URL** | The broker to connect to, as `[protocol://]host[:port][/path]`. The default is `wss://test.mosquitto.org:8081/mqtt`. |
+| **Username** | Only if your broker needs one. |
+| **Password** | Only if your broker needs one. |
 
-Make sure Microflow Studio's MQTT settings match — same host, same port, same credentials.
+---
+
+## The Bridge ID
+
+The Bridge ID is part of every message the plugin and Studio send. Studio and the plugin find each other only when their Bridge IDs are the same.
+
+To find Studio's Bridge ID, add a [Design variable](/docs/microflow-studio/nodes/express/figma) node to a flow:
+
+- While Studio knows no variables yet, the node shows its Bridge ID.
+- The node settings have a **bridge ID** field and a **copy bridge ID** button.
+
+Studio makes its Bridge ID from your account name, with unsupported characters replaced by `_`. For example, "Sander Boer" becomes `Sander_Boer`. When you are not signed in, or your name gives fewer than 5 characters, Studio uses a random ID for your device, such as `calm_lynx_4821`. You can type your own ID in the **bridge ID** field. Clear the field to go back to the default.
+
+If you make a new ID with the dice button in the plugin, type the same ID into Studio's **bridge ID** field.
+
+The Figma and Penpot plugins can use the same Bridge ID at the same time. Each plugin only changes its own variables.
+
+## The broker URL
+
+- The plugin connects over WebSockets: `wss://` (encrypted) or `ws://`. It cannot use `mqtt://` or `mqtts://`.
+- Use `wss://` for a broker on another computer. When Penpot runs over HTTPS, browsers block unencrypted `ws://` connections from the plugin.
+- If you leave out the protocol, the plugin uses `wss://`. If you leave out the port, it uses `8883` for `wss://` and `1883` for `ws://`. If you leave out the path, it uses `/mqtt`.
+
+Studio must connect to the same broker. Add it in Studio under **Configuration → MQTT**. The simplest setup uses the same URL in both tools. Studio in the browser also needs a `ws://` or `wss://` URL.
+
+## The default broker
+
+The default broker is the free public test server at `test.mosquitto.org`. It needs no account, so it is the fastest way to try the bridge.
+
+<Callout type="warn" title="The default broker is public">
+Anyone can read and send messages on a public broker. Anyone who knows or guesses your Bridge ID can read your tokens and change them. Use the public broker for learning and prototyping. For anything private, [run your own broker](/docs/how-to/run-your-own-mqtt-broker).
+</Callout>
 
 ## Running your own broker
 
-The full guide is at [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker). Mosquitto is the default pick. Both the Penpot plugin and Studio will work with any standard MQTT 3.1.1 or 5.0 broker.
+Any MQTT broker with a WebSocket listener works. Follow [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker), then enter its URL in both the plugin and Studio.
 
-## Verifying the connection
+For a broker that other computers reach over a network, set up TLS so the plugin can use `wss://`.
 
-When the plugin connects, the status indicator turns green and shows **Connected**. If it sits on **Reconnecting** indefinitely, see [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect).
+## Where the settings are stored
+
+The plugin keeps its settings, including the password, in the browser storage (`localStorage`) of the plugin's own page. They are stored in plain text.
 
 ## Resources
 
 - [mqtt.org](https://mqtt.org/)
-- [Mosquitto](https://mosquitto.org/)
-- [Hardware Bridge MQTT settings (Figma equivalent)](/docs/microflow-hardware-bridge/mqtt) — same wire format.
+- [Mosquitto and its public test server](https://test.mosquitto.org/)
+- [Troubleshooting: MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect)

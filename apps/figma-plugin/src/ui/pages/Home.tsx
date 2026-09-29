@@ -1,12 +1,13 @@
 /** @jsxImportSource preact */
-import { useMqttStore, type ConnectionStatus } from "@microflow/mqtt";
-import { useMemo } from "preact/hooks";
 import { IconButton } from "@create-figma-plugin/ui";
-import { Heart, Variable, Network, ExternalLink, Settings } from "lucide-react";
+import { STUDIO } from "@microflow/design-bridge";
+import { useAppStore, useNavigation } from "@microflow/design-bridge/react";
+import { type ConnectionStatus, useMqttStore } from "@microflow/mqtt";
+import { ExternalLink, Heart, Settings, Variable } from "lucide-react";
+import { useMemo } from "preact/hooks";
+import { openLink } from "../channel";
 import { PageContent } from "../components/PageLayout";
 import { useWindowSize } from "../hooks/use-window-size";
-import { useNavigation } from "../hooks/use-navigation";
-import { useAppStore } from "../stores/app";
 
 function StatusDot(props: { status?: ConnectionStatus }) {
   const color =
@@ -63,7 +64,7 @@ export function Home() {
   useWindowSize({ width: 275, height: 220 });
 
   const appStatus = useMemo(
-    () => connectedClients.find(({ appName }) => appName === "app")?.status,
+    () => connectedClients.find(({ appName }) => appName === STUDIO)?.status,
     [connectedClients],
   );
 
@@ -87,9 +88,7 @@ export function Home() {
         label="Microflow studio"
         status={appStatus}
         actions={
-          <IconButton
-            onClick={() => window.open("https://microflow.tech/", "_blank")}
-          >
+          <IconButton onClick={() => openLink("https://microflow.tech/")}>
             <ExternalLink size={16} />
           </IconButton>
         }
@@ -116,11 +115,7 @@ export function Home() {
           />
         </div>
         <div style={{ display: "flex", gap: 4 }}>
-          <IconButton
-            onClick={() =>
-              window.open("https://microflow.tech/support", "_blank")
-            }
-          >
+          <IconButton onClick={() => openLink("https://microflow.tech/support")}>
             <ExternalLink size={16} />
           </IconButton>
         </div>

@@ -1,23 +1,49 @@
 ---
 title: Connecting variables
-description: How to set up variables in Figma so they can be linked to your hardware.
+description: Put variables in the MHB collection so the plugin links them to Microflow Studio.
 ---
 
-When you open the Microflow Hardware Bridge plugin in a Figma file, it automatically creates a variable collection called **MHB** (short for Microflow Hardware Bridge).
+The plugin links the variables in a collection called **MHB** (short for Microflow Hardware Bridge). When you run the plugin, it creates the collection if the file has none.
 
-**Only variables inside the MHB collection are connected to your hardware.** Variables in other Figma collections are ignored by the plugin.
+**Only variables in the MHB collection are linked.** Variables in other collections stay out of the bridge.
 
 ---
 
-## How to set it up
+## Set it up
 
-1. Open your Figma file and run the **Microflow Hardware Bridge** plugin
-2. The plugin creates the `MHB` collection automatically in your variable panel
-3. Add variables to the `MHB` collection — or move existing ones into it
-4. Those variables are now available to link with your hardware in Microflow Studio
+1. Run the **Microflow Hardware Bridge** plugin in your Figma file.
+2. Open Figma's local variables and select the **MHB** collection.
+3. Create variables in the collection, or move existing variables into it.
+4. Bind the variables to layers as usual, so you can see them change.
+5. In the plugin, click the variables icon on the home screen. The **Variables** page lists every linked variable.
 
 <Callout type="info" title="Image placeholder">
-  Screenshot showing the Microflow Hardware Bridge plugin panel in Figma, with the MHB variable collection visible.
+  Screenshot of the plugin's Variables page next to Figma's local variables, with the MHB collection selected.
 </Callout>
 
-Once you have variables in the MHB collection, check the [manipulating variables](/docs/microflow-hardware-bridge/variables/manipulating) page to learn how to read and update them from your hardware.
+## Supported types
+
+| Figma type | Studio type | Example value |
+| --- | --- | --- |
+| Boolean | `BOOLEAN` | `true` |
+| Number | `FLOAT` | `42.5` |
+| String | `STRING` | `Hello` |
+| Color | `COLOR` | red, with an alpha |
+
+The plugin skips variables of any other type.
+
+## How the plugin reads a variable
+
+- It reads the value in the collection's **default mode**. Other modes are not linked. When Studio changes a variable, the plugin writes the default mode.
+- It follows an alias to the variable it points to, in that variable's own default mode. An MHB variable can point to a variable in another collection.
+- A color made from a color and an opacity is sent as one color. The opacity becomes the color's alpha.
+
+When Studio writes a value into a variable that holds an alias, the plain value replaces the alias.
+
+## Renaming and deleting
+
+Studio links to a variable by its Figma ID, not by its name. You can rename a variable, and it stays linked. If you delete a variable and create a new one with the same name, pick the new one again in Studio.
+
+## Next
+
+→ [Using variables with Microflow](/docs/microflow-hardware-bridge/variables/manipulating)

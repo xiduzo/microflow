@@ -101,7 +101,7 @@ impl Credentials {
     /// Returns an empty vec when no credential is needed — i.e. the Flow has no
     /// Cloud Nodes. Otherwise:
     /// - any Cloud Node requires `wifiSsid` and `wifiPassword`;
-    /// - an Mqtt Node additionally requires `brokerHost`;
+    /// - an Mqtt or Figma (design variable) Node additionally requires `brokerHost`;
     /// - an Llm Node additionally requires `llmEndpoint` and `llmApiKey`.
     ///
     /// The check is independent of the board target: a Cloud Flow on a
@@ -137,11 +137,11 @@ impl Credentials {
             "Cloud Nodes need the WiFi password to join on boot",
         );
 
-        if has_node_type(flow, "Mqtt") {
+        if has_node_type(flow, "Mqtt") || has_node_type(flow, "Figma") {
             require(
                 self.broker_host.trim().is_empty(),
                 "brokerHost",
-                "the Mqtt Node needs a broker host to connect to",
+                "the Mqtt and design variable Nodes need a broker host to connect to",
             );
         }
 

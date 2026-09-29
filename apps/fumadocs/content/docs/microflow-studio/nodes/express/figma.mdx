@@ -1,48 +1,87 @@
 ---
-title: MQTT (Express)
-description: Publish a value from your flow onto an MQTT topic — the protocol the Hardware Bridge uses to update Figma.
+title: Design variable
+description: Link a Figma variable or a Penpot design token to your flow, so hardware can drive a design and a design can drive hardware.
 ---
 
-<Callout type="info" title="Also known as the &quot;Figma&quot; node">
-Earlier releases labelled this node **Figma** because its most common use is publishing values to the [Hardware Bridge](/docs/microflow-hardware-bridge) Figma plugin. The label has been canonicalised to **MQTT (Express)** because the node speaks MQTT, not anything Figma-specific — the Figma plugin is just one possible subscriber.
+The Design variable node links one variable in a design file to your flow. The variable is a Figma variable in the **MHB** collection, or a Penpot token in the **MHB** token set. The node works together with the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin for Figma and the [Microflow plugin for Penpot](/docs/microflow-penpot-plugin).
+
+- Send a value into the node, and the plugin writes it into the variable.
+- Change the variable in Figma or Penpot, and the node sends the new value out of its `change` output.
+
+**Example:** a potentiometer sets a Number variable that controls the width of a rectangle in Figma. As you turn the knob, the rectangle grows and shrinks.
+
+The node talks to the plugins over MQTT, but it is not a general MQTT node and has no topic setting. To publish or subscribe to your own topics, use the [MQTT](/docs/microflow-studio/nodes/sense/mqtt) node.
+
+<Callout type="warn" title="Design files, not prototypes">
+Figma and Penpot run plugins only in the editor. The node links to the values of a design file that is open in the editor, with the plugin running. It does not reach a running prototype.
 </Callout>
 
-The MQTT (Express) node publishes the value on its input onto an MQTT topic every time that value changes. Anything subscribed to the same topic — the Figma Hardware Bridge, the Penpot plugin, a Raspberry Pi, your own script — receives it.
+## Setup
 
-**Example:** A potentiometer on your desk controls a slider in a Figma prototype. As you turn the dial, the value is published to `figma/<variable-name>`, the Bridge updates the matching variable in the `MHB` collection, and the slider moves in real-time.
+1. Open **Configuration → MQTT** and add a broker. Use the same broker as the plugin. The plugins' default is `wss://test.mosquitto.org:8081/mqtt`.
+2. Add a Design variable node and select the broker in its **Broker** setting.
+3. Click **copy bridge ID** and paste the Bridge ID into the plugin's MQTT settings. See [Hardware Bridge MQTT settings](/docs/microflow-hardware-bridge/mqtt) or [Penpot MQTT settings](/docs/microflow-penpot-plugin/mqtt).
+4. Run the plugin in your design file and add variables to the MHB collection or token set.
+5. Pick the variable in the node's **variable** setting.
 
-This node pairs with the [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) node, which subscribes to a topic.
+## Inputs
 
-## Setup with the Figma Hardware Bridge
+The inputs depend on the type of the variable.
 
-1. Install and open the [Microflow Hardware Bridge plugin](https://www.figma.com/community/plugin/1373258770799080545) in your Figma file. The plugin auto-creates the `MHB` variable collection.
-2. Create a variable inside the `MHB` collection (see [Connecting variables](/docs/microflow-hardware-bridge/variables/connecting)).
-3. In Microflow Studio, add an MQTT (Express) node to your flow.
-4. Set the **topic** to `figma/<variable-name>` — case-sensitive, must match the variable name exactly.
+| Variable type | Inputs | What they do |
+| --- | --- | --- |
+| Boolean (Figma only) | `true`, `toggle`, `false` | Set the variable to true, flip it, or set it to false. |
+| Number | `set`, `increment`, `decrement`, `reset` | `set` uses the incoming number. `increment` and `decrement` add or subtract the incoming number (`true` counts as 1). `reset` sets 0. |
+| String | `set` | Set the variable to the incoming text. |
+| Color | `red`, `green`, `blue`, `opacity` | Change one channel. Red, green and blue take 0–255. Opacity takes 0–100. |
 
-## Variable types
+A value that does not fit the variable's type is dropped.
 
-The node sends values in a format the Bridge can write into the target variable. The Bridge maps:
+## Output
 
-- **Number** — numeric values (e.g. a sensor reading of `750`)
-- **Boolean** — `true` / `false` (e.g. whether a button is pressed)
-- **String** — text
-- **Color** — color values
+- **change** — fires with every new value, whether it came from the design tool or from the node's own inputs. A Boolean gives `true` or `false`, a Number gives a number, a String gives text, and a Color gives a color with red, green and blue from 0 to 255 and an alpha from 0 to 1.
 
 ## Settings
 
-- **Broker** — which MQTT broker to publish to. Defaults to the shared public broker; change for self-hosted setups.
-- **Topic** — the topic string. Use `figma/<name>` to drive the Figma Bridge or the Penpot plugin; any other topic for custom subscribers.
+- **Broker** — the MQTT broker to use. It must be the same broker the plugin uses. Add brokers under **Configuration → MQTT**.
+- **variable** — the variable to link. The list shows the variables of every connected plugin. When a Figma and a Penpot plugin are both connected, the names end in "(Figma)" or "(Penpot)".
+- **bridge ID** — the Bridge ID that pairs Studio with the plugins. By default Studio makes it from your account name, or uses a random ID for your device. Type your own ID to replace it, or clear the field to go back to the default. Use 5 to 64 characters: letters, digits, `-` and `_`. Studio uses one Bridge ID for every Design variable node.
+- **copy bridge ID** — copies the Bridge ID, so you can paste it into the plugin.
+
+## What the node shows
+
+- Before any plugin has sent its variables: the Bridge ID.
+- After you pick a variable: its current value and name. A Boolean shows a switch, a Number a number, a String its text, and a Color a color picker.
+
+## Errors
+
+| Message | What to do |
+| --- | --- |
+| No MQTT brokers configured | Add a broker under **Configuration → MQTT**. |
+| Select a broker | Pick a broker in the node's **Broker** setting. |
+| *Broker* is not reachable from a browser | Studio in the browser needs a `ws://` or `wss://` broker. Use one, or use the desktop app. |
+| Figma plugin is not connected / Penpot plugin is not connected | The plugin for the selected variable is not running, or it uses another broker or Bridge ID. |
+| No Figma or Penpot plugin is connected | No variable is selected, and Studio has not found a plugin on this broker and Bridge ID. |
+
+## Arduino sketch export
+
+When you export a flow as an Arduino sketch for an ESP32, the sketch connects to the broker itself over Wi-Fi.
+
+- Nodes connected to `change` get the last value the plugin sent: `true` or `false` for a Boolean variable, and a number for every other type.
+- Only the `set` input is exported. The sketch sends the value of the first node connected to `set` each time it changes. Other inputs are left out, with a note in the generated code.
+- The sketch uses Studio's current Bridge ID.
+- The export needs the Wi-Fi details and an **MQTT broker host**. The sketch connects over plain MQTT (port `1883` by default), not WebSockets.
 
 ## Related
 
-- Tutorial: [Link a sensor to Figma](/docs/learn/link-to-figma)
-- How-to: [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma)
-- How-to: [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma) — going the other direction.
-- How-to: [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)
-- Reference: [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) — the subscribe counterpart.
+- Tutorial: [Link a sensor to Figma or Penpot](/docs/learn/link-to-figma)
+- How-to: [Send a sensor reading to Figma or Penpot](/docs/how-to/send-a-sensor-to-figma)
+- How-to: [Control hardware from Figma or Penpot](/docs/how-to/control-hardware-from-figma)
+- Figma plugin: [Using variables with Microflow](/docs/microflow-hardware-bridge/variables/manipulating)
+- Penpot plugin: [Tokens](/docs/microflow-penpot-plugin/variables)
+- Reference: [MQTT](/docs/microflow-studio/nodes/sense/mqtt) — publish and subscribe to your own topics.
 
 ## Resources
 
-- [Figma plugin](https://www.figma.com/community/plugin/1373258770799080545)
+- [Microflow Hardware Bridge on the Figma Community](https://www.figma.com/community/plugin/1373258770799080545)
 - [mqtt.org](https://mqtt.org/)

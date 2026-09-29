@@ -1,5 +1,4 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 import {
   HeadContent,
@@ -22,7 +21,7 @@ import { useBoardEvents } from "@/board/board-store";
 import { useCloudCapabilitySync } from "@/cloud/cloud-capabilities";
 import { useUpdater } from "@/platform/use-updater";
 import { useDeepLink } from "@/platform/use-deep-link";
-import { useFigmaUniqueId, useFigmaStore } from "@/cloud/figma";
+import { useDesignBridgeAccount } from "@/cloud/design-bridge-account";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { MicroflowDevtools } from "@/devtools/microflow-devtools";
@@ -110,11 +109,7 @@ function Board() {
   useBackendLogs();
   useDeepLink();
 
-  // Keep the figma store's uniqueId in sync with the auth session
-  const uniqueId = useFigmaUniqueId();
-  useEffect(() => {
-    useFigmaStore.getState().setUniqueId(uniqueId);
-  }, [uniqueId]);
+  useDesignBridgeAccount();
 
   return null;
 }

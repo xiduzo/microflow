@@ -1,6 +1,6 @@
 # ADR-0011 — Figma announce protocol is core policy; uid extraction stays per-host
 
-- **Status:** accepted (2026-06-26)
+- **Status:** accepted (2026-06-26); amended by [ADR-0028](0028-design-tool-bridge-protocol.md)
 - **Date:** 2026-06-26
 - **Deciders:** sander
 

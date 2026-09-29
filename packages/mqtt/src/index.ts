@@ -12,6 +12,7 @@ export { mqttUrlSchema } from "./url-validator";
 
 // Parsing
 export { parseMqttUrl } from "./url-parser";
+export { topicMatches } from "./topic";
 
 // Store
 export { useMqttStore } from "./store";

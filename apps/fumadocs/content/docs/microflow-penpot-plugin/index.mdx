@@ -1,68 +1,99 @@
 ---
-title: Microflow for Penpot
-description: Bridge real hardware to a Penpot design — the open-source alternative to the Figma Hardware Bridge.
+title: Getting started
+description: Link the design tokens in a Penpot file to your hardware with the Microflow plugin for Penpot.
 ---
 
-<Callout type="warn" title="Experimental">
-The Microflow plugin for [Penpot](https://penpot.app/) is in early development. The basic MQTT connection works and design tokens can be linked to flow values, but several features are still in progress:
+The Microflow plugin for [Penpot](https://penpot.app/) links the design tokens in a Penpot file to a flow in [Microflow Studio](/docs/microflow-studio). It is the Penpot counterpart of the [Hardware Bridge for Figma](/docs/microflow-hardware-bridge), and it speaks the same protocol. A sensor can change a token in your design, and a change to a token can drive your hardware.
 
-- Numerical values as variables for text are not yet supported.
-- Updating tokens *from* a running Penpot prototype is not yet supported.
+**Example:** you turn a potentiometer on your desk, and a shape in your Penpot file grows and shrinks with it.
 
-Expect changes. For a more complete experience today, use the [Microflow Hardware Bridge for Figma](/docs/microflow-hardware-bridge).
+<Callout type="warn" title="The bridge works in the workspace, not in view mode">
+Penpot runs plugins only in the workspace. The bridge links your hardware to the tokens of a file that is open in the workspace, with the plugin running. It does not reach view mode or a running prototype.
 </Callout>
 
-The Microflow Penpot plugin is the Penpot equivalent of the [Hardware Bridge for Figma](/docs/microflow-hardware-bridge). It does the same job: connecting a design tool to physical hardware over MQTT so a sensor reading can drive a design, and (eventually) a design interaction can drive hardware.
-
-Penpot uses **design tokens** where Figma uses variables. The plugin maps tokens to MQTT topics so they update live when values change in your Microflow Studio flow.
-
-## What you need
-
-- [Penpot](https://penpot.app/) (cloud or self-hosted) — open-source design tool.
-- The Microflow plugin for Penpot installed in your file. Currently distributed via the open-source repo; see [Build from source](/docs/contributing/build-from-source).
-- [Microflow Studio](/docs/microflow-studio) running with a flow that has an [MQTT (Express) node](/docs/microflow-studio/nodes/express/figma).
-- An MQTT broker reachable from both — the [default public broker](/docs/microflow-hardware-bridge/mqtt) is fine for prototyping.
-
-## How it works
-
-```
-[Arduino] ←USB→ [Microflow Studio] ←MQTT→ [Penpot plugin] ↔ [Penpot file (design tokens)]
-```
-
-When a value changes in your Microflow Studio flow, the MQTT node publishes it. The Penpot plugin subscribes, receives the update, and writes it into a design token. Penpot redraws anything bound to that token.
-
-The wire format is identical to the Figma plugin's — the same MQTT broker can drive both at the same time.
+---
 
 ## Status
 
-| Capability | Status |
-| --- | --- |
-| Studio → Penpot (drive design tokens) | Working |
-| Penpot → Studio (design drives hardware) | Not yet supported |
-| Numeric tokens bound to text | Not yet supported |
-| Public plugin distribution | No — install via [build from source](/docs/contributing/build-from-source) |
-| MQTT topic format | Stable: `figma/<token-name>` (intentionally shares format with Figma Bridge) |
+The plugin works end to end: Studio can read and change tokens, and token changes reach Studio. It is not in Penpot's plugin directory yet, and there is no hosted version. You install it from a local development server, or you host a build yourself.
 
-If you need a feature-complete bridge today, use the [Figma Hardware Bridge](/docs/microflow-hardware-bridge) instead.
+## How it works
+
+1. You run the plugin in a Penpot file. The plugin uses the tokens in a token set called **MHB** (Microflow Hardware Bridge). It creates the set if the file has none.
+2. In Studio, a [Design variable](/docs/microflow-studio/nodes/express/figma) node lists those tokens. You pick one and connect the node to the rest of your flow.
+3. Studio and the plugin send messages to each other through an [MQTT broker](/docs/microflow-penpot-plugin/mqtt). Both must use the same broker and the same **Bridge ID**.
+
+When your flow sends a value into the node, the plugin writes it into the token. When you change the token in Penpot, the node sends the new value out of its `change` output.
+
+## Install
+
+You need [Bun](https://bun.sh) and a copy of the [Microflow repository](https://github.com/xiduzo/microflow). Run `bun install` in the repository root first. See [Build from source](/docs/contributing/build-from-source).
+
+**From the development server:**
+
+1. Start the server:
+
+   ```sh
+   cd apps/penpot-plugin
+   bun run dev
+   ```
+
+2. In Penpot, open the plugin manager and install `http://localhost:5173/manifest.json`.
+
+Keep the server running while you use the plugin.
+
+**From your own server:**
+
+1. Build the plugin:
+
+   ```sh
+   cd apps/penpot-plugin
+   bun run build
+   ```
+
+2. Serve the `dist/` folder from any web server that sends CORS headers. It can live under any path.
+3. In Penpot, open the plugin manager and install the URL of `manifest.json` in that folder.
+
+The plugin appears in Penpot as **Microflow hardware bridge**. It asks for permission to read and change the file's content and to read its library.
+
+## Set it up
+
+1. In Studio, open **Configuration → MQTT** and add a broker. For a quick start, use the plugin's default broker: `wss://test.mosquitto.org:8081/mqtt`.
+2. In your flow, add a **Design variable** node and select that broker. The node shows its Bridge ID. Click **copy bridge ID** in the node settings.
+3. In the plugin, click the gear icon to open the MQTT settings. Paste the Bridge ID, keep the default broker URL, and click **Save MQTT settings**.
+4. Add a token to the **MHB** token set. See [Tokens](/docs/microflow-penpot-plugin/variables).
+5. In Studio, pick the token in the node's **variable** setting and connect the node.
+
+The plugin's home screen shows two status dots:
+
+- **MQTT** is green when the plugin is connected to the broker.
+- **Microflow studio** is green when a Studio flow with a Design variable node uses the same broker and Bridge ID.
+
+## Limitations
+
+- The bridge works only while the file is open in the workspace and the plugin is running.
+- Penpot has no boolean tokens. Use a number token with `0` and `1`.
+- The MHB token set must be active. Penpot does not resolve the tokens of an inactive set.
+- On a public broker, the Bridge ID is the only thing that keeps your values apart from other people's. See [MQTT settings](/docs/microflow-penpot-plugin/mqtt).
 
 ## In this section
 
 <Cards>
-  <Card title="MQTT settings" href="/docs/microflow-penpot-plugin/mqtt" description="How to point the plugin at a broker, including a self-hosted one." />
-  <Card title="Variables" href="/docs/microflow-penpot-plugin/variables" description="Linking Penpot design tokens to flow values." />
+  <Card title="MQTT settings" href="/docs/microflow-penpot-plugin/mqtt" description="The broker, the Bridge ID, and running your own broker." />
+  <Card title="Tokens" href="/docs/microflow-penpot-plugin/variables" description="Which tokens the plugin links, and how to use them in Studio." />
 </Cards>
 
 ## Why Penpot?
 
-Penpot is open-source and self-hostable, which makes it the right pick for designers who:
+Penpot is open source and you can host it yourself. That makes it a good fit if you:
 
-- Want to keep designs out of any third-party cloud.
-- Are working on regulated, internal, or sensitive products.
-- Prefer free open-source tools.
+- want to keep designs out of third-party clouds,
+- work on internal or sensitive products,
+- prefer free, open-source tools.
 
-If those constraints do not apply to you, the [Figma Bridge](/docs/microflow-hardware-bridge) is currently more featureful.
+With a self-hosted Penpot and your [own MQTT broker](/docs/how-to/run-your-own-mqtt-broker), your designs and the values the bridge sends stay on your own network.
 
 ## Related
 
-- [Hardware Bridge for Figma](/docs/microflow-hardware-bridge) — the more mature parallel.
-- [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker) — pair with self-hosted Penpot for a fully private setup.
+- [Hardware Bridge for Figma](/docs/microflow-hardware-bridge): the same bridge for Figma.
+- [Run your own MQTT broker](/docs/how-to/run-your-own-mqtt-broker)

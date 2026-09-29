@@ -1,57 +1,62 @@
 ---
-title: Control hardware from a Figma prototype
-description: Use a Figma variable as the input to a hardware action — turn on an LED when a layer changes colour, for example.
+title: Control hardware from Figma or Penpot
+description: Use a Figma variable or a Penpot design token as the input to your hardware — dim an LED from a value in your design file, for example.
 ---
 
-This is the *Figma-to-hardware* direction. You define a Figma variable, an interaction in your prototype changes that variable, and the Hardware Bridge pushes the new value into Microflow Studio, where any node can pick it up.
+This is the *design-to-hardware* direction of the bridge. You change a variable in your design file, the plugin sends the new value to Microflow Studio, and any node in your flow can use it.
 
-This is what makes Microflow useful for product designers prototyping physical products: tap a button in your Figma prototype, watch the real LED light up.
+<Callout type="warn" title="Change the value in the editor, not in a prototype">
+Figma and Penpot run plugins only in the editor. The plugin sees a change you make to a variable in the open file, for example in Figma's variables panel or Penpot's tokens panel. A change made in a running prototype does not reach the plugin.
+</Callout>
 
 ## What you need
 
-- A flow in Microflow Studio with at least one Express node (LED, Servo, Relay, etc.).
-- A Figma file with the [Microflow Hardware Bridge](https://www.figma.com/community/plugin/1373258770799080545) plugin running.
-- Both pointed at the same MQTT broker.
+- A flow in Microflow Studio with at least one Express node (LED, Servo, Relay, and so on).
+- A Figma file with the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin running, or a Penpot file with the [Microflow plugin for Penpot](/docs/microflow-penpot-plugin) running.
+- Studio and the plugin on the same MQTT broker, with the same Bridge ID. See [MQTT settings](/docs/microflow-hardware-bridge/mqtt).
 
 ## Steps
 
-### 1. Create a Figma variable that controls the hardware
+### 1. Create the variable
 
-In *Local variables*, create a variable. Use the type matching the hardware you want to drive:
+Create a variable in the **MHB** collection (Figma) or a token in the **MHB** token set (Penpot). Use the type that matches the hardware you want to drive:
 
-| Hardware | Figma variable type | Typical values |
-| --- | --- | --- |
-| LED on/off (digital pin) | Boolean | `true` / `false` |
-| LED brightness (PWM pin) | Number | `0`–`255` |
-| Servo angle | Number | `0`–`180` |
-| Relay | Boolean | `true` / `false` |
-| RGB LED | String | `"#ff0000"` |
+| Hardware | Figma variable | Penpot token | Typical values |
+| --- | --- | --- | --- |
+| LED on/off, Relay | Boolean | `number` | `true` / `false`, or `1` / `0` |
+| LED brightness (PWM pin) | Number | `number` | `0`–`255` |
+| Servo angle | Number | `number` or `rotation` | `0`–`180` |
+| RGB LED | Color | `color` | any color |
 
-Build a Figma prototype that changes this variable on interaction (e.g. on tap, swap modes, change scope, etc.).
+### 2. Add a Design variable node
 
-### 2. Subscribe to it in Microflow Studio
-
-In your flow, add an [MQTT (Sense)](/docs/microflow-studio/nodes/sense/mqtt) node. Set:
-
-- **Topic** — `figma/<variable-name>` (the Bridge publishes Figma variable updates on this prefix).
-
-Connect the MQTT node's output to your Express node — for example, MQTT → LED.
+1. In your flow, add a [Design variable](/docs/microflow-studio/nodes/express/figma) node.
+2. Select the **Broker** that the plugin uses.
+3. Pick your variable in the **variable** setting.
+4. Connect the node's `change` output to your Express node — for example, Design variable → LED.
 
 <Callout type="info" title="Template available">
-  Studio ships this pattern as the **Figma to LED** template — an MQTT (Sense) node on `figma/led_brightness` driving an LED's brightness.
+  Studio ships this pattern as the **Figma or Penpot to LED** template: a Design variable node for a 0–100 number → Map (0–100 to 0–255) → the brightness of an LED on pin 9.
 </Callout>
 
-### 3. Run the prototype
+### 3. Change the variable
 
-In Figma, run the prototype. Tap the interaction that changes the variable. The MQTT node in Studio receives the new value and forwards it to the LED — physically toggling it.
+Change the value in your design file. The plugin checks for changes four times a second. The node sends the new value out of `change`, and your hardware responds.
 
-## Tip: convert types between Figma and hardware
+## Tip: convert types between the design and the hardware
 
-Figma variables and hardware nodes do not always agree on types. Use shape nodes:
+A variable and a hardware node do not always agree on the value they use. Use Shape nodes in between:
 
-- Figma **Boolean** → hardware needs `0` or `255` for brightness: insert a [Map](/docs/microflow-studio/nodes/shape/map) node (`from: 0–1, to: 0–255`).
-- Figma **Number** in arbitrary range → use Map to scale.
-- Figma **String** like `"on"` / `"off"` → use a [Function](/docs/microflow-studio/nodes/shape/function) node:
+- A number in any range → use a [Map](/docs/microflow-studio/nodes/shape/map) node to scale it. For an LED, map it to `0`–`255`.
+- A Boolean → an LED's brightness goes from `0` to `255`. Use a [Function](/docs/microflow-studio/nodes/shape/function) node:
+
+```ts
+function trigger(input: unknown) {
+  return toBool(input) ? 255 : 0;
+}
+```
+
+- A String such as `"on"` / `"off"` → also use a Function node:
 
 ```ts
 function trigger(input: unknown) {
@@ -59,12 +64,15 @@ function trigger(input: unknown) {
 }
 ```
 
+- A Color → the `change` output sends one color, with `r`, `g` and `b` from 0 to 255 and `a` from 0 to 1. An RGB LED takes each channel on its own input, so use a Function node per channel that returns `input.r`, `input.g` or `input.b`.
+
 ## Verify it worked
 
-- The Bridge plugin should say **Connected**.
-- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT (Sense) node's output — values should appear when you change the Figma variable.
-- If values arrive but the hardware does not move, the issue is in the Express node or wiring, not in the Bridge.
+- The plugin's **MQTT** and **Microflow studio** dots are green.
+- The Design variable node shows the new value when you change the variable.
+- A [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the `change` output shows each value.
+- If values arrive but the hardware does not respond, the problem is in the Express node or the wiring, not in the bridge.
 
 ## Going the other way
 
-To send hardware readings *to* Figma, see [Send a sensor reading to Figma](/docs/how-to/send-a-sensor-to-figma).
+To send hardware readings *to* your design, see [Send a sensor reading to Figma or Penpot](/docs/how-to/send-a-sensor-to-figma).

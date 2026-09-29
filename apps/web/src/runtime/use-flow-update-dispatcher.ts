@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
-import { readHostSnapshot } from "@/cloud/cloud-capabilities";
+import { onHostSnapshotChange, readHostSnapshot } from "@/cloud/cloud-capabilities";
 import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
@@ -32,5 +32,6 @@ export function useFlowUpdateDispatcher(session: FlowSession): void {
       ),
   );
 
+  useEffect(() => onHostSnapshotChange(() => dispatcher.refresh()), [dispatcher]);
   useEffect(() => () => dispatcher.destroy(), [dispatcher]);
 }

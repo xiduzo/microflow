@@ -6,23 +6,21 @@
 
 ### Pre-requisites
 
-- [Node.js](https://nodejs.org) – v22
+- [Bun](https://bun.sh), with dependencies installed from the repository root (`bun install`)
 - [Figma desktop app](https://figma.com/downloads/)
 
 ### Build the plugin
 
-To build the plugin:
-
 ```
-$ npm run build
+$ bun run build
 ```
 
-This will generate a [`manifest.json`](https://figma.com/plugin-docs/manifest/) file and a `build/` directory containing the JavaScript bundle(s) for the plugin.
+This generates a [`manifest.json`](https://figma.com/plugin-docs/manifest/) file and a `build/` directory with the plugin bundles.
 
-To watch for code changes and rebuild the plugin automatically:
+To rebuild on every change:
 
 ```
-$ npm run watch
+$ bun run dev
 ```
 
 ### Install the plugin

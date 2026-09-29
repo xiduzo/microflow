@@ -1,0 +1,94 @@
+{
+  "$comment": "Design-tool bridge protocol cases. Checked by packages/design-bridge (bun test) and crates/microflow-core (cargo test). Change both sides together.",
+  "wireIds": [
+    { "tool": "figma", "id": "VariableID:1:2", "wireId": "1-2" },
+    { "tool": "figma", "id": "VariableID:123:4567", "wireId": "123-4567" },
+    { "tool": "penpot", "id": "3f9a2b1c-8d4e-4f6a-9b0c-1d2e3f4a5b6c", "wireId": "3f9a2b1c-8d4e-4f6a-9b0c-1d2e3f4a5b6c" }
+  ],
+  "topics": [
+    { "fn": "status", "args": ["swift_fox", "figma"], "topic": "microflow/swift_fox/figma/status" },
+    { "fn": "status", "args": ["swift_fox", "app"], "topic": "microflow/swift_fox/app/status" },
+    { "fn": "variables", "args": ["swift_fox", "penpot"], "topic": "microflow/swift_fox/penpot/variables" },
+    { "fn": "value", "args": ["swift_fox", "figma", "1-2"], "topic": "microflow/swift_fox/figma/variable/1-2" },
+    { "fn": "value", "args": ["swift_fox", "app", "1-2"], "topic": "microflow/swift_fox/app/variable/1-2" },
+    { "fn": "set", "args": ["swift_fox", "1-2"], "topic": "microflow/swift_fox/app/variable/1-2/set" },
+    { "fn": "request", "args": ["swift_fox"], "topic": "microflow/swift_fox/app/variables/request" },
+    { "fn": "response", "args": ["swift_fox", "app"], "topic": "microflow/swift_fox/app/variables/response" }
+  ],
+  "bridgeUids": [
+    { "topic": "microflow/swift_fox/figma/variables", "uid": "swift_fox" },
+    { "topic": "microflow/swift_fox/penpot/status", "uid": "swift_fox" },
+    { "topic": "microflow/swift_fox/figma/variable/1-2", "uid": "swift_fox" },
+    { "topic": "microflow/swift_fox/app/variable/1-2/set", "uid": "swift_fox" },
+    { "topic": "microflow/swift_fox/app/variables/request", "uid": "swift_fox" },
+    { "topic": "microflow/in", "uid": null },
+    { "topic": "microflow/sensors/kitchen/temperature", "uid": null },
+    { "topic": "microflow/swift_fox/figma/variable/1-2/set/extra", "uid": null },
+    { "topic": "home/swift_fox/figma/variables", "uid": null }
+  ],
+  "coerce": [
+    { "type": "BOOLEAN", "payload": "true", "value": true },
+    { "type": "BOOLEAN", "payload": "false", "value": false },
+    { "type": "BOOLEAN", "payload": "1", "value": true },
+    { "type": "BOOLEAN", "payload": "0", "value": false },
+    { "type": "BOOLEAN", "payload": "\"on\"", "value": true },
+    { "type": "BOOLEAN", "payload": "OFF", "value": false },
+    { "type": "BOOLEAN", "payload": "0.5", "value": true },
+    { "type": "BOOLEAN", "payload": "maybe", "value": null },
+
+    { "type": "FLOAT", "payload": "5", "value": 5 },
+    { "type": "FLOAT", "payload": "-1.5", "value": -1.5 },
+    { "type": "FLOAT", "payload": "\"5\"", "value": 5 },
+    { "type": "FLOAT", "payload": "3,5", "value": 3.5 },
+    { "type": "FLOAT", "payload": "12px", "value": 12 },
+    { "type": "FLOAT", "payload": "true", "value": 1 },
+    { "type": "FLOAT", "payload": "abc", "value": null },
+    { "type": "FLOAT", "payload": "{\"r\":1}", "value": null },
+
+    { "type": "STRING", "payload": "\"hello\"", "value": "hello" },
+    { "type": "STRING", "payload": "hello world", "value": "hello world" },
+    { "type": "STRING", "payload": "5", "value": "5" },
+    { "type": "STRING", "payload": "true", "value": "true" },
+    { "type": "STRING", "payload": "{\"a\":1}", "value": null },
+
+    { "type": "COLOR", "payload": "{\"r\":1,\"g\":0,\"b\":0,\"a\":1}", "value": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+    { "type": "COLOR", "payload": "{\"r\":1,\"g\":0.5,\"b\":0}", "value": { "r": 1, "g": 0.5, "b": 0, "a": 1 } },
+    { "type": "COLOR", "payload": "{\"r\":2,\"g\":-1,\"b\":0,\"a\":1}", "value": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+    { "type": "COLOR", "payload": "\"#ff0000\"", "value": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+    { "type": "COLOR", "payload": "#00ff0080", "value": { "r": 0, "g": 1, "b": 0, "a": 0.502 } },
+    { "type": "COLOR", "payload": "#fff", "value": { "r": 1, "g": 1, "b": 1, "a": 1 } },
+    { "type": "COLOR", "payload": "rgb(255, 0, 0)", "value": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+    { "type": "COLOR", "payload": "rgba(0 0 255 / 0.5)", "value": { "r": 0, "g": 0, "b": 1, "a": 0.5 } },
+    { "type": "COLOR", "payload": "\"nope\"", "value": null },
+    { "type": "COLOR", "payload": "5", "value": null }
+  ],
+  "encode": [
+    { "value": true, "payload": "true" },
+    { "value": 5, "payload": "5" },
+    { "value": -1.5, "payload": "-1.5" },
+    { "value": "hello", "payload": "\"hello\"" },
+    { "value": { "r": 0.50196078, "g": 0, "b": 1, "a": 1 }, "payload": "{\"r\":0.502,\"g\":0,\"b\":1,\"a\":1}" },
+    { "value": { "r": 0.5, "g": 0.25, "b": 1.2, "a": 0.5 }, "payload": "{\"r\":0.502,\"g\":0.251,\"b\":1,\"a\":0.502}" }
+  ],
+  "hex": [
+    { "hex": "#ff0000", "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+    { "hex": "#00ff0080", "color": { "r": 0, "g": 1, "b": 0, "a": 0.502 } }
+  ],
+  "bridgeIds": [
+    { "id": "swift_fox", "valid": true },
+    { "id": "xiduzo", "valid": true },
+    { "id": "calm_lynx_4821", "valid": true },
+    { "id": "sander-boer", "valid": true },
+    { "id": "fox", "valid": false },
+    { "id": "sander boer", "valid": false },
+    { "id": "a/b/c/d/e", "valid": false },
+    { "id": "plus+sign", "valid": false },
+    { "id": "hash#tag1", "valid": false }
+  ],
+  "bridgeIdsFromNames": [
+    { "name": "xiduzo", "id": "xiduzo" },
+    { "name": "Sander Boer", "id": "Sander_Boer" },
+    { "name": "  café/lab #3 ", "id": "caf_lab_3" },
+    { "name": "Al", "id": null }
+  ]
+}

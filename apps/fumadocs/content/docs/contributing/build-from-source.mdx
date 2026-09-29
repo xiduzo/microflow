@@ -29,8 +29,8 @@ bun install
 apps/
 ├── web/             Studio: React frontend + Tauri desktop shell
 ├── server/          Hono + tRPC API server (collaboration, persistence)
-├── figma-plugin/    Microflow Hardware Bridge
-├── penpot-plugin/   Penpot equivalent (work in progress)
+├── figma-plugin/    Microflow Hardware Bridge (Figma plugin)
+├── penpot-plugin/   Microflow plugin for Penpot
 └── fumadocs/        These docs (Next.js + Fumadocs)
 
 crates/
@@ -44,6 +44,7 @@ packages/
 ├── auth/            Better Auth config
 ├── collab/          Yjs document, sync provider, server room
 ├── db/              Drizzle schema, migrations
+├── design-bridge/   The Figma/Penpot bridge protocol, shared by both plugins and Studio
 ├── env/             Type-safe environment variables
 ├── mqtt/            Shared MQTT client utilities
 └── config/          Shared TypeScript and lint config
@@ -76,7 +77,8 @@ This starts every dev server in parallel using Turborepo:
 - Tauri desktop wrapper (Studio)
 - Hono API + collaboration WebSocket server
 - Fumadocs site (these docs)
-- Figma plugin builder
+- Figma plugin builder (watches and rebuilds `apps/figma-plugin`)
+- Penpot plugin dev server (`http://localhost:5173/manifest.json`)
 
 You can also start a single piece:
 

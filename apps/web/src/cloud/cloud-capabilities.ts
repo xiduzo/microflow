@@ -2,12 +2,13 @@ import { useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useMqttBrokerStore, type ConnectionStatus } from "@/cloud/mqtt-broker";
 import { useLlmProviderStore } from "@/ai/llm-provider";
-import { useFigmaStore } from "@/cloud/figma";
+import { bridgeIdOf, useDesignBridgeStore } from "@/cloud/design-bridge";
 import { invokeCommand, type BrokerStatusPayload } from "@/platform/ipc";
 import { isDesktop } from "@/platform/platform";
 import {
   assembleHostSnapshot,
   startCloudCapabilitySync,
+  watchHostSnapshot,
   type CloudCapability,
 } from "./cloud-capability-sync";
 import { probeBroker, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
@@ -88,9 +89,18 @@ const llm: CloudCapability = {
 
 const figma: CloudCapability = {
   name: "figma",
-  // No push: figma config reaches the runtime through the Figma node's Host
+  // No push: the Bridge ID reaches the runtime through the Figma node's Host
   // Adapter `prepareData` patch in `buildFlowUpdate`, not a sync command.
-  snapshot: () => ({ figma: { uniqueId: useFigmaStore.getState().uniqueId } }),
+  snapshot: () => ({ figma: { uniqueId: bridgeIdOf(useDesignBridgeStore.getState()) } }),
+  watchSnapshot: (onChange) => {
+    let last = bridgeIdOf(useDesignBridgeStore.getState());
+    return useDesignBridgeStore.subscribe((state) => {
+      const next = bridgeIdOf(state);
+      if (next === last) return;
+      last = next;
+      onChange();
+    });
+  },
 };
 
 export const CLOUD_CAPABILITIES: readonly CloudCapability[] = [mqtt, llm, figma];
@@ -120,6 +130,11 @@ export const BROWSER_CLOUD_CAPABILITIES: readonly CloudCapability[] = [browserMq
  * same registry that drives the sync. */
 export function readHostSnapshot(): HostSnapshot {
   return assembleHostSnapshot(CLOUD_CAPABILITIES);
+}
+
+/** Call `onChange` when the `HostSnapshot` changes (e.g. a new Bridge ID). */
+export function onHostSnapshotChange(onChange: () => void): () => void {
+  return watchHostSnapshot(CLOUD_CAPABILITIES, onChange);
 }
 
 /** Mount the cloud-capability driver: on desktop it syncs config to the native

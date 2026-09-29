@@ -416,31 +416,37 @@ const smoothSensor: Template = {
 
 const sensorToFigma: Template = {
   id: "link-to-figma",
-  name: "Sensor to Figma",
-  description: "Publish a potentiometer reading on the figma/pot_value topic for the Figma Hardware Bridge",
+  name: "Sensor to Figma or Penpot",
+  description:
+    "Map a potentiometer to 0–100 and set a number variable in Figma or a number token in Penpot. Pick the broker and variable in the design variable node",
   difficulty: "intermediate",
   categories: ["Communication"],
   nodes: [
     node("pot-1", "Potentiometer", { x: 0, y: 0 }),
-    node("mqtt-1", "Mqtt", { x: 440, y: 0 }, { direction: "publish", topic: "figma/pot_value" }),
+    node("rangemap-1", "RangeMap", { x: 440, y: 0 }, { to: { min: 0, max: 100 } }),
+    node("figma-1", "Figma", { x: 880, y: 0 }, { resolvedType: "FLOAT" }),
   ],
   edges: [
-    { id: "e1", source: "pot-1", target: "mqtt-1", sourceHandle: "value", targetHandle: "trigger" },
+    { id: "e1", source: "pot-1", target: "rangemap-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "figma-1", sourceHandle: "to", targetHandle: "set" },
   ],
 };
 
 const figmaToLed: Template = {
   id: "figma-to-led",
-  name: "Figma to LED",
-  description: "Subscribe to a Figma Hardware Bridge variable over MQTT and drive an LED's brightness with it",
+  name: "Figma or Penpot to LED",
+  description:
+    "Drive an LED's brightness from a 0–100 number variable in Figma or number token in Penpot. Pick the broker and variable in the design variable node",
   difficulty: "intermediate",
   categories: ["Communication"],
   nodes: [
-    node("mqtt-1", "Mqtt", { x: 0, y: 0 }, { topic: "figma/led_brightness" }),
-    node("led-1", "Led", { x: 440, y: 0 }, { pin: 9 }),
+    node("figma-1", "Figma", { x: 0, y: 0 }, { resolvedType: "FLOAT" }),
+    node("rangemap-1", "RangeMap", { x: 440, y: 0 }, { from: { min: 0, max: 100 }, to: { min: 0, max: 255 } }),
+    node("led-1", "Led", { x: 880, y: 0 }, { pin: 9 }),
   ],
   edges: [
-    { id: "e1", source: "mqtt-1", target: "led-1", sourceHandle: "value", targetHandle: "value" },
+    { id: "e1", source: "figma-1", target: "rangemap-1", sourceHandle: "change", targetHandle: "value" },
+    { id: "e2", source: "rangemap-1", target: "led-1", sourceHandle: "to", targetHandle: "value" },
   ],
 };
 

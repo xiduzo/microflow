@@ -1,37 +1,60 @@
 ---
 title: Getting started
-description: Connect your physical hardware to Figma designs using the Microflow Hardware Bridge plugin.
+description: Link the variables in a Figma file to your hardware with the Microflow Hardware Bridge plugin.
 ---
 
-The Microflow Hardware Bridge is a **Figma plugin** that connects your physical hardware projects to Figma designs. This means you can use real sensors, buttons, and other components to control values inside a Figma prototype — and vice versa, have Figma variables control what your hardware does.
+The Microflow Hardware Bridge is a **Figma plugin**. It links the variables in a Figma file to a flow in [Microflow Studio](/docs/microflow-studio). A sensor can change a variable in your design, and a change to a variable can drive your hardware.
 
-**Example:** A light sensor reads a value → the brightness of an element in your Figma design updates in real-time.
+**Example:** you turn a potentiometer on your desk, and the width of a rectangle in your Figma file changes with it.
+
+<Callout type="warn" title="The bridge works in the editor, not in prototypes">
+Figma runs plugins only in the editor. The bridge links your hardware to the variables of a file that is open in the editor, with the plugin running. It does not reach a running prototype.
+</Callout>
 
 ---
 
 ## How it works
 
-The Hardware Bridge works together with [Microflow Studio](/docs/microflow-studio). Here is how the two tools connect:
+1. You run the plugin in a Figma file. The plugin uses the variables in a collection called **MHB** (Microflow Hardware Bridge). It creates the collection if the file has none.
+2. In Studio, a [Design variable](/docs/microflow-studio/nodes/express/figma) node lists those variables. You pick one and connect the node to the rest of your flow.
+3. Studio and the plugin send messages to each other through an [MQTT broker](/docs/microflow-hardware-bridge/mqtt). Both must use the same broker and the same **Bridge ID**.
 
-1. You build a flow in Microflow Studio with your hardware components
-2. You install the Microflow Hardware Bridge plugin in Figma
-3. Both tools connect to the same [MQTT messaging server](/docs/microflow-hardware-bridge/mqtt)
-4. When something changes in your hardware, it updates in Figma — and changes in Figma can update your hardware too
-
----
+When your flow sends a value into the node, the plugin writes it into the variable. When you change the variable in Figma, the node sends the new value out of its `change` output.
 
 <Callout type="info" title="Video placeholder">
-  Setup video (3–4 min): Show the full end-to-end flow — open Microflow Studio with a light sensor already wired up, install the Hardware Bridge plugin in Figma, configure matching identifiers in both tools, create a variable in the MHB collection, connect the LDR node to the MQTT (Express) node in Studio, then show the Figma variable updating live as a hand moves over the sensor.
+  Setup video (3–4 min): add a broker in Studio, add a Design variable node and copy its Bridge ID, paste the Bridge ID into the plugin's MQTT settings, create a Number variable in the MHB collection, pick it in the node, then show the variable change live as a hand moves over a light sensor.
 </Callout>
 
-## Getting started
+## Install
 
-Install the plugin in Figma to begin:
-
-[Install Microflow Hardware Bridge on Figma](https://www.figma.com/community/plugin/1373258770799080545)
+Install [Microflow Hardware Bridge from the Figma Community](https://www.figma.com/community/plugin/1373258770799080545). Then open a Figma Design file and run the plugin from Figma's plugin menu.
 
 <Callout title="You also need Microflow Studio">
-The Hardware Bridge is an extension of Microflow Studio, not a standalone tool. Make sure you have [Microflow Studio set up](/docs/microflow-studio) before continuing.
+The plugin is one half of the bridge. Set up [Microflow Studio](/docs/microflow-studio) before you continue.
 </Callout>
 
-Once the plugin is installed, the next step is to set up [variables](/docs/microflow-hardware-bridge/variables) — the values that get shared between Figma and your hardware.
+## Set it up
+
+1. In Studio, open **Configuration → MQTT** and add a broker. For a quick start, use the plugin's default broker: `wss://test.mosquitto.org:8081/mqtt`.
+2. In your flow, add a **Design variable** node and select that broker. The node shows its Bridge ID. Click **copy bridge ID** in the node settings.
+3. In the plugin, click the gear icon to open the MQTT settings. Paste the Bridge ID, keep the default broker URL, and click **Save MQTT settings**.
+4. Add a variable to the **MHB** collection. See [Connecting variables](/docs/microflow-hardware-bridge/variables/connecting).
+5. In Studio, pick the variable in the node's **variable** setting and connect the node. See [Using variables with Microflow](/docs/microflow-hardware-bridge/variables/manipulating).
+
+The plugin's home screen shows two status dots:
+
+- **MQTT** is green when the plugin is connected to the broker.
+- **Microflow studio** is green when a Studio flow with a Design variable node uses the same broker and Bridge ID.
+
+## Limitations
+
+- The bridge works only while the file is open in the editor and the plugin is running.
+- The plugin reads and writes the value in each collection's default mode.
+- On a public broker, the Bridge ID is the only thing that keeps your values apart from other people's. See [MQTT settings](/docs/microflow-hardware-bridge/mqtt).
+
+## In this section
+
+<Cards>
+  <Card title="MQTT settings" href="/docs/microflow-hardware-bridge/mqtt" description="The broker, the Bridge ID, and running your own broker." />
+  <Card title="Variables" href="/docs/microflow-hardware-bridge/variables" description="Which variables the plugin links, and how to use them in Studio." />
+</Cards>

@@ -1,76 +1,92 @@
 ---
-title: Send a sensor reading to Figma
-description: Push a live value from a hardware sensor into a Figma variable.
+title: Send a sensor reading to Figma or Penpot
+description: Push a live value from a hardware sensor into a Figma variable or a Penpot design token.
 ---
 
-This is the *hardware-to-Figma* direction of the bridge: a sensor in the real world drives a variable in your Figma file, and any layer bound to that variable updates live.
+This is the *hardware-to-design* direction of the bridge: a sensor drives a variable in your design file, and every layer that uses the variable updates live.
 
 ## What you need
 
-- Microflow Studio with a working sensor flow (e.g. a [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) on `A0`, or any sense node).
-- A Figma file open with the [Microflow Hardware Bridge](https://www.figma.com/community/plugin/1373258770799080545) plugin running.
-- Both Studio and the Bridge configured to use the same MQTT broker.
+- Microflow Studio with a working sensor flow, for example a [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) on `A0`.
+- A Figma file with the [Microflow Hardware Bridge](/docs/microflow-hardware-bridge) plugin running, or a Penpot file with the [Microflow plugin for Penpot](/docs/microflow-penpot-plugin) running.
+- Studio and the plugin on the same MQTT broker, with the same Bridge ID. See [MQTT settings](/docs/microflow-hardware-bridge/mqtt).
+
+<Callout type="info" title="Video placeholder">
+  90-second screencast: twist a knob, watch a rectangle in Figma resize live. Full setup shown end to end.
+</Callout>
 
 ## Steps
 
-<Callout type="info" title="Video placeholder">
-  90-second screencast: twist a knob, watch a rectangle in Figma resize live. Full setup shown end-to-end.
-</Callout>
+### 1. Create the variable
 
-### 1. Create a variable in the MHB collection
+**In Figma:** open the local variables and select the **MHB** collection. The plugin creates it the first time it runs. Only variables in this collection are linked.
 
-In your Figma file, open *Local variables* and select the **MHB** collection (auto-created by the Bridge plugin on first run — only variables in this collection are connected to your hardware). Create a variable with the type matching what your sensor produces:
+**In Penpot:** open the tokens panel and select the **MHB** token set. Keep the set active.
 
-| Sensor type | Figma variable type |
-| --- | --- |
-| Button, Switch, Motion (digital) | Boolean *or* Number |
-| Potentiometer, LDR, Force, Sensor (analog) | Number |
-| Function node returning a string | String |
+Pick a type that matches what your sensor produces:
 
-Give it a clear name (e.g. `light_level`). Bind it to a layer property — width, fill colour, opacity, or anything else Figma variables can drive — so you can *see* it changing.
+| Sensor | Figma variable | Penpot token |
+| --- | --- | --- |
+| Button, Switch, Motion (on/off) | Boolean or Number | `number` (0 or 1) |
+| Potentiometer, LDR, Force, Sensor (a range) | Number | `number`, `sizing`, `opacity`, … |
+| A Function node that returns text | String | `fontFamilies`, `textCase`, … |
 
-### 2. Add an MQTT node in Studio
+Give it a clear name, such as `light_level`. Bind it to a layer property, such as a width or an opacity, so you can see it change.
 
-In your flow, add an [MQTT (Express)](/docs/microflow-studio/nodes/express/figma) node and connect your sense node's output to it.
+### 2. Add a Design variable node
 
-Set the node's **topic** to `figma/<variable-name>`, e.g. `figma/light_level`. The Hardware Bridge listens on the `figma/` prefix and uses the suffix as the variable name.
+1. In your flow, add a [Design variable](/docs/microflow-studio/nodes/express/figma) node.
+2. Select the **Broker** that the plugin uses.
+3. Pick your variable in the **variable** setting.
+4. Connect your sensor to the node:
+   - **Number or String variable:** connect the sensor's value to `set`.
+   - **Boolean variable (Figma):** connect the sensor's `true` output to the node's `true` input, and its `false` output to `false`.
+   - **On/off with a Penpot `number` token:** connect a Button's `event` output to `set`. A press sends `1` and a release sends `0`.
 
 <Callout type="info" title="Template available">
-  Studio ships this pattern as the **Sensor to Figma** template — a potentiometer publishing on `figma/pot_value`.
+  Studio ships this pattern as the **Sensor to Figma or Penpot** template: Potentiometer → Map (0–1023 to 0–100) → the `set` input of a Design variable node.
 </Callout>
 
-### 3. Run
+### 3. Scale the value
 
-The Bridge should report **Connected**. The board status in Studio's sidebar should be green. Touch the sensor — the Figma layer should update live.
+A sensor's range rarely matches the range your design needs. Put a [Map](/docs/microflow-studio/nodes/shape/map) node between the sensor and the Design variable node. For example, map a potentiometer's `0`–`1023` to `0`–`100`.
 
-## Sending multiple values to one variable type
+### 4. Run
 
-If the variable is a colour, your flow needs to produce a hex string or RGB triple. Use a [Function](/docs/microflow-studio/nodes/shape/function) node to convert:
+The plugin's **MQTT** and **Microflow studio** dots should be green. Touch the sensor, and the layer should update live.
+
+## Send a color
+
+A Color variable has four inputs: `red`, `green` and `blue` (0–255) and `opacity` (0–100). Each input changes one channel and keeps the others. For example, connect a potentiometer through a Map (0–1023 to 0–255) to `red` to fade the color's red channel.
+
+## Send text
+
+A String variable takes any value on its `set` input and turns it into text. To format the text first, use a [Function](/docs/microflow-studio/nodes/shape/function) node:
 
 ```ts
 function trigger(input: unknown) {
-  const value = ensureRange(toNumber(input, 0), 0, 1023, 0);
-  const r = Math.round((value / 1023) * 255);
-  // simple red ramp
-  return `#${r.toString(16).padStart(2, '0')}0000`;
+  return `Light: ${Math.round(toNumber(input))}`;
 }
 ```
 
-## Sending several variables
+## Send several variables
 
-Add one MQTT node per variable. Each gets its own topic (`figma/var_a`, `figma/var_b`, etc.). They can read from completely different parts of your flow.
+Add one Design variable node for each variable. Each node can take its values from a different part of your flow.
 
 ## Verify it worked
 
-- The Bridge plugin should say **Connected**.
-- The Bridge "log" panel (if your version has one) should show messages arriving.
-- Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the MQTT node's input in Studio — values should be flowing.
+- The plugin's **Variables** page lists your variable.
+- The Design variable node shows the variable's name and current value.
+- A [Monitor](/docs/microflow-studio/nodes/internal/monitor) node on the sensor's output shows values flowing.
 
-If the Bridge is connected but the variable does not update, check:
+If the plugin is connected but the variable does not change, check that:
 
-- The topic name matches the variable name exactly (case-sensitive).
-- The variable lives **inside the MHB collection**, not another collection.
+- the variable is in the **MHB** collection (Figma) or the active **MHB** token set (Penpot),
+- the node shows no error,
+- the value fits the variable's type. A value that does not fit is dropped.
+
+See [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect) for more checks.
 
 ## Going the other way
 
-To make Figma drive *hardware* instead, see [Control hardware from a Figma prototype](/docs/how-to/control-hardware-from-figma).
+To make a design drive *hardware*, see [Control hardware from Figma or Penpot](/docs/how-to/control-hardware-from-figma).

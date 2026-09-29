@@ -1,157 +1,78 @@
 /** @jsxImportSource preact */
-import { useState, useEffect, useCallback } from "preact/hooks";
 import { Button, Textbox, VerticalSpace } from "@create-figma-plugin/ui";
-import { mqttUrlSchema } from "@microflow/mqtt";
+import { storedMqttConfig, useAppStore, useMqttSettingsForm } from "@microflow/design-bridge/react";
+import type { MqttConfig } from "@microflow/mqtt";
 import { Dices, Info } from "lucide-react";
+import type { ComponentChildren } from "preact";
+import { useCallback } from "preact/hooks";
+import { settingsStorage, showToast } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
 import { useWindowSize } from "../hooks/use-window-size";
-import { useAppStore, APP_STATE_KEY } from "../stores/app";
-import { messages, sendToPlugin } from "../../common/messages";
 
 export function MqttSettings() {
-  const { mqttConfig, setMqttConfig } = useAppStore();
+  const { setMqttConfig } = useAppStore();
+  const onSave = useCallback(
+    (config: MqttConfig) => {
+      setMqttConfig(config);
+      settingsStorage.save(storedMqttConfig(config));
+      showToast("Broker settings saved!");
+    },
+    [setMqttConfig],
+  );
+  const { fields, errors, setField, randomizeId, submit } = useMqttSettingsForm(onSave);
 
-  const [url, setUrl] = useState(mqttConfig?.url ?? "test.mosquitto.org");
-  const [username, setUsername] = useState(mqttConfig?.username ?? "");
-  const [password, setPassword] = useState(mqttConfig?.password ?? "");
-  const [uniqueId, setUniqueId] = useState(mqttConfig?.uniqueId ?? "");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  useWindowSize({ width: 350, height: 420 });
-
-  useEffect(() => {
-    if (!mqttConfig) return;
-    setUrl(mqttConfig.url || "test.mosquitto.org");
-    setUsername(mqttConfig.username ?? "");
-    setPassword(mqttConfig.password ?? "");
-    setUniqueId(mqttConfig.uniqueId ?? "");
-  }, [mqttConfig]);
-
-  const validate = useCallback(() => {
-    const errs: Record<string, string> = {};
-    const urlResult = mqttUrlSchema.safeParse(url);
-    if (!urlResult.success) {
-      errs.url = urlResult.error.issues[0]?.message ?? "Invalid URL";
-    }
-    if (!uniqueId || uniqueId.length < 5) {
-      errs.uniqueId = "Minimum 5 characters";
-    } else if (!/^[a-zA-Z_]+$/.test(uniqueId)) {
-      errs.uniqueId = "Only letters and underscores";
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  }, [url, uniqueId]);
-
-  function handleSubmit() {
-    if (!validate()) return;
-    const config = {
-      url,
-      username: username || undefined,
-      password: password || undefined,
-      uniqueId,
-    };
-    setMqttConfig(config);
-    sendToPlugin(
-      messages.setLocalState(APP_STATE_KEY, { state: { mqttConfig: config } }),
-    );
-    sendToPlugin(messages.showToast("Broker settings saved!"));
-  }
-
-  function generateRandomName() {
-    const adjectives = ["swift", "bright", "calm", "bold", "keen", "warm", "cool", "wild"];
-    const animals = ["fox", "owl", "bear", "wolf", "hawk", "deer", "lynx", "seal"];
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const animal = animals[Math.floor(Math.random() * animals.length)];
-    setUniqueId(`${adj}_${animal}`);
-    setErrors((e) => {
-      const next = { ...e };
-      delete next.uniqueId;
-      return next;
-    });
-  }
+  useWindowSize({ width: 350, height: 440 });
 
   return (
     <>
       <PageHeader title="MQTT settings" />
       <PageContent>
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 600 }}>Identifier</label>
-          <VerticalSpace space="extraSmall" />
+        <Field
+          label="Bridge ID"
+          error={errors.uniqueId}
+          hint="Must match the Bridge ID shown in Microflow Studio."
+        >
           <div style={{ display: "flex", gap: 4 }}>
             <Textbox
-              value={uniqueId}
-              onInput={(e: any) => setUniqueId(e.currentTarget.value)}
-              placeholder="your_unique_id"
+              value={fields.uniqueId}
+              onValueInput={(value) => setField("uniqueId", value)}
+              placeholder="your_bridge_id"
               style={{ flex: 1 }}
             />
-            <Button secondary onClick={generateRandomName}>
+            <Button secondary onClick={randomizeId}>
               <Dices size={14} />
             </Button>
           </div>
-          {errors.uniqueId && (
-            <div style={{ color: "#ef4444", fontSize: "11px", marginTop: 2 }}>
-              {errors.uniqueId}
-            </div>
-          )}
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--figma-color-text-secondary)",
-              marginTop: 4,
-            }}
-          >
-            Links this plugin with other MQTT clients like Microflow studio.
-          </div>
-        </div>
+        </Field>
 
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 600 }}>Broker URL</label>
-          <VerticalSpace space="extraSmall" />
+        <Field label="Broker URL" error={errors.url} hint="[protocol://]host[:port][/path]">
           <Textbox
-            value={url}
-            onInput={(e: any) => setUrl(e.currentTarget.value)}
+            value={fields.url}
+            onValueInput={(value) => setField("url", value)}
             placeholder="mqtt.xiduzo.com"
           />
-          {errors.url && (
-            <div style={{ color: "#ef4444", fontSize: "11px", marginTop: 2 }}>
-              {errors.url}
-            </div>
-          )}
-          <div
-            style={{
-              fontSize: "11px",
-              color: "var(--figma-color-text-secondary)",
-              marginTop: 4,
-            }}
-          >
-            [protocol://]host[:port][/path]
-          </div>
-        </div>
+        </Field>
 
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 600 }}>Username</label>
-          <VerticalSpace space="extraSmall" />
+        <Field label="Username">
           <Textbox
-            value={username}
-            onInput={(e: any) => setUsername(e.currentTarget.value)}
+            value={fields.username}
+            onValueInput={(value) => setField("username", value)}
             placeholder="optional"
           />
-        </div>
+        </Field>
 
-        <div>
-          <label style={{ fontSize: "11px", fontWeight: 600 }}>Password</label>
-          <VerticalSpace space="extraSmall" />
+        <Field label="Password">
           <Textbox
-            value={password}
-            onInput={(e: any) => setPassword(e.currentTarget.value)}
+            value={fields.password}
+            onValueInput={(value) => setField("password", value)}
             placeholder="optional"
             password
           />
-        </div>
+        </Field>
 
         <VerticalSpace space="extraSmall" />
 
-        <Button fullWidth onClick={handleSubmit}>
+        <Button fullWidth onClick={submit}>
           Save MQTT settings
         </Button>
 
@@ -161,5 +82,34 @@ export function MqttSettings() {
         </div>
       </PageContent>
     </>
+  );
+}
+
+function Field(props: {
+  label: string;
+  error?: string;
+  hint?: string;
+  children: ComponentChildren;
+}) {
+  return (
+    <div>
+      <label style={{ fontSize: "11px", fontWeight: 600 }}>{props.label}</label>
+      <VerticalSpace space="extraSmall" />
+      {props.children}
+      {props.error && (
+        <div style={{ color: "#ef4444", fontSize: "11px", marginTop: 2 }}>{props.error}</div>
+      )}
+      {props.hint && (
+        <div
+          style={{
+            fontSize: "11px",
+            color: "var(--figma-color-text-secondary)",
+            marginTop: 4,
+          }}
+        >
+          {props.hint}
+        </div>
+      )}
+    </div>
   );
 }

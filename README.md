@@ -36,8 +36,10 @@ Arduino respond right away. Microflow runs in your browser and as a desktop app.
   Microflow puts the firmware on your board for you.
 - **Take it off the computer.** Export a flow as a standalone Arduino sketch for
   an Uno, Nano or ESP32.
-- **Connect your designs.** Link Figma or Penpot prototypes to real hardware through
-  MQTT. A real button can change a screen, and a tap in a prototype can turn on a real LED.
+- **Connect your designs.** Link the variables in a Figma file, or the design tokens
+  in a Penpot file, to your flows through MQTT. A real knob can resize a shape in the
+  open design, and a value you change in the design can dim a real LED. The plugins
+  run in the design editor, not in prototypes.
 - **Go beyond the board.** Nodes for MQTT, MIDI, LLMs, keyboard hotkeys and custom
   JavaScript functions.
 - **Ask AI.** Describe what you want, and Ask AI adds and wires the nodes for you.
@@ -64,8 +66,8 @@ or start from one of the built-in templates.
 | | What it is |
 |---|---|
 | **[Microflow Studio](apps/web)** | The flow editor, as a web app and a desktop app (Tauri). Start here. |
-| **[Hardware Bridge for Figma](apps/figma-plugin)** | Links Figma variables to your flows through MQTT. Available in the [Figma Community](https://www.figma.com/community/plugin/1373258770799080545). |
-| **[Microflow for Penpot](apps/penpot-plugin)** | The same bridge for Penpot, the open-source design tool. Experimental. |
+| **[Hardware Bridge for Figma](apps/figma-plugin)** | Links the variables in a Figma file's `MHB` collection to your flows through MQTT. Available in the [Figma Community](https://www.figma.com/community/plugin/1373258770799080545). |
+| **[Microflow for Penpot](apps/penpot-plugin)** | Links the tokens in a Penpot file's `MHB` token set to your flows. Same protocol as the Figma plugin. Not in Penpot's plugin directory yet; run it from source. |
 | **[Docs](apps/fumadocs)** | Tutorials, how-to guides, a reference for each node and troubleshooting, at [docs.microflow.tech](https://docs.microflow.tech). |
 
 ## How it works
@@ -120,9 +122,16 @@ bun dev          # run all apps
 To run one app only, use `bun dev:web` (Studio in the browser), `bun dev:native`
 (the desktop shell) or `bun dev:server` (the API and collaboration server).
 
-To work on the Figma plugin, run `bun dev` in `apps/figma-plugin`. Then, in Figma, go to
-**Plugins → Development → Import plugin from manifest** and select
-`apps/figma-plugin/manifest.json`.
+To work on the Figma plugin, run `bun run dev` in `apps/figma-plugin`. It rebuilds on every
+change. Then, in the Figma desktop app, go to **Plugins → Development → Import plugin from
+manifest** and select `apps/figma-plugin/manifest.json`.
+
+To work on the Penpot plugin, run `bun run dev` in `apps/penpot-plugin`. Then, in Penpot,
+open the plugin manager and install `http://localhost:5173/manifest.json`. `bun run build`
+writes a `dist/` folder that you can host under any path, as long as the server sends CORS
+headers.
+
+Both plugins share their protocol and bridge engine through `packages/design-bridge`.
 
 ### Repository layout
 
@@ -139,7 +148,7 @@ crates/
 ├── microflow-firmata-wasm/  Firmata for the browser
 └── microflow-codegen-wasm/  Sketch generation for the browser
 packages/
-└── api · auth · collab · db · env · mqtt · config
+└── api · auth · collab · db · design-bridge · env · mqtt · config
 ```
 
 <details>

@@ -33,6 +33,10 @@
 pub mod bringup;
 pub mod codegen;
 pub mod config;
+/// The design-tool bridge wire protocol shared with the Figma and Penpot
+/// plugins. Most of it is only used by the live runtime (`cloud`).
+#[cfg_attr(not(feature = "cloud"), allow(dead_code))]
+pub(crate) mod design_bridge;
 pub mod firmata;
 pub mod flasher;
 pub mod flow;

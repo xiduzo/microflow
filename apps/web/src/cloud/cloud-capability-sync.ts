@@ -13,6 +13,8 @@ import type { HostSnapshot } from "@/runtime/flow-update-dispatcher";
  *   connection status events). Returns a cleanup.
  * - `snapshot` — this capability's contribution to the dispatcher's
  *   `HostSnapshot`.
+ * - `watchSnapshot` — optional: call `onChange` when that contribution changes,
+ *   so the running flow is re-sent with it. Returns a cleanup.
  *
  * Adding a capability = one store + one entry here + one `HostSnapshot` field.
  */
@@ -25,6 +27,7 @@ export type CloudCapability = {
   };
   listen?: () => () => void;
   snapshot(): Partial<HostSnapshot>;
+  watchSnapshot?: (onChange: () => void) => () => void;
 };
 
 /**
@@ -67,4 +70,16 @@ export function assembleHostSnapshot(
     {},
     ...capabilities.map((cap) => cap.snapshot()),
   ) as HostSnapshot;
+}
+
+/** Call `onChange` whenever any capability's `HostSnapshot` contribution
+ * changes. Returns a cleanup. */
+export function watchHostSnapshot(
+  capabilities: readonly CloudCapability[],
+  onChange: () => void,
+): () => void {
+  const cleanups = capabilities.flatMap((cap) => (cap.watchSnapshot ? [cap.watchSnapshot(onChange)] : []));
+  return () => {
+    for (const cleanup of cleanups) cleanup();
+  };
 }

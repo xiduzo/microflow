@@ -1,44 +1,41 @@
 /** @jsxImportSource preact */
-import { useState } from "preact/hooks";
 import { IconButton } from "@create-figma-plugin/ui";
-import { ClipboardList, Radio, RadioTower, Check, Palette, HelpCircle } from "lucide-react";
-import { type FullVariable, MSG, messages, sendToPlugin } from "../../common/messages";
+import {
+  type BridgeSnapshotEntry,
+  type BridgeVariable,
+  type ResolvedType,
+  toWireId,
+  topics,
+} from "@microflow/design-bridge";
+import { useAppStore, useCopyToClipboard } from "@microflow/design-bridge/react";
+import { Check, ClipboardList, HelpCircle, Palette, Radio, RadioTower } from "lucide-react";
+import type { ComponentChildren } from "preact";
+import { openLink, showToast } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
-import { useMessageListener } from "../hooks/use-message-listener";
 import { useWindowSize } from "../hooks/use-window-size";
-import { useCopyToClipboard } from "../hooks/use-copy-to-clipboard";
-import { useAppStore } from "../stores/app";
-import { shortVarId } from "../../common/mqtt-topics";
 
-export function Variables() {
+const HELP_URL =
+  "https://docs.microflow.tech/docs/microflow-hardware-bridge/variables/manipulating";
+
+export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
   const { mqttConfig } = useAppStore();
-  const [variables, setVariables] = useState<FullVariable[]>([]);
+  const uid = mqttConfig?.uniqueId || "BRIDGE_ID";
+  const { entries } = props;
 
-  useWindowSize({ width: 420, height: variables.length ? 550 : 300 });
-  useMessageListener<FullVariable[]>(MSG.GET_LOCAL_VARIABLES, (v) => {
-    if (v) setVariables(v);
-  });
+  useWindowSize({ width: 420, height: entries.length ? 550 : 300 });
 
   return (
     <>
       <PageHeader
         title="Variables"
         end={
-          <IconButton
-            onClick={() =>
-              sendToPlugin(
-                messages.openLink(
-                  "https://docs.microflow.tech/docs/microflow-hardware-bridge/variables/manipulating#updating-variables-from-within-a-prototype",
-                ),
-              )
-            }
-          >
+          <IconButton onClick={() => openLink(HELP_URL)}>
             <HelpCircle size={16} />
           </IconButton>
         }
       />
       <PageContent>
-        {!variables.length && (
+        {!entries.length && (
           <div style={{ textAlign: "center", padding: "24px 12px" }}>
             <div style={{ fontSize: "32px", opacity: 0.3, marginBottom: 12 }}>
               <ClipboardList size={32} />
@@ -69,20 +66,17 @@ export function Variables() {
             </div>
           </div>
         )}
-        {variables.map((variable) => (
-          <VariableRow
-            key={variable.id}
-            variable={variable}
-            uniqueId={mqttConfig?.uniqueId}
-          />
+        {entries.map(({ variable }) => (
+          <VariableRow key={variable.id} variable={variable} uid={uid} />
         ))}
       </PageContent>
     </>
   );
 }
 
-function VariableRow(props: { variable: FullVariable; uniqueId?: string }) {
-  const { variable, uniqueId } = props;
+function VariableRow(props: { variable: BridgeVariable; uid: string }) {
+  const { variable, uid } = props;
+  const wireId = toWireId(variable.id);
 
   return (
     <div
@@ -98,14 +92,14 @@ function VariableRow(props: { variable: FullVariable; uniqueId?: string }) {
         {variable.name}
       </div>
       <div style={{ display: "flex", gap: 2, opacity: 0.3 }}>
-        <CopyBtn
+        <CopyButton
           title="Copy publish topic"
-          text={`microflow/${uniqueId}/YOUR_APP_NAME/variable/${shortVarId(variable.id)}/set`}
+          text={topics.set(uid, wireId)}
           icon={<RadioTower size={12} />}
         />
-        <CopyBtn
+        <CopyButton
           title="Copy subscribe topic"
-          text={`microflow/${uniqueId}/figma/variable/${shortVarId(variable.id)}`}
+          text={topics.value(uid, "figma", wireId)}
           icon={<Radio size={12} />}
         />
       </div>
@@ -113,9 +107,14 @@ function VariableRow(props: { variable: FullVariable; uniqueId?: string }) {
   );
 }
 
-function CopyBtn(props: { text: string; title: string; icon: preact.ComponentChildren }) {
-  const [copiedValue, copy] = useCopyToClipboard();
-  const isCopied = copiedValue === props.text;
+function onCopied(ok: boolean) {
+  if (ok) showToast("Copied to clipboard!");
+  else showToast("Unable to copy to clipboard", { error: true });
+}
+
+function CopyButton(props: { text: string; title: string; icon: ComponentChildren }) {
+  const [copied, copy] = useCopyToClipboard(onCopied);
+  const isCopied = copied === props.text;
 
   return (
     <IconButton onClick={() => copy(props.text)}>
@@ -135,7 +134,7 @@ function CopyBtn(props: { text: string; title: string; icon: preact.ComponentChi
   );
 }
 
-function VariableIcon(props: { type: string }) {
+function VariableIcon(props: { type: ResolvedType }) {
   const style = {
     fontSize: "11px",
     width: 18,
@@ -151,8 +150,10 @@ function VariableIcon(props: { type: string }) {
     case "FLOAT":
       return <span style={style}>#</span>;
     case "COLOR":
-      return <span style={style}><Palette size={11} /></span>;
-    default:
-      return <span style={style}>?</span>;
+      return (
+        <span style={style}>
+          <Palette size={11} />
+        </span>
+      );
   }
 }

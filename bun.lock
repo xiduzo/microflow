@@ -26,15 +26,15 @@
       "dependencies": {
         "@create-figma-plugin/ui": "^4.0.3",
         "@create-figma-plugin/utilities": "^4.0.3",
+        "@microflow/design-bridge": "workspace:*",
         "@microflow/mqtt": "workspace:*",
         "lucide-react": "^0.577.0",
         "preact": ">=10",
-        "zustand": "^5.0.9",
       },
       "devDependencies": {
         "@create-figma-plugin/build": "^4.0.3",
         "@create-figma-plugin/tsconfig": "^4.0.3",
-        "@figma/plugin-typings": "1.109.0",
+        "@figma/plugin-typings": "1.139.0",
         "@microflow/config": "workspace:*",
         "typescript": ">=5",
       },
@@ -68,6 +68,7 @@
       "name": "penpot-plugin",
       "version": "0.1.0",
       "dependencies": {
+        "@microflow/design-bridge": "workspace:*",
         "@microflow/mqtt": "workspace:*",
         "lucide-react": "^0.577.0",
         "react": "^19.1.0",
@@ -76,7 +77,7 @@
       },
       "devDependencies": {
         "@microflow/config": "workspace:*",
-        "@penpot/plugin-types": "^1.4.2",
+        "@penpot/plugin-types": "1.5.0",
         "@tailwindcss/vite": "^4.2.2",
         "@types/react": "^19.1.0",
         "@types/react-dom": "^19.1.0",
@@ -119,6 +120,7 @@
         "@microflow/api": "workspace:*",
         "@microflow/auth": "workspace:*",
         "@microflow/collab": "workspace:*",
+        "@microflow/design-bridge": "workspace:*",
         "@microflow/env": "workspace:*",
         "@monaco-editor/react": "^4.7.0",
         "@polar-sh/better-auth": "catalog:",
@@ -276,6 +278,21 @@
         "@types/pg": "catalog:",
         "drizzle-kit": "^0.31.9",
         "typescript": "catalog:",
+      },
+    },
+    "packages/design-bridge": {
+      "name": "@microflow/design-bridge",
+      "dependencies": {
+        "@microflow/mqtt": "workspace:*",
+        "zustand": "^5.0.9",
+      },
+      "devDependencies": {
+        "@microflow/config": "workspace:*",
+        "@types/react": "^19.1.0",
+        "typescript": "catalog:",
+      },
+      "peerDependencies": {
+        "react": ">=18",
       },
     },
     "packages/env": {
@@ -510,7 +527,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.25.12", "", { "os": "win32", "cpu": "x64" }, "sha512-alJC0uCZpTFrSL0CCDjcgleBXPnCrEAhTBILpeAp7M/OFgoqtAetfBzX0xM00MUsVVPpVjlPuMbREqnZCXaTnA=="],
 
-    "@figma/plugin-typings": ["@figma/plugin-typings@1.109.0", "", {}, "sha512-6l628rOQGNd5ZD3Bru36/NK+PSKmHpsrWz0NMwUYZ8AIyfIl6sCJRc8+OhAy9+WkDXq/Dx3BYiBStjmCJ8O3Lw=="],
+    "@figma/plugin-typings": ["@figma/plugin-typings@1.139.0", "", {}, "sha512-O1lUNRXpBsnODokqnIJW0AawVVrx4FUkm2ShDsLGsInWrxDYX0MIoy0yVKa+MXOy7Wfs3JE+utR+YTcxp6Yihw=="],
 
     "@flatten-js/core": ["@flatten-js/core@1.6.10", "", { "dependencies": { "@flatten-js/interval-tree": "^2.0.0" } }, "sha512-4lvkbRX4f+SYergMiU681yiqgjld9nndZUMGpAI9hEJkYZmtEES8rRSl/ZQ7fjZnZ3rSK5qnQkZ50iF2LVL3QA=="],
 
@@ -621,6 +638,8 @@
     "@microflow/config": ["@microflow/config@workspace:packages/config"],
 
     "@microflow/db": ["@microflow/db@workspace:packages/db"],
+
+    "@microflow/design-bridge": ["@microflow/design-bridge@workspace:packages/design-bridge"],
 
     "@microflow/env": ["@microflow/env@workspace:packages/env"],
 
@@ -746,7 +765,7 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.55.0", "", { "os": "win32", "cpu": "x64" }, "sha512-ZFALNow2/og75gvYzNP7qe+rREQ5xunktwA+lgykoozHZ6hw9bqg4fn5j2UvG4gIn1FXqrZHkOAXuPf5+GOYTQ=="],
 
-    "@penpot/plugin-types": ["@penpot/plugin-types@1.4.2", "", {}, "sha512-O8wU6RSYE8bIVU7g8cSTYi32ppxs3R13dq7X3Nn9tmDaJjBOKOBpVLuoRPIp3fJC65fv8/7om0sdrtFoL5v19g=="],
+    "@penpot/plugin-types": ["@penpot/plugin-types@1.5.0", "", {}, "sha512-hFk4Rx66rLaSUWoN6bhxXkDI2ymwKg9xokdslvZvXM5MSmEmfhsJKUMwtuzgYWljbbfaQhK+DjK8g8yVbbavtA=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 
@@ -2302,7 +2321,7 @@
 
     "motion-utils": ["motion-utils@12.36.0", "", {}, "sha512-eHWisygbiwVvf6PZ1vhaHCLamvkSbPIeAYxWUuL3a2PD/TROgE7FvfHWTIH4vMl798QLfMw15nRqIaRDXTlYRg=="],
 
-    "mqtt": ["mqtt@5.15.0", "", { "dependencies": { "@types/readable-stream": "^4.0.21", "@types/ws": "^8.18.1", "commist": "^3.2.0", "concat-stream": "^2.0.0", "debug": "^4.4.1", "help-me": "^5.0.0", "lru-cache": "^10.4.3", "minimist": "^1.2.8", "mqtt-packet": "^9.0.2", "number-allocator": "^1.0.14", "readable-stream": "^4.7.0", "rfdc": "^1.4.1", "socks": "^2.8.6", "split2": "^4.2.0", "worker-timers": "^8.0.23", "ws": "^8.18.3" }, "bin": { "mqtt": "build/bin/mqtt.js", "mqtt_pub": "build/bin/pub.js", "mqtt_sub": "build/bin/sub.js" } }, "sha512-KC+wAssYk83Qu5bT8YDzDYgUJxPhbLeVsDvpY2QvL28PnXYJzC2WkKruyMUgBAZaQ7h9lo9k2g4neRNUUxzgMw=="],
+    "mqtt": ["mqtt@5.15.1", "", { "dependencies": { "@types/readable-stream": "^4.0.21", "@types/ws": "^8.18.1", "commist": "^3.2.0", "concat-stream": "^2.0.0", "debug": "^4.4.1", "help-me": "^5.0.0", "lru-cache": "^10.4.3", "minimist": "^1.2.8", "mqtt-packet": "^9.0.2", "number-allocator": "^1.0.14", "readable-stream": "^4.7.0", "rfdc": "^1.4.1", "socks": "^2.8.6", "split2": "^4.2.0", "worker-timers": "^8.0.23", "ws": "^8.18.3" }, "bin": { "mqtt_pub": "build/bin/pub.js", "mqtt_sub": "build/bin/sub.js", "mqtt": "build/bin/mqtt.js" } }, "sha512-V1WnkGuJh3ec9QXzy5Iylw8OOBK+Xu1WhxcQ9mMpLThG+/JZIMV1PgLNRgIiqXhZnvnVLsuyxHl5A/3bHHbcAA=="],
 
     "mqtt-packet": ["mqtt-packet@9.0.2", "", { "dependencies": { "bl": "^6.0.8", "debug": "^4.3.4", "process-nextick-args": "^2.0.1" } }, "sha512-MvIY0B8/qjq7bKxdN1eD+nrljoeaai+qjLJgfRn3TiMuz0pamsIWY2bFODPZMSNmabsLANXsLl4EMoWvlaTZWA=="],
 
@@ -3413,8 +3432,6 @@
     "vite/postcss": ["postcss@8.5.6", "", { "dependencies": { "nanoid": "^3.3.11", "picocolors": "^1.1.1", "source-map-js": "^1.2.1" } }, "sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg=="],
 
     "web/@types/node": ["@types/node@22.19.15", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-F0R/h2+dsy5wJAUe3tAU6oqa2qbWY5TpNfL/RGmo1y38hiyO1w3x2jPtt76wmuaJI4DQnOBu21cNXQ2STIUUWg=="],
-
-    "web/mqtt": ["mqtt@5.15.1", "", { "dependencies": { "@types/readable-stream": "^4.0.21", "@types/ws": "^8.18.1", "commist": "^3.2.0", "concat-stream": "^2.0.0", "debug": "^4.4.1", "help-me": "^5.0.0", "lru-cache": "^10.4.3", "minimist": "^1.2.8", "mqtt-packet": "^9.0.2", "number-allocator": "^1.0.14", "readable-stream": "^4.7.0", "rfdc": "^1.4.1", "socks": "^2.8.6", "split2": "^4.2.0", "worker-timers": "^8.0.23", "ws": "^8.18.3" }, "bin": { "mqtt_pub": "build/bin/pub.js", "mqtt_sub": "build/bin/sub.js", "mqtt": "build/bin/mqtt.js" } }, "sha512-V1WnkGuJh3ec9QXzy5Iylw8OOBK+Xu1WhxcQ9mMpLThG+/JZIMV1PgLNRgIiqXhZnvnVLsuyxHl5A/3bHHbcAA=="],
 
     "worker-factory/@babel/runtime": ["@babel/runtime@7.28.4", "", {}, "sha512-Q/N6JNWvIvPnLDvjlE1OUBLPQHH6l3CltCEsHIujp45zQUSSh8K+gHnaEX45yAT1nyngnINhvWtzN+Nb9D8RAQ=="],
 

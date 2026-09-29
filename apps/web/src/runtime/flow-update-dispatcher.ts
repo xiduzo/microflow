@@ -291,6 +291,12 @@ export class FlowUpdateDispatcher {
     });
   }
 
+  /** Schedule a dispatch although the document did not change — for host
+   *  state that feeds `buildFlowUpdate`, such as a new Bridge ID. */
+  refresh(): void {
+    this.requestDispatch();
+  }
+
   /** Build and send a `FlowUpdate` immediately, bypassing the scheduler and the
    *  no-delta skip. */
   async dispatchNow(): Promise<SendResult> {

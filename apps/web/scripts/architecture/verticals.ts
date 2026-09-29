@@ -93,7 +93,7 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "web-serial.ts",
     ],
   },
-  // Browser CloudPerformer, MQTT + Figma connections, capability probe, connection console.
+  // Browser CloudPerformer, MQTT + design-tool bridge connections, capability probe, connection console.
   cloud: {
     public: [
       "browser-cloud-probe.ts",
@@ -102,7 +102,8 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "cloud-performer.ts",
       "connection-console/connection-console.tsx",
       "connection-console/parse-command.ts",
-      "figma.ts",
+      "design-bridge.ts",
+      "design-bridge-account.ts",
       "mqtt-broker.ts",
     ],
   },

@@ -109,3 +109,8 @@ jobs:
 
       - name: Check types
         run: bun run check-types
+
+      # The Figma and Penpot plugins ship outside the app release, so nothing
+      # else would notice a plugin that no longer bundles.
+      - name: Build design-tool plugins
+        run: bunx turbo build --filter=figma-plugin --filter=penpot-plugin

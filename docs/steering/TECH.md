@@ -30,7 +30,7 @@ Last updated: 2026-09-25
 
 **Packages (`packages/*`):** `@microflow/api` (tRPC routers), `@microflow/auth` (better-auth + Polar), `@microflow/collab` (Yjs + y-protocols), `@microflow/db` (Drizzle + Postgres), `@microflow/env` (t3-oss env), `@microflow/mqtt` (mqtt client + zod schemas), `@microflow/config` (shared tsconfig).
 
-**Design-tool plugins:** `apps/figma-plugin` (`create-figma-plugin` + Preact), `apps/penpot-plugin` (Vite + React). Both depend on `@microflow/mqtt`.
+**Design-tool plugins:** `apps/figma-plugin` (`create-figma-plugin` + Preact, React imports aliased to `preact/compat`), `apps/penpot-plugin` (Vite + React). Both build on `@microflow/design-bridge` (`packages/design-bridge`): the shared MQTT protocol, the plugin-side bridge engine, UI stores and sandbox messaging, on top of `@microflow/mqtt`. Studio's web code uses the same package; `crates/microflow-core/src/design_bridge.rs` is the Rust mirror, and both are checked against `packages/design-bridge/fixtures/protocol.json` ([ADR-0028](../adr/0028-design-tool-bridge-protocol.md)).
 
 **Docs:** `apps/fumadocs` (Next 16 + fumadocs-ui).
 

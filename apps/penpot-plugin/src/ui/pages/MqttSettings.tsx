@@ -1,161 +1,136 @@
-import { useState, useEffect, useCallback } from "react";
-import { mqttUrlSchema } from "@microflow/mqtt";
+import {
+  DEFAULT_BROKER_URL,
+  storedMqttConfig,
+  useAppStore,
+  useMqttSettingsForm,
+} from "@microflow/design-bridge/react";
+import type { MqttConfig } from "@microflow/mqtt";
 import { Dices, Info } from "lucide-react";
+import { type ReactNode, useCallback } from "react";
+import { storage } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
-import { useAppStore, APP_STATE_KEY } from "../stores/app";
-import { messages, sendToPlugin } from "../../common/messages";
+import { toast } from "../components/Toast";
+
+const INPUT =
+  "w-full rounded border border-gray-300 bg-white px-2 py-1 text-[13px] outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white";
+
+function Field(props: { label: string; htmlFor: string; error?: string; hint?: ReactNode; children: ReactNode }) {
+  return (
+    <div>
+      <label htmlFor={props.htmlFor} className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
+        {props.label}
+      </label>
+      <div className="mt-1 flex gap-1">{props.children}</div>
+      {props.error && <p className="mt-0.5 text-[11px] text-red-500">{props.error}</p>}
+      {props.hint && <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{props.hint}</p>}
+    </div>
+  );
+}
 
 export function MqttSettings() {
-  const { mqttConfig, setMqttConfig } = useAppStore();
+  const { setMqttConfig } = useAppStore();
 
-  const [url, setUrl] = useState(mqttConfig?.url ?? "test.mosquitto.org");
-  const [username, setUsername] = useState(mqttConfig?.username ?? "");
-  const [password, setPassword] = useState(mqttConfig?.password ?? "");
-  const [uniqueId, setUniqueId] = useState(mqttConfig?.uniqueId ?? "");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const save = useCallback(
+    (config: MqttConfig) => {
+      setMqttConfig(config);
+      try {
+        storage.save(storedMqttConfig(config));
+        toast("Broker settings saved");
+      } catch {
+        toast("Connected, but the settings could not be stored", { error: true });
+      }
+    },
+    [setMqttConfig],
+  );
 
-  useEffect(() => {
-    if (!mqttConfig) return;
-    setUrl(mqttConfig.url || "test.mosquitto.org");
-    setUsername(mqttConfig.username ?? "");
-    setPassword(mqttConfig.password ?? "");
-    setUniqueId(mqttConfig.uniqueId ?? "");
-  }, [mqttConfig]);
-
-  const validate = useCallback(() => {
-    const errs: Record<string, string> = {};
-    const urlResult = mqttUrlSchema.safeParse(url);
-    if (!urlResult.success) {
-      errs.url = urlResult.error.issues[0]?.message ?? "Invalid URL";
-    }
-    if (!uniqueId || uniqueId.length < 5) {
-      errs.uniqueId = "Minimum 5 characters";
-    } else if (!/^[a-zA-Z_]+$/.test(uniqueId)) {
-      errs.uniqueId = "Only letters and underscores";
-    }
-    setErrors(errs);
-    return Object.keys(errs).length === 0;
-  }, [url, uniqueId]);
-
-  function handleSubmit() {
-    if (!validate()) return;
-    const config = {
-      url,
-      username: username || undefined,
-      password: password || undefined,
-      uniqueId,
-    };
-    setMqttConfig(config);
-    sendToPlugin(
-      messages.setLocalState(APP_STATE_KEY, { state: { mqttConfig: config } }),
-    );
-    sendToPlugin(messages.showToast("Broker settings saved!"));
-  }
-
-  function generateRandomName() {
-    const adjectives = ["swift", "bright", "calm", "bold", "keen", "warm", "cool", "wild"];
-    const animals = ["fox", "owl", "bear", "wolf", "hawk", "deer", "lynx", "seal"];
-    const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const animal = animals[Math.floor(Math.random() * animals.length)];
-    setUniqueId(`${adj}_${animal}`);
-    setErrors((e) => {
-      const next = { ...e };
-      delete next.uniqueId;
-      return next;
-    });
-  }
+  const { fields, errors, setField, randomizeId, submit } = useMqttSettingsForm(save);
 
   return (
     <>
       <PageHeader title="MQTT settings" />
-      <PageContent>
-        <div>
-          <label className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-            Identifier
-          </label>
-          <div className="mt-1 flex gap-1">
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit();
+        }}
+      >
+        <PageContent>
+          <Field
+            label="Bridge ID"
+            htmlFor="bridge-id"
+            error={errors.uniqueId}
+            hint="Must match the Bridge ID shown in Microflow Studio."
+          >
             <input
+              id="bridge-id"
               type="text"
-              value={uniqueId}
-              onChange={(e) => setUniqueId(e.target.value)}
-              placeholder="your_unique_id"
-              className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-[13px] outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+              value={fields.uniqueId}
+              onChange={(event) => setField("uniqueId", event.target.value)}
+              placeholder="calm_lynx_4821"
+              autoComplete="off"
+              spellCheck={false}
+              className={INPUT}
             />
             <button
               type="button"
-              onClick={generateRandomName}
-              className="flex h-8 w-8 items-center justify-center rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
-              title="Generate random name"
+              onClick={randomizeId}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded border border-gray-300 hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
+              title="Generate a random Bridge ID"
+              aria-label="Generate a random Bridge ID"
             >
               <Dices size={14} />
             </button>
-          </div>
-          {errors.uniqueId && (
-            <p className="mt-0.5 text-[11px] text-red-500">{errors.uniqueId}</p>
-          )}
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-            Links this plugin with other MQTT clients like Microflow studio.
+          </Field>
+
+          <Field label="Broker URL" htmlFor="broker-url" error={errors.url} hint="[protocol://]host[:port][/path]">
+            <input
+              id="broker-url"
+              type="text"
+              value={fields.url}
+              onChange={(event) => setField("url", event.target.value)}
+              placeholder={DEFAULT_BROKER_URL}
+              spellCheck={false}
+              className={INPUT}
+            />
+          </Field>
+
+          <Field label="Username" htmlFor="username">
+            <input
+              id="username"
+              type="text"
+              value={fields.username}
+              onChange={(event) => setField("username", event.target.value)}
+              placeholder="optional"
+              autoComplete="off"
+              className={INPUT}
+            />
+          </Field>
+
+          <Field label="Password" htmlFor="password">
+            <input
+              id="password"
+              type="password"
+              value={fields.password}
+              onChange={(event) => setField("password", event.target.value)}
+              placeholder="optional"
+              autoComplete="off"
+              className={INPUT}
+            />
+          </Field>
+
+          <button
+            type="submit"
+            className="mt-1 w-full rounded bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700"
+          >
+            Save MQTT settings
+          </button>
+
+          <p className="text-[11px] text-blue-500">
+            <Info size={12} className="mr-1 inline align-middle" />
+            Use <code>wss://</code> for encrypted connections.
           </p>
-        </div>
-
-        <div>
-          <label className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-            Broker URL
-          </label>
-          <input
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="mqtt.xiduzo.com"
-            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-[13px] outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-          />
-          {errors.url && (
-            <p className="mt-0.5 text-[11px] text-red-500">{errors.url}</p>
-          )}
-          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">
-            [protocol://]host[:port][/path]
-          </p>
-        </div>
-
-        <div>
-          <label className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-            Username
-          </label>
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="optional"
-            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-[13px] outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-          />
-        </div>
-
-        <div>
-          <label className="text-[11px] font-semibold text-gray-900 dark:text-gray-100">
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="optional"
-            className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1 text-[13px] outline-none focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={handleSubmit}
-          className="mt-1 w-full rounded bg-blue-600 px-3 py-1.5 text-[13px] font-medium text-white hover:bg-blue-700"
-        >
-          Save MQTT settings
-        </button>
-
-        <p className="text-[11px] text-blue-500">
-          <Info size={12} className="mr-1 inline align-middle" />
-          Use <code>wss://</code> protocol for encrypted connections.
-        </p>
-      </PageContent>
+        </PageContent>
+      </form>
     </>
   );
 }

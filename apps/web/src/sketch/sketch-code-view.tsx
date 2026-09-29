@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Editor, { loader } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
@@ -21,6 +21,10 @@ import {
 import { deriveSketchFilename } from "./sketch-download.model";
 import { downloadSketch } from "./sketch-download";
 import { track } from "@/lib/analytics";
+import { readHostSnapshot } from "@/cloud/cloud-capabilities";
+import { useBridgeId } from "@/cloud/design-bridge";
+import { NODE_CATALOG } from "@/nodes/catalog.generated";
+import { applyHostAdapterPatches } from "@/runtime/flow-update-dispatcher";
 
 // Use local bundle + workers instead of CDN (required for offline Tauri).
 // Mirrors the Function code editor setup; the read-only view only needs the
@@ -75,7 +79,16 @@ export function SketchCodeView({
 
   type GenNode = Parameters<typeof projectSketchResult>[1][number];
   type GenEdge = Parameters<typeof projectSketchResult>[2][number];
-  const genNodes = nodes as GenNode[];
+  // The same host patches the runtime gets (e.g. the Bridge ID on design
+  // variable nodes), so the sketch subscribes to the topics the plugins use.
+  const bridgeId = useBridgeId();
+  const genNodes = useMemo(
+    () =>
+      applyHostAdapterPatches(nodes, readHostSnapshot(), NODE_CATALOG).nodes as GenNode[],
+    // The Bridge ID is read through the snapshot; list it so a change regenerates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [nodes, bridgeId],
+  );
   const genEdges = edges as GenEdge[];
 
   // Generate once on open, seeding the regenerator so an identical first edit
