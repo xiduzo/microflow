@@ -58,7 +58,7 @@ describe("applyEffects (ADR-0008 canonical order)", () => {
           prompt: "hi",
         },
       ],
-      nodeDiagnostics: [{ node: "i2c", level: "error", message: "no ACK" }],
+      nodeDiagnostics: [{ node: "i2c", level: "error", message: "no ACK", origin: "node" }],
     };
 
     const rec = new Recorder();

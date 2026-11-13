@@ -219,7 +219,7 @@ export class FlowReactor implements EffectsSink {
       return;
     }
     if (fault.kind === "badInput" && fault.node !== null) {
-      this.reportDiagnostic({ node: fault.node, level: "error", message: fault.message });
+      this.reportDiagnostic({ node: fault.node, level: "error", message: fault.message, origin: "runtime" });
       return;
     }
     console.warn(`[flow-reactor] ${fault.op} ${fault.kind}:`, fault.message);
