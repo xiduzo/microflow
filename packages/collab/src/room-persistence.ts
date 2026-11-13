@@ -55,6 +55,8 @@ export class RoomPersistence {
     private readonly policy: PersistPolicy,
     /** Called after every successful save with its timestamp. */
     private readonly onPersisted: (at: number) => void,
+    /** Called after every failed save (a backoff retry is already scheduled). */
+    private readonly onFailed: (error: unknown) => void = () => {},
   ) {
     doc.on("update", this.onUpdate);
   }
@@ -143,7 +145,10 @@ export class RoomPersistence {
         this.dirty = true;
         this.firstDirtyAt = Math.min(firstDirtyAt ?? Date.now(), this.firstDirtyAt ?? Date.now());
         this.failures++;
-        if (!this.stopped) this.scheduleRetry(error);
+        if (!this.stopped) {
+          this.scheduleRetry(error);
+          this.onFailed(error);
+        }
         throw error;
       },
     );

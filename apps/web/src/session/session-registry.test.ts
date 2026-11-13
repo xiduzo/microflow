@@ -7,8 +7,11 @@ import {
   __peekRegistry,
   __resetRegistry,
   acquireLocalSession,
+  acquireSession,
+  peekSession,
   releaseSession,
 } from "./session-registry";
+import { createLocalSession } from "./flow-session";
 
 afterEach(() => {
   __resetRegistry();
@@ -78,5 +81,39 @@ describe("SessionRegistry", () => {
 
   test("release of unknown flowId is a no-op", () => {
     expect(() => releaseSession("never-acquired")).not.toThrow();
+  });
+});
+
+describe("SessionRegistry render-time peek", () => {
+  test("a session built by a render that never commits is reclaimed", async () => {
+    peekSession("local", createLocalSession, 20);
+    expect(__peekRegistry("local")?.refs).toBe(0);
+
+    await sleep(40);
+    expect(__peekRegistry("local")).toBeUndefined();
+  });
+
+  test("the effect's acquire claims the peeked session and cancels its reclaim", async () => {
+    const peeked = peekSession("local", createLocalSession, 20);
+    const held = acquireSession("local", createLocalSession);
+    expect(held).toBe(peeked);
+    expect(__peekRegistry("local")?.refs).toBe(1);
+
+    await sleep(40);
+    expect(__peekRegistry("local")?.session).toBe(peeked);
+  });
+
+  test("render peeks take no references, so a double render cannot leak one", () => {
+    peekSession("local", createLocalSession);
+    peekSession("local", createLocalSession);
+    // Strict Mode's effect cycle: acquire, release, acquire.
+    acquireSession("local", createLocalSession);
+    releaseSession("local");
+    acquireSession("local", createLocalSession);
+    expect(__peekRegistry("local")?.refs).toBe(1);
+    // The real unmount brings it to zero and schedules the destroy.
+    releaseSession("local");
+    expect(__peekRegistry("local")?.refs).toBe(0);
+    expect(__peekRegistry("local")?.pendingDestroy).not.toBeNull();
   });
 });
