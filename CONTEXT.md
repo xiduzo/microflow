@@ -638,3 +638,11 @@ An adapter that receives [Error reports](#error-report). A remote `ErrorSink` (t
 ## Browser smoke suite
 
 Four end-to-end flows that prove the built web app works in a real browser engine: it boots without errors, a node added to the local flow survives a reload, a template loads, and an unknown URL shows the not-found screen. Playwright Test over `playwright-core`, against `vite preview` with no server (`apps/web/e2e/*.smoke.ts`, `bun run smoke`). It never launches a browser; it attaches over CDP to Obscura, locally and on CI. A flow fails on any uncaught page error or `[report-error]` console line, and every third-party request is aborted. Runs nightly and gates every release (`.github/workflows/smoke.yml`).
+
+## Live smoke suite
+
+The post-rollout check against the deployed site (`bun run smoke:live`, `apps/web/playwright.live.config.ts`). It runs the browser smoke flows tagged `@live` against microflow.tech, with the deployed server reachable, plus read-only server checks in `apps/web/e2e/*.live.ts`: the server answers, auth returns a signed-out session, CORS allows the web origin and both desktop webview origins, the supporters list loads, the room gate closes a signed-out socket with 1008, and the docs site is up. Nothing in it signs in or writes to the database. `SMOKE_BASE_URL`, `SMOKE_SERVER_URL` and `SMOKE_DOCS_URL` point it elsewhere. Runs on demand and daily (`.github/workflows/smoke-live.yml`).
+
+## Hardware smoke suite
+
+The desktop runtime against a real board (`bun run smoke:hardware`, `apps/web/src-tauri/src/runtime/hardware_smoke.rs`). It needs an Arduino with StandardFirmata on USB (`MICROFLOW_HW_PORT`, or the first Arduino-like port), so its tests are `#[ignore]`d and run only locally. It runs the real path: USB identification, Firmata detection, then the runtime actor on the open port. It checks the result with the board's own pin-state query: a Led flow drives pin 13, exit leaves the board at the safe state, a board reset mid-session restores the LED, A0 readings reach a Sensor node, and a second session reconnects.

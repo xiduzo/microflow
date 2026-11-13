@@ -15,6 +15,8 @@
     "start": "vite",
     "check-types": "tsc --noEmit",
     "smoke": "playwright test",
+    "smoke:live": "playwright test -c playwright.live.config.ts",
+    "smoke:hardware": "cargo test --manifest-path src-tauri/Cargo.toml --lib hardware_smoke -- --ignored --test-threads=1",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "sh -c 'set -a && . ./.env && set +a && tauri build'",

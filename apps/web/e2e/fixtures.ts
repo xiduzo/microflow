@@ -1,5 +1,9 @@
 // Shared fixtures for the browser smoke suite (`*.smoke.ts`).
 //
+// Tests tagged `@live` are safe to run against a deployed site (they only use a
+// local flow in a fresh browser context); `bun run smoke:live` runs those, plus
+// the `*.live.ts` server checks, after a rollout.
+//
 // The suite never launches a browser. It attaches over CDP to one that is
 // already running: Obscura locally, and Obscura on CI too (see
 // .github/workflows/smoke.yml). `SMOKE_CDP_URL` picks the endpoint.
@@ -36,7 +40,18 @@ type Fixtures = {
   appErrors: string[];
 };
 
-export const test = base.extend<Fixtures>({
+export type SmokeOptions = {
+  /**
+   * Origins besides the app's own that the page may reach. Empty locally (the
+   * run is hermetic); the live run adds the deployed server, so the app talks
+   * to its real backend. Analytics stays blocked either way.
+   */
+  allowedOrigins: string[];
+};
+
+export const test = base.extend<Fixtures & SmokeOptions>({
+  allowedOrigins: [[], { option: true }],
+
   // Attach to the running engine instead of launching one. Playwright's own
   // `context` and `page` fixtures then work as usual on top of it: each test
   // gets a fresh context, so its storage starts empty.
@@ -53,14 +68,14 @@ export const test = base.extend<Fixtures>({
     { scope: "worker" },
   ],
 
-  // Keep the run hermetic: only the app under test is reachable. This also
-  // keeps CI runs out of the production analytics (Umami) and off GitHub's
-  // rate-limited API (the update check). Cross-origin requests the app makes
-  // (auth session, analytics) fail, as they would offline.
-  context: async ({ context, baseURL }, use) => {
-    const origin = new URL(baseURL ?? "http://127.0.0.1").origin;
+  // Keep the run hermetic: only the app under test (and `allowedOrigins`) is
+  // reachable. This also keeps smoke runs out of the production analytics
+  // (Umami) and off GitHub's rate-limited API (the update check). Other
+  // cross-origin requests the app makes fail, as they would offline.
+  context: async ({ context, baseURL, allowedOrigins }, use) => {
+    const reachable = new Set([new URL(baseURL ?? "http://127.0.0.1").origin, ...allowedOrigins]);
     await context.route(
-      (url) => url.origin !== origin,
+      (url) => !reachable.has(url.origin),
       (route) => route.abort("blockedbyclient"),
     );
     await use(context);

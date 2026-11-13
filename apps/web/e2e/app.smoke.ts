@@ -1,8 +1,13 @@
 // Browser smoke flows: boot, local flow persistence, templates, not found.
 // Every test also fails on any app error (see the `appErrors` fixture).
+// Each one only touches a local flow in a fresh browser context, so all of them
+// also run against the deployed site.
 import { canvasNodes, expect, test } from "./fixtures";
 
-test("the app boots without errors", async ({ page }) => {
+// Safe against production: `bun run smoke:live` runs these after a rollout.
+const LIVE = { tag: "@live" };
+
+test("the app boots without errors", LIVE, async ({ page }) => {
   await page.goto("/");
 
   // Signed out, the local flow is the spotlight on the flow list.
@@ -14,7 +19,7 @@ test("the app boots without errors", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 });
 
-test("a node added to the local flow survives a reload", async ({ page }) => {
+test("a node added to the local flow survives a reload", LIVE, async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open flow" }).click();
   await expect(page).toHaveURL(/\/flow\/local\/graph$/);
@@ -39,7 +44,7 @@ test("a node added to the local flow survives a reload", async ({ page }) => {
   await expect(nodes).toHaveCount(before + 1);
 });
 
-test("a template loads into the editor", async ({ page }) => {
+test("a template loads into the editor", LIVE, async ({ page }) => {
   await page.goto("/templates");
 
   const card = page.locator('[data-testid="template-card"][data-template-id="blink"]');
@@ -61,7 +66,7 @@ test("a template loads into the editor", async ({ page }) => {
   expect(actual).toEqual(expected);
 });
 
-test("an unknown URL shows the not-found screen", async ({ page }) => {
+test("an unknown URL shows the not-found screen", LIVE, async ({ page }) => {
   await page.goto("/this-page-does-not-exist");
 
   await expect(page.getByText("Page not found")).toBeVisible();

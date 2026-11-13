@@ -34,6 +34,9 @@ pub use board_link::{FlashAnswer, OfferId, SessionId};
 pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
+/// Firmata detection on one port, for the hardware smoke tests.
+#[cfg(test)]
+pub(crate) use firmata::detect as detect_firmata;
 
 use crate::flasher::{BoardType, Flasher};
 use crate::runtime::host::ActorLink;

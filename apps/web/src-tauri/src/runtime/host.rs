@@ -933,6 +933,10 @@ impl CloudPerformer {
 }
 
 #[cfg(test)]
+#[path = "hardware_smoke.rs"]
+mod hardware_smoke;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::runtime::services::{RecordedPublish, RecordingMqttPublisher};
