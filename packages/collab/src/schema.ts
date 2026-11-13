@@ -202,8 +202,12 @@ export function flowStructureKey(
 }
 
 /** Value equality for the JSON-ish values a Flow doc holds. Key order is
- *  irrelevant; `undefined` is a value, not an absent key. */
-function isValueEqual(a: unknown, b: unknown): boolean {
+ *  irrelevant; `undefined` is a value, not an absent key.
+ *
+ *  Exported as the one definition of "unchanged" for document data: the node
+ *  data committer's echo suppression must agree with the document's own
+ *  no-op write guard, or one side writes what the other calls a no-op. */
+export function isValueEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true;
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
   if (Array.isArray(a) || Array.isArray(b)) {

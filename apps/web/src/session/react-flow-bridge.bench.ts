@@ -150,3 +150,84 @@ for (const contributors of [2, 5, 10, 20]) {
     ),
   );
 }
+
+// ---------------------------------------------------------------------------
+// The bridge instance end to end: what the reconcile path costs per update.
+// ---------------------------------------------------------------------------
+
+// Bun has no frame clock. A frame that never fires keeps pending intent pending
+// for the duration of a measurement, which is exactly the window under test.
+(globalThis as { requestAnimationFrame?: unknown }).requestAnimationFrame = () => 1;
+(globalThis as { cancelAnimationFrame?: unknown }).cancelAnimationFrame = () => {};
+
+/** Wall time of `updates` remote position edits arriving at a bridge, while the
+ *  local user holds `pending` unflushed moves. Setup is excluded. */
+function remoteFanIn(nodeCount: number, updates: number, pending: number): number {
+  const doc = seed(nodeCount);
+  const bridge = new ReactFlowBridge(doc);
+  for (let p = 0; p < pending; p++) {
+    bridge.applyNodeChanges([
+      { type: "position", id: `n${p}`, position: { x: -p, y: -p }, dragging: false },
+    ]);
+  }
+  const start = performance.now();
+  for (let i = 0; i < updates; i++) {
+    const id = `n${pending + (i % (nodeCount - pending))}`;
+    doc.doc.transact(() => doc.updateNodePosition(id, { x: i, y: i }), "remote");
+  }
+  const ms = performance.now() - start;
+  bridge.destroy();
+  doc.destroy();
+  return ms;
+}
+
+/** Wall time of `moves` drag-end writes: one structural position change plus
+ *  its flush each. Setup is excluded. */
+function localDragEnd(nodeCount: number, moves: number): number {
+  const doc = seed(nodeCount);
+  const bridge = new ReactFlowBridge(doc);
+  const start = performance.now();
+  for (let i = 0; i < moves; i++) {
+    bridge.applyNodeChanges([
+      { type: "position", id: `n${i % nodeCount}`, position: { x: i, y: -i }, dragging: false },
+    ]);
+    bridge.flush();
+  }
+  const ms = performance.now() - start;
+  bridge.destroy();
+  doc.destroy();
+  return ms;
+}
+
+function median(runs: number, measureOnce: () => number): number {
+  const samples = Array.from({ length: runs }, measureOnce).sort((a, b) => a - b);
+  return samples[Math.floor(samples.length / 2)]!;
+}
+
+section("Bridge instance: reconcile cost (1000 operations, median of 7)");
+console.log(
+  formatRow(
+    ["flow size", "remote, idle", "remote, 1 pend", "remote, 10 pend", "drag-end+flush"],
+    [12, 16, 16, 16, 16],
+  ),
+);
+for (const nodeCount of [25, 100, 300, 1000]) {
+  remoteFanIn(nodeCount, 200, 10);
+  localDragEnd(nodeCount, 200);
+  const idle = median(7, () => remoteFanIn(nodeCount, 1000, 0));
+  const one = median(7, () => remoteFanIn(nodeCount, 1000, 1));
+  const ten = median(7, () => remoteFanIn(nodeCount, 1000, 10));
+  const drag = median(7, () => localDragEnd(nodeCount, 1000));
+  console.log(
+    formatRow(
+      [
+        `${nodeCount} nodes`,
+        `${idle.toFixed(1)}ms`,
+        `${one.toFixed(1)}ms`,
+        `${ten.toFixed(1)}ms`,
+        `${drag.toFixed(1)}ms`,
+      ],
+      [12, 16, 16, 16, 16],
+    ),
+  );
+}

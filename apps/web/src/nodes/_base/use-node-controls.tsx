@@ -51,8 +51,19 @@ export const useNodeControls = <
     dependencies,
   );
 
+  // Seeded with what the doc and the controls hold right now, so the mount
+  // commit below — Leva reporting its starting values — writes nothing.
+  // Opening a node as an Editor must not mutate the flow, nor race a peer.
+  // Read once per committer on purpose: later values arrive via `reconcile`.
   const committer = useMemo(
-    () => createNodeDataCommitter({ doc, nodeId: id, readOnly }),
+    () =>
+      createNodeDataCommitter({
+        doc,
+        nodeId: id,
+        readOnly,
+        initial: { doc: data, controls: controlsData as Record<string, unknown> },
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [doc, id, readOnly],
   );
 
