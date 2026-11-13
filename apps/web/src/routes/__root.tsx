@@ -18,6 +18,7 @@ import { TooltipProvider } from "@/ui/tooltip";
 import { SidebarInset, SidebarProvider } from "@/ui/sidebar";
 import { AppSidebar } from "@/shell/app-sidebar";
 import { useBoardEvents } from "@/board/board-store";
+import { useDesktopRuntimeHost } from "@/runtime/use-desktop-runtime-host";
 import { useCloudCapabilitySync } from "@/cloud/cloud-capabilities";
 import { useUpdater } from "@/platform/use-updater";
 import { useDeepLink } from "@/platform/use-deep-link";
@@ -108,6 +109,7 @@ function RootComponent() {
 
 function Board() {
   useBoardEvents();
+  useDesktopRuntimeHost();
   useCloudCapabilitySync();
   useUpdater();
   useBackendLogs();

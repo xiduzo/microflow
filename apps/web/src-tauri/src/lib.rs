@@ -138,6 +138,10 @@ pub fn run() {
     // move into `AppState`.
     let actor_publisher = Arc::clone(&mqtt_publisher);
     let actor_tx_exit = actor_tx.clone();
+    // Filled in `setup` once the actor thread runs; the exit handler waits on
+    // it so the board session drops (writing the safe state) before exit.
+    let actor_stopped: Arc<Mutex<Option<host::ActorStopped>>> = Arc::new(Mutex::new(None));
+    let actor_stopped_exit = Arc::clone(&actor_stopped);
 
     let app_state = AppState {
         hardware_service: Arc::clone(&hardware_service),
@@ -205,7 +209,7 @@ pub fn run() {
             // Spawn the single runtime actor thread: it owns the !Send
             // core::FlowRuntime + the serial port, and applies each turn's
             // Effects (write bytes, emit "component-event", arm wakeup timers).
-            host::run_actor(
+            let stopped = host::run_actor(
                 actor_rx,
                 actor_tx.clone(),
                 session_ended_tx,
@@ -213,6 +217,7 @@ pub fn run() {
                 rt_handle,
                 actor_publisher,
             );
+            *actor_stopped.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(stopped);
 
             // Hardware monitoring owns the board connection (the board link)
             // and drives the actor through an `ActorLink`: on Firmata detection
@@ -277,6 +282,7 @@ pub fn run() {
             runtime::commands::flow_update,
             runtime::commands::component_call,
             runtime::commands::llm_result,
+            runtime::commands::runtime_restart,
             runtime::commands::generate_sketch,
             runtime::commands::check_credentials,
             runtime::commands::list_board_targets,
@@ -301,8 +307,16 @@ pub fn run() {
         .run(move |_app_handle, event| {
             if let tauri::RunEvent::Exit = event {
                 log::info!("Application exiting — stopping runtime actor");
-                // Stop the actor thread; it drops the serial port on the way out.
+                // Stop the actor thread and wait (bounded) for it: dropping its
+                // board session writes the safe state, and the process ends as
+                // soon as this handler returns.
                 let _ = actor_tx_exit.send(host::ActorMsg::Shutdown);
+                let stopped = actor_stopped_exit.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
+                if let Some(stopped) = stopped {
+                    if !stopped.wait(host::SHUTDOWN_GRACE) {
+                        log::warn!("[actor] did not stop within {:?}; exiting anyway", host::SHUTDOWN_GRACE);
+                    }
+                }
             }
         });
 }

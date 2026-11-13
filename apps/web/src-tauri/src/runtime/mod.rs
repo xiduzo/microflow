@@ -16,6 +16,8 @@
 //!   code is the `CloudPerformer` that performs their recorded `CloudRequest`s.
 //! - [`services`] — the `MqttPublisher` / `LlmRegistry` handles the
 //!   `CloudPerformer` holds (and that `flow_update` syncs credentials into).
+//! - [`supervisor`] — the crash-loop guard and panic fingerprint behind the
+//!   actor's respawn-on-panic (a turn that panics rebuilds the runtime).
 //!
 //! The previous desktop-local runtime — its own executor, router, registry,
 //! wiring and a full duplicate set of node impls — was removed once the core
@@ -26,3 +28,4 @@ pub mod commands;
 pub mod host;
 pub mod midi;
 pub mod services;
+pub mod supervisor;
