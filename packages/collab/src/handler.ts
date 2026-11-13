@@ -1,6 +1,11 @@
 import type { WSContext } from "hono/ws";
-import { YjsServer, type RoomConnection } from "./yjs-server";
-import { CLOSE_ACCESS_DENIED } from "./protocol";
+import {
+  RoomGone,
+  RoomServerShuttingDown,
+  YjsServer,
+  type RoomConnection,
+} from "./yjs-server";
+import { CLOSE_ACCESS_DENIED, CLOSE_FLOW_GONE, CLOSE_SERVICE_RESTART } from "./protocol";
 import { drizzleRoomStore } from "./drizzle-room-store";
 
 // ============================================================================
@@ -96,6 +101,14 @@ export function createYjsHandler() {
         data.pending = undefined;
         for (const frame of pending ?? []) connection.receive(frame);
       } catch (error) {
+        if (error instanceof RoomServerShuttingDown) {
+          ws.close(CLOSE_SERVICE_RESTART, "Server restarting");
+          return;
+        }
+        if (error instanceof RoomGone) {
+          ws.close(CLOSE_FLOW_GONE, "Flow deleted");
+          return;
+        }
         console.error(`[YJS] Connection error:`, error);
         ws.close(1011, "Internal error");
       }

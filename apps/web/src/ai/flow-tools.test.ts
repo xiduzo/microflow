@@ -141,6 +141,40 @@ describe("createFlowTools — connect", () => {
   });
 });
 
+describe("createFlowTools — delete_node", () => {
+  test("takes the node's edges with it, as its description promises", () => {
+    const { doc, call } = tools();
+    call("add_node", { type: "Button", data: { pin: 2 } });
+    call("add_node", { type: "Led", data: { pin: 13 } });
+    const [button, led] = doc.getNodes();
+    call("connect", { source: button.id, sourceHandle: "true", target: led.id, targetHandle: "true" });
+
+    const result = call("delete_node", { nodeId: led.id });
+
+    expect(result.ok).toBe(true);
+    expect(doc.hasNode(led.id)).toBe(false);
+    // No edge left pointing at a node that is gone — the runtime, codegen and
+    // the model's next get_flow would all still read it.
+    expect(doc.getEdges()).toHaveLength(0);
+  });
+
+  test("undoes as one step, node and edges together", () => {
+    const { doc, call } = tools();
+    call("add_node", { type: "Button", data: { pin: 2 } });
+    call("add_node", { type: "Led", data: { pin: 13 } });
+    const [button, led] = doc.getNodes();
+    call("connect", { source: button.id, sourceHandle: "true", target: led.id, targetHandle: "true" });
+    // Seal the setup into its own undo group.
+    doc.undoManager.stopCapturing();
+
+    call("delete_node", { nodeId: button.id });
+    doc.undo();
+
+    expect(doc.hasNode(button.id)).toBe(true);
+    expect(doc.getEdges()).toHaveLength(1);
+  });
+});
+
 describe("write modes", () => {
   test("read-only mode does not expose the write tools at all", () => {
     const { list } = tools("read-only");

@@ -283,3 +283,40 @@ describe("undo across the nested shape", () => {
     expect(a.getNode("n1")!.data.label).toBe("LED");
   });
 });
+
+describe("materialising a node the room wrote badly", () => {
+  test("a plain-object node from an outdated client is skipped, not thrown on", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("ok"));
+    // A live update from a pre-ADR-0019 client, after the load-time upgrade.
+    doc.doc.transact(() => {
+      doc.doc.getMap<unknown>("nodes").set("flat", mkNode("flat"));
+    }, "remote");
+
+    expect(doc.getNodes().map((n) => n.id)).toEqual(["ok"]);
+    expect(doc.getNode("flat")).toBeUndefined();
+  });
+
+  test("malformed scalars fall back to the defaults a missing one gets", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("n1"));
+    doc.doc.transact(() => {
+      const stored = doc.nodes.get("n1")!;
+      stored.set("type", 42);
+      stored.set("position", { x: "left", y: 7 });
+      stored.set("width", Number.NaN);
+    }, "remote");
+
+    const node = doc.getNode("n1")!;
+    expect(node.type).toBe("");
+    expect(node.position).toEqual({ x: 0, y: 7 });
+    expect(node.width).toBeUndefined();
+  });
+
+  test("a valid position keeps its identity, so the node cache stays stable", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("n1", { position: { x: 3, y: 4 } }));
+    const stored = doc.nodes.get("n1")!.get("position");
+    expect(doc.getNode("n1")!.position).toBe(stored as { x: number; y: number });
+  });
+});

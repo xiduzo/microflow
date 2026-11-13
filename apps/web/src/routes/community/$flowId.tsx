@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { authClient } from "@/account/auth-client";
 import { track } from "@/lib/analytics";
+import { reportError } from "@/lib/report-error";
 import { saveLocalFlow } from "@/session";
 import { useActiveFlowStore } from "@/flows/active-flow";
 import { FlowThumbnail } from "@/flows/flow-thumbnail";
@@ -57,7 +58,15 @@ function CommunityFlowPage() {
     }
     // Signed-out: same path templates take — into the device-local flow.
     if (!flow) return;
-    await saveLocalFlow(flow.nodes, flow.edges);
+    try {
+      await saveLocalFlow(flow.nodes, flow.edges);
+    } catch (error) {
+      reportError(error, { source: "action", route: Route.id });
+      toast.error("Couldn't copy to your local flow", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+      return;
+    }
     track("community_flow_forked", { flow: flowId, local: true });
     toast.success("Copied to your local flow");
     setActiveFlowId("local");

@@ -1,12 +1,16 @@
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useCallback } from "react";
-import { useFlowSession } from "@/session";
+import { removeEdgesAtHandles, useFlowSession } from "@/session";
 import { useNodeId } from "./node-context";
 
 /**
  * Forces deletion of rendered handles, plus any edges connected to them, on a node.
  * Useful for nodes whose handle set is data-driven (e.g. a Function node whose
  * inputs/outputs vary with its config).
+ *
+ * The edges go through `removeEdgesAtHandles`, i.e. `FlowDocument.removeEdge`,
+ * so a Viewer's read-only document turns this into a no-op. Deleting on the raw
+ * `doc.edges` Y.Map, as this used to, slipped underneath that guard.
  */
 export function useDeleteHandles() {
   const id = useNodeId();
@@ -15,19 +19,7 @@ export function useDeleteHandles() {
 
   const deleteHandles = useCallback(
     (handles: string[]) => {
-      const edges = doc.getEdges();
-      const edgesToRemove = edges.filter(
-        (edge) =>
-          (edge.source === id && edge.sourceHandle && handles.includes(edge.sourceHandle)) ||
-          (edge.target === id && edge.targetHandle && handles.includes(edge.targetHandle)),
-      );
-
-      if (edgesToRemove.length > 0) {
-        doc.doc.transact(() => {
-          for (const edge of edgesToRemove) doc.edges.delete(edge.id);
-        }, "local");
-      }
-
+      removeEdgesAtHandles(doc, id, handles);
       updateNodeInternals(id);
     },
     [id, doc, updateNodeInternals],

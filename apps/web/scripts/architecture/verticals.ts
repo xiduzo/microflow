@@ -145,7 +145,15 @@ export const VERTICALS: Record<string, VerticalSpec> = {
   },
   devtools: { public: ["dev-log.ts", "microflow-devtools.tsx", "use-backend-logs.ts"] },
   // App chrome: sidebar + navigation, and the one-off migration out of `microflow:app`.
-  shell: { public: ["app-sidebar.tsx", "contribute.ts", "legacy-app-store.ts", "sidebar.ts"] },
+  shell: {
+    public: [
+      "app-sidebar.tsx",
+      "contribute.ts",
+      "failure-screens.tsx",
+      "legacy-app-store.ts",
+      "sidebar.ts",
+    ],
+  },
 
   // ── Infrastructure: imports only other infrastructure ──────────────────────────────────
   // Host detection and the desktop shell (Tauri IPC, updater, deep links).

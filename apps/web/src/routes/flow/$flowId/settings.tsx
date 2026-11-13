@@ -46,7 +46,7 @@ export const Route = createFileRoute("/flow/$flowId/settings")({
     component: RouteComponent,
     beforeLoad: async ({ params }) => {
         if (params.flowId === "local") {
-            return redirect({
+            throw redirect({
                 to: "/",
             });
         }

@@ -1,5 +1,5 @@
 // Client-side exports (browser-safe)
-export { FlowDocument, upgradeLegacyNodes } from "./schema";
+export { FlowDocument, upgradeLegacyNodes, isValueEqual } from "./schema";
 export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
 
 export { SyncProvider } from "./sync-provider";
@@ -24,6 +24,7 @@ export {
   MESSAGE_ACCESS,
   ACCESS_CODES,
   CLOSE_POLICY_VIOLATION,
+  CLOSE_FLOW_GONE,
   classifyClose,
   CLOSE_SERVICE_RESTART,
   MAX_REAUTH_ATTEMPTS,

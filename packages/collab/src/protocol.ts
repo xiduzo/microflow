@@ -43,6 +43,12 @@ export const MESSAGE_ACK = 4;
 export const CLOSE_ACCESS_DENIED = 4401;
 
 /**
+ * Terminal (4400–4499): the flow was deleted. Sent when a join races
+ * `flow.delete` — reconnecting would only find the flow missing again.
+ */
+export const CLOSE_FLOW_GONE = 4404;
+
+/**
  * Ours: the server telling one connection what it may do with the room,
  * carrying an `ACCESS_CODES` entry as a varUint.
  *
@@ -66,7 +72,12 @@ export type WireAccess = (typeof ACCESS_CODES)[number];
  * retries both forever — `classifyClose` decides instead.
  */
 export const CLOSE_POLICY_VIOLATION = 1008;
-/** RFC 6455 "service restart": a graceful server shutdown. Retry. */
+/**
+ * Standard WebSocket "Service Restart" (RFC 6455 registry). The server sends
+ * it from `YjsServer.shutdown()` when the process is going down. Retryable on
+ * purpose: the client reconnects to the next instance and re-sends, as sync
+ * step 2, anything the store lacks.
+ */
 export const CLOSE_SERVICE_RESTART = 1012;
 
 /**

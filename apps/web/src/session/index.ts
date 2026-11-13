@@ -57,3 +57,4 @@ export { useFlowMeta } from "./use-flow-meta";
 export { useFlowHistory } from "./use-flow-history";
 export { useReactFlowBridge } from "./use-react-flow-bridge";
 export { ReactFlowBridge } from "./react-flow-bridge";
+export { removeNodesWithEdges, removeEdgesAtHandles } from "./flow-edits";

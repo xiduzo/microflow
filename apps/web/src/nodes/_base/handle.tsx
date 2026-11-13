@@ -3,7 +3,6 @@ import {
   Position,
   Handle as XyFlowHandle,
   type Edge,
-  type Connection,
   useReactFlow,
   useNodeId,
   useStore,
@@ -21,6 +20,7 @@ import {
   subscribeToPointerProximity,
   type HandlePosition,
 } from "@/editor/handle-proximity";
+import { isValidHandleConnection, type HandleConnectionRule } from "./connection-validity";
 
 /**
  * Hover affordance: subscribe to the shared, frame-coalesced pointer source
@@ -123,13 +123,9 @@ export function Handle<T extends ComponentType = ComponentType>(props: Props<T>)
           {...restProps}
           position={position as Position}
           isConnectable={isConnectable}
-          isValidConnection={(edge) => {
-            if (props.isValidConnection) props.isValidConnection(getEdges(), edge);
-
-            // Can not connect to self
-            if (edge.source === edge.target) return false;
-            return true;
-          }}
+          isValidConnection={(edge) =>
+            isValidHandleConnection(edge, getEdges(), props.isValidConnection)
+          }
           className={handle({
             variant: props.handleType,
             position: position,
@@ -179,7 +175,7 @@ type CommonProps = Omit<
   offset?: number;
   hint?: string;
   isConnectable?: ((edges: Edge[]) => boolean) | boolean;
-  isValidConnection?: (edges: Edge[], edge: Edge | Connection) => boolean;
+  isValidConnection?: HandleConnectionRule;
   position: PositionType;
   handleType?: HandleType;
 };
