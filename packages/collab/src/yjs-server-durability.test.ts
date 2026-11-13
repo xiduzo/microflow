@@ -4,7 +4,7 @@ import * as syncProtocol from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
 
 import { RoomGone, RoomServerShuttingDown, YjsServer, type Connection } from "./yjs-server";
-import { MemoryRoomStore, type RoomStore } from "./room-store";
+import { MemoryRoomStore, mergeDocumentStates, type RoomStore } from "./room-store";
 import { CLOSE_SERVICE_RESTART } from "./protocol";
 
 /**
@@ -308,6 +308,42 @@ describe("YjsServer durability: shutdown", () => {
     expect(await draining).toEqual({ unsaved: [] });
     // Registered after the drain's snapshot, this room would never be drained.
     expect(server.getRoomCount()).toBe(0);
+  });
+});
+
+describe("RoomStore durability: saves merge", () => {
+  test("an old instance's late save does not erase edits made on the new one", async () => {
+    const store = new MemoryRoomStore();
+    // An overlapping deploy: two instances each hold a room for one flow.
+    const oldInstance = new YjsServer({ store, persistDebounce: 60_000 });
+    const newInstance = new YjsServer({ store, persistDebounce: 60_000 });
+
+    const before = await oldInstance.join("flow-deploy", socket(), "user-a", true);
+    const after = await newInstance.join("flow-deploy", socket(), "user-b", true);
+    before.receive(updateMessage((doc) => doc.getMap("nodes").set("old", "before deploy")));
+    after.receive(updateMessage((doc) => doc.getMap("nodes").set("new", "after deploy")));
+
+    // The new instance saves first; the old one's drain lands afterwards.
+    await newInstance.shutdown(1_000);
+    await oldInstance.shutdown(1_000);
+
+    const nodes = nodesOf(await store.load("flow-deploy"));
+    expect(nodes.get("new")).toBe("after deploy");
+    expect(nodes.get("old")).toBe("before deploy");
+  });
+
+  test("a stale save cannot resurrect content deleted since", () => {
+    const shared = new Y.Doc();
+    shared.getMap("nodes").set("doomed", "x".repeat(1_000));
+    const stale = Y.encodeStateAsUpdate(shared);
+    shared.getMap("nodes").delete("doomed");
+    const fresh = Y.encodeStateAsUpdate(shared);
+
+    for (const merged of [mergeDocumentStates(fresh, stale), mergeDocumentStates(stale, fresh)]) {
+      expect(nodesOf(merged).has("doomed")).toBe(false);
+      // Deleted content is collected, not carried forward from the stale side.
+      expect(merged.byteLength).toBeLessThan(stale.byteLength);
+    }
   });
 });
 
