@@ -893,11 +893,22 @@ impl SimBoard {
         self.tx.extend(frame);
     }
 
+    /// `CAPABILITY_RESPONSE`. An installed extension advertises its mode on
+    /// every digital pin, as Microflow's `StandardFirmata` does for Pixel and
+    /// `AccelStepperFirmata::handleCapability` does for steppers.
     fn send_capabilities(&mut self) {
         let mut frame = vec![START_SYSEX, CAPABILITY_RESPONSE];
         for pin in &self.pins {
             for (mode, resolution) in pin.caps.modes() {
                 frame.extend([mode, resolution]);
+            }
+            if pin.caps.digital {
+                for extension in &self.extensions {
+                    frame.extend(match extension {
+                        Extension::Pixel => [super::PIN_MODE_PIXEL, 1],
+                        Extension::AccelStepper => [super::PIN_MODE_STEPPER, 21],
+                    });
+                }
             }
             frame.push(127);
         }

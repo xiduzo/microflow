@@ -622,7 +622,9 @@ enum Step {
     Incomplete,
 }
 
+mod features;
 mod safe_state;
+pub use features::{FirmwareFeature, PIN_MODE_PIXEL, PIN_MODE_STEPPER};
 pub use safe_state::{encode_safe_state, SYSTEM_RESET};
 
 #[cfg(any(test, feature = "sim-board"))]

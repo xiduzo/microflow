@@ -4,6 +4,7 @@
 //! Protocol uses `PIXEL_COMMAND` (0x51) with sub-commands for config, set pixel,
 //! set strip, show, and shift operations.
 
+use crate::firmata::FirmwareFeature;
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent, RuntimeContext,
     RuntimeError,
@@ -304,6 +305,7 @@ impl Component for Pixel {
 
 impl HardwareComponent for Pixel {
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        ctx.board().require_firmware(FirmwareFeature::Pixel)?;
         self.send_config(ctx)?;
         self.off(ctx)
     }

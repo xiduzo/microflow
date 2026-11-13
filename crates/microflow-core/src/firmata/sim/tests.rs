@@ -337,10 +337,11 @@ mod through_the_runtime {
         assert!(rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
-    /// Stock firmware ignores the Pixel and `AccelStepper` sysex; the flow gets
-    /// no signal that the strip or motor will never move.
+    /// Stock firmware ignores the Pixel and `AccelStepper` sysex. Its capability
+    /// response advertises neither mode, so each node says so on its badge
+    /// (origin: runtime) and sends nothing the board would drop.
     #[test]
-    fn stock_firmware_refuses_extension_sysex_silently() {
+    fn stock_firmware_missing_an_extension_raises_a_diagnostic() {
         let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
         rig.apply_flow(
             vec![
@@ -349,10 +350,35 @@ mod through_the_runtime {
             ],
             vec![],
         );
-        let refused = rig.board.refused_sysex();
-        assert!(refused.contains(&PIXEL_COMMAND), "{refused:02X?}");
-        assert!(refused.contains(&ACCELSTEPPER_DATA), "{refused:02X?}");
-        assert!(rig.board.pixel_strip().is_none());
-        assert!(rig.diagnostics().is_empty(), "no diagnostic today: {:?}", rig.diagnostics());
+        assert!(rig.board.refused_sysex().is_empty(), "{:02X?}", rig.board.refused_sysex());
+        let badges: Vec<_> = rig
+            .diagnostics()
+            .iter()
+            .map(|d| (d.node.as_str(), d.origin, d.message.clone().unwrap_or_default()))
+            .collect();
+        assert_eq!(badges.len(), 2, "{badges:?}");
+        for (node, origin, message) in &badges {
+            assert_eq!(*origin, crate::runtime::DiagnosticOrigin::Runtime, "{node}");
+            let flash = if *node == "strip" { "StandardFirmata" } else { "ConfigurableFirmata" };
+            assert!(message.contains("firmware does not support") && message.contains(flash), "{node}: {message}");
+        }
+    }
+
+    /// Firmware with the extension advertises it, and the node runs quietly.
+    #[test]
+    fn firmware_with_the_extension_raises_nothing() {
+        let board = SimBoard::new(BoardLayout::uno())
+            .with_extension(Extension::Pixel)
+            .with_extension(Extension::AccelStepper);
+        let mut rig = SimRig::connect(board);
+        rig.apply_flow(
+            vec![
+                node("strip", "Pixel", json!({ "pin": 6, "length": 4 })),
+                node("motor", "Stepper", json!({})),
+            ],
+            vec![],
+        );
+        assert!(rig.diagnostics().is_empty(), "{:?}", rig.diagnostics());
+        assert!(rig.board.pixel_strip().is_some() && rig.board.stepper(0).is_some());
     }
 }

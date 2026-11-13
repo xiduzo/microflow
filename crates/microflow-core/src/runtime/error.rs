@@ -47,6 +47,11 @@ pub enum RuntimeError {
     /// Generic component error (for component-specific failures).
     #[error("{0}")]
     ComponentError(String),
+
+    /// The board's firmware lacks an extension the node needs; its sysex would
+    /// be ignored in silence. The message names the firmware to flash.
+    #[error("{0}")]
+    MissingFirmwareFeature(crate::firmata::FirmwareFeature),
 }
 
 /// Hardware-specific errors with context.
