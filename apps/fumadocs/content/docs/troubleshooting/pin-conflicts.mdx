@@ -12,6 +12,8 @@ Each digital or analog pin on your Arduino can be in one *mode* at a time — in
 - A button press registers in the wrong node.
 - The board's behaviour changes depending on the order in which you placed the nodes.
 
+Check the node's header first. If the board cannot use a pin the way the node needs, the node shows a red or amber icon with the reason — see [Node badges](/docs/troubleshooting/node-badges). Two nodes on the same pin show nothing, so you have to find those yourself.
+
 ## How to find the conflict
 
 1. **Open every Express, Sense, and Generate node that touches a pin.** Note the pin number on each.
@@ -41,3 +43,4 @@ You can have multiple flows saved, but you can only run **one at a time** agains
 ## Related
 
 - [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pin modes exist at all.
+- [Node badges](/docs/troubleshooting/node-badges) — a pin the board cannot use.

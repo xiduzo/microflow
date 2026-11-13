@@ -84,7 +84,7 @@ Most driver boards support microstepping (1/2, 1/4, 1/8, 1/16, 1/32 steps) confi
 
 ## Firmware requirement
 
-The stepper node uses Firmata's AccelStepper protocol. Your Arduino must be flashed with **ConfigurableFirmata** with the AccelStepperFirmata feature enabled. StandardFirmata does not include stepper support.
+The stepper node uses Firmata's AccelStepper protocol. Your Arduino must be flashed with **ConfigurableFirmata** with the AccelStepperFirmata feature enabled. StandardFirmata does not include stepper support. On a board without it, the node shows the error *"Could not set up on the board: this board's firmware does not support stepper motors"* and does not move the motor.
 
 ## Related
 

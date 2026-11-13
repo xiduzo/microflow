@@ -4,6 +4,7 @@
     "index",
     "board-not-detected",
     "pin-conflicts",
+    "node-badges",
     "flow-stops-mid-run",
     "mqtt-cant-connect"
   ]

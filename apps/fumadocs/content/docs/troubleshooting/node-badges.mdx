@@ -1,0 +1,51 @@
+---
+title: Node badges
+description: A node shows a red or amber icon in its header. What each message means and how to fix it.
+---
+
+When a node cannot do its job, it says so in its own header. A red octagon is an **error**: the node does not work. An amber triangle is a **warning**: the node works, but not fully the way you set it up. Hover the icon to read the message.
+
+A badge clears on its own when the cause goes away: you change the node's settings, you rewire it, or you connect a board that can do what the node needs.
+
+## The pin does not fit the board
+
+When a board connects, it tells Studio what each of its pins can do. Studio checks every hardware node against that list.
+
+- **"Pin 7 cannot read analog values on this board — use one of A0–A5"** — a [Sensor](/docs/microflow-studio/nodes/sense/sensor), [Potentiometer](/docs/microflow-studio/nodes/sense/potentiometer) or other analog input is on a digital-only pin. Pick one of the pins the message lists.
+- **"Pin 14 cannot drive a servo on this board"** — the [Servo](/docs/microflow-studio/nodes/express/servo) is on a pin without servo support. Move it to another digital pin.
+- **"Pin 0 cannot be used as a digital pin on this board"** — the pin supports neither input nor output. On most boards this means the pin is reserved.
+- **"A7 is not on this board — use one of A0–A5"** or **"Pin 60 is not on this board (its pins are 0–19)"** — the pin number belongs to a bigger board, for example a flow made for a Mega running on an Uno. Pick a pin the message lists.
+- **"Pin 7 has no PWM on this board, so brightness is rounded to on/off (on from 128)"** (warning) — an [LED](/docs/microflow-studio/nodes/express/led) gets a brightness value, or an RGB LED channel sits, on a pin without PWM. The LED switches fully on at 128 and up, and off below. Move it to a PWM pin (marked `~` on most boards) to fade it.
+
+Nodes with more than one pin, such as RGB LED or [Stepper](/docs/microflow-studio/nodes/express/stepper), name the pin setting in the message.
+
+## The board's firmware is missing a feature
+
+- **"Could not set up on the board: this board's firmware does not support LED strips…"** — the Pixel node needs Microflow's StandardFirmata. Stock StandardFirmata ignores LED strip commands. See [Flash firmware manually](/docs/how-to/flash-firmware-manually).
+- **"Could not set up on the board: this board's firmware does not support stepper motors…"** — the [Stepper](/docs/microflow-studio/nodes/express/stepper#firmware-requirement) node needs ConfigurableFirmata with AccelStepperFirmata.
+
+## The board keeps resetting
+
+**"The board keeps resetting, so this output is held off. Check the board's power supply…"** (warning) — the board restarted three times within 30 seconds. This usually happens when a relay coil, a motor or an LED strip runs from the board's own 5 V pin: switching it on pulls the power down and the board resets. Studio holds the [LED](/docs/microflow-studio/nodes/express/led) and [Relay](/docs/microflow-studio/nodes/express/relay) outputs off so the board can stay up.
+
+Give the load its own power supply (connect the grounds). The outputs come back after the board has been quiet for 30 seconds, or when you edit the flow.
+
+## A loop that never settles
+
+- **"Paused: this node is in a loop that never settles (more than 10000 events in one step). Change the loop to resume it."** (error) — some nodes are wired in a circle, and each one keeps triggering the next. Studio stops the loop and pauses every node in it, so the rest of the flow keeps running. Remove or change one of the edges in the loop. The nodes resume as soon as the loop changes.
+- **"Too many events in one step (more than 10000): the flow fans out too much from here, so the rest of that step was dropped."** (warning) — there is no loop, but one change multiplies into too many events, for example a long chain of [Gates](/docs/microflow-studio/nodes/decide/gate) that each fan out to several more. Nothing is paused. Simplify the wiring after this node. The warning clears on your next edit.
+
+## The node could not start
+
+- **"Could not set up on the board: …"** — the node failed while it set up its pins. The rest of the message says why.
+- **"Not running: its settings could not be read …"** — the saved settings do not fit the node, often after a flow was made with a different version of Microflow. Open the node and set it up again.
+- **"Not running: "…" is not a node type this runtime knows"** — the flow uses a node your version of Microflow does not have. Update Microflow, or delete the node.
+
+Some nodes also report their own problems, for example an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) that does not answer at its address, or a [Music](/docs/microflow-studio/nodes/express/music) node with no songs. Those messages explain themselves.
+
+## Related
+
+- [Pin conflicts](/docs/troubleshooting/pin-conflicts) — two nodes on the same pin.
+- [Flow stops mid-run](/docs/troubleshooting/flow-stops-mid-run)
+- [The microcontroller bridge](/docs/concepts/the-microcontroller-bridge) — why pins have modes.
+- [Troubleshooting](/docs/troubleshooting)
