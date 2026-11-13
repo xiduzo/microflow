@@ -12,6 +12,12 @@ use crate::runtime::{
 
 use super::config::ProximityConfig;
 
+/// Firmata pin of analog channel 0 on an `ATmega328` board (Uno/Nano): the same
+/// `"A<n>"` → `14 + n` rule the Sensor node applies, and the base the codec's
+/// analog decode assumes. Board-aware resolution belongs to the pin-mapping
+/// work; until then both analog inputs must agree with the codec.
+const ANALOG_PIN_BASE: u8 = 14;
+
 pub(crate) struct Proximity {
     base: ComponentBase,
     config: ProximityConfig,
@@ -25,6 +31,20 @@ impl Proximity {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             last_cm: 0.0,
+        }
+    }
+
+    /// The Firmata pin this sensor reads. `config.analog_pin()` is the analog
+    /// *index* for an `"A<n>"` label (the emitter resolves it against the
+    /// board's pin map), so the live side adds the channel-0 pin; a numeric
+    /// pin is used as is. Reading the index as a pin put the default `"A0"`
+    /// on pin 0 — the serial RX pin — and the sensor never reported.
+    fn firmata_pin(&self) -> u8 {
+        let index = self.config.analog_pin();
+        if self.config.pin.starts_with(['A', 'a']) {
+            ANALOG_PIN_BASE.saturating_add(index)
+        } else {
+            index
         }
     }
 
@@ -82,7 +102,7 @@ impl Component for Proximity {
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         // Proximity has no threshold field; FlowRuntime previously defaulted to 1.
         vec![ListenerWiring::AnalogPin {
-            pin: self.config.analog_pin(),
+            pin: self.firmata_pin(),
             threshold: 1,
         }]
     }
@@ -106,7 +126,7 @@ impl Component for Proximity {
 
 impl HardwareComponent for Proximity {
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        ctx.board().set_pin_mode(self.config.analog_pin(), pin_mode::ANALOG)?;
+        ctx.board().set_pin_mode(self.firmata_pin(), pin_mode::ANALOG)?;
         Ok(())
     }
 
@@ -126,5 +146,51 @@ impl ComponentBuilder for Proximity {
     type Config = ProximityConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_ANALOG;
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn proximity(pin: &str) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![node("ir", "Proximity", json!({ "pin": pin, "controller": "GP2Y0A21YK" }))],
+            vec![],
+        );
+        rig
+    }
+
+    fn distance(rig: &SimRig) -> f64 {
+        match rig.last_value("ir") {
+            Some(ComponentValue::Number(cm)) => *cm,
+            other => panic!("no distance: {other:?} / {:?}", rig.events()),
+        }
+    }
+
+    #[test]
+    fn numeric_pin_reads_and_converts_to_centimetres() {
+        let mut rig = proximity("15");
+        assert_eq!(rig.board.pin(15).mode(), Some(MODE_ANALOG));
+        rig.board.set_analog(15, 307); // ≈ 1.5 V → ≈ 25.8 cm
+        rig.sample();
+        assert!((distance(&rig) - 25.8).abs() < 0.1, "{}", distance(&rig));
+    }
+
+    /// The node's default pin is `"A0"`, which resolved to Firmata pin 0 (the
+    /// serial RX pin) — the bug the Sensor node had and fixed.
+    #[test]
+    fn default_a0_label_reads_analog_channel_zero() {
+        let mut rig = proximity("A0");
+        assert_eq!(rig.board.pin(14).mode(), Some(MODE_ANALOG));
+        assert!(rig.board.is_reporting_analog(0), "{:?}", rig.board.violations());
+        rig.board.set_analog(14, 307);
+        rig.sample();
+        assert!((distance(&rig) - 25.8).abs() < 0.1, "{}", distance(&rig));
     }
 }

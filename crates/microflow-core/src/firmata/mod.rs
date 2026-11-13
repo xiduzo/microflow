@@ -599,5 +599,7 @@ enum Step {
     Incomplete,
 }
 
+#[cfg(any(test, feature = "sim-board"))]
+pub mod sim;
 #[cfg(test)]
 mod tests;
