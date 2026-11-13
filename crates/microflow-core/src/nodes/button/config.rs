@@ -14,8 +14,9 @@ pub(crate) struct ButtonConfig {
     pub(crate) is_pulldown: bool,
     #[serde(default = "default_holdtime")]
     pub(crate) holdtime: u64,
-    #[serde(default)]
-    pub(crate) invert: bool,
+    // `invert` is gone: neither the runtime nor the sketch ever read it and no
+    // editor control set it. A stored `"invert"` key is ignored on read (serde
+    // skips unknown fields), so old documents load unchanged.
 }
 
 fn default_pin() -> u8 {
@@ -32,7 +33,30 @@ impl Default for ButtonConfig {
             is_pullup: false,
             is_pulldown: false,
             holdtime: default_holdtime(),
-            invert: false,
         }
+    }
+}
+
+impl ButtonConfig {
+    /// The pin level that reads as "pressed" — the one rule the live runtime
+    /// and the emitted sketch both apply. With the internal pull-up the line
+    /// rests HIGH and a press pulls it to ground (active-low).
+    #[must_use]
+    pub(crate) fn pressed_when_high(&self) -> bool {
+        !self.is_pullup
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Documents saved while the config still had `invert` load unchanged.
+    #[test]
+    fn a_stored_invert_key_is_ignored() {
+        let config: ButtonConfig =
+            serde_json::from_value(serde_json::json!({ "pin": 4, "invert": true, "isPullup": true })).unwrap();
+        assert_eq!(config.pin, 4);
+        assert!(!config.pressed_when_high());
     }
 }

@@ -129,21 +129,23 @@ fn capability_response_populates_pin_modes() {
     ];
     let msgs = c.feed(&frame);
     assert_eq!(msgs, vec![Message::CapabilityResponse]);
-    assert_eq!(c.pins[0].modes, vec![Mode { mode: MODE_INPUT, resolution: 1 }, Mode { mode: MODE_OUTPUT, resolution: 1 }]);
-    assert_eq!(c.pins[1].modes, vec![Mode { mode: MODE_ANALOG, resolution: 10 }]);
+    let modes = |pin: u8| c.profile.caps(pin).unwrap().modes.clone();
+    assert_eq!(modes(0), vec![Mode { mode: MODE_INPUT, resolution: 1 }, Mode { mode: MODE_OUTPUT, resolution: 1 }]);
+    assert_eq!(modes(1), vec![Mode { mode: MODE_ANALOG, resolution: 10 }]);
+    assert_eq!(c.pins.len(), 2, "no phantom pin after the last 127");
 }
 
 #[test]
 fn analog_mapping_response_flags_analog_pins() {
     let mut c = FirmataClient::new();
-    c.pins = vec![Pin::default(); 3];
     // pin0 not analog, pin1 not analog, pin2 analog channel 0.
     let frame = [START_SYSEX, ANALOG_MAPPING_RESPONSE, 127, 127, 0, END_SYSEX];
     let msgs = c.feed(&frame);
     assert_eq!(msgs, vec![Message::AnalogMappingResponse]);
-    assert!(!c.pins[0].analog);
-    assert!(!c.pins[1].analog);
-    assert!(c.pins[2].analog);
+    assert_eq!(c.profile.analog_channel(0), None);
+    assert_eq!(c.profile.analog_channel(1), None);
+    assert_eq!(c.profile.analog_channel(2), Some(0));
+    assert_eq!(c.pins.len(), 3, "the mapping sizes the pin table");
 }
 
 #[test]
@@ -165,18 +167,75 @@ fn capability_response_flags_analog_pins_without_analog_mapping() {
     ];
     let msgs = c.feed(&frame);
     assert_eq!(msgs, vec![Message::CapabilityResponse]);
-    assert!(!c.pins[0].analog, "a digital-only pin must not be flagged analog");
-    assert!(c.pins[1].analog, "a pin advertising ANALOG mode must be flagged analog");
+    assert_eq!(c.profile.analog_channel(0), None, "a digital-only pin must not be flagged analog");
+    assert_eq!(c.profile.analog_channel(1), Some(0), "a pin advertising ANALOG mode is analog channel 0");
 }
 
 #[test]
-fn analog_message_updates_pin_14_offset() {
+fn analog_message_updates_pin_14_offset_before_a_board_is_described() {
     let mut c = FirmataClient::new();
     c.pins = vec![Pin::default(); 20];
-    // ANALOG_MESSAGE | 0 targets analog channel 0 == pin 14; value 0x10|(2<<7).
+    // No profile yet: ANALOG_MESSAGE | 0 targets the Uno's A0 == pin 14.
     let msgs = c.feed(&[ANALOG_MESSAGE, 0x10, 0x02]);
     assert_eq!(msgs, vec![Message::Analog]);
     assert_eq!(c.pins[14].value, 0x10 | (2 << 7));
+}
+
+#[test]
+fn analog_message_lands_on_the_pin_the_board_maps() {
+    let mut c = FirmataClient::new();
+    // Three pins; the board maps channel 0 to pin 2 and channel 1 to pin 0.
+    c.feed(&[START_SYSEX, CAPABILITY_RESPONSE, MODE_ANALOG, 10, 127, MODE_INPUT, 1, 127, MODE_ANALOG, 10, 127, END_SYSEX]);
+    c.feed(&[START_SYSEX, ANALOG_MAPPING_RESPONSE, 1, 127, 0, END_SYSEX]);
+    c.feed(&[ANALOG_MESSAGE, 7, 0, ANALOG_MESSAGE | 1, 9, 0]);
+    assert_eq!(c.pins[2].value, 7);
+    assert_eq!(c.pins[0].value, 9);
+    // A channel past 15 arrives as EXTENDED_ANALOG.
+    let mut c = FirmataClient::new();
+    let mut mapping = vec![START_SYSEX, ANALOG_MAPPING_RESPONSE];
+    mapping.extend((0u8..20).map(|p| if p == 19 { 17 } else { 127 }));
+    mapping.push(END_SYSEX);
+    c.feed(&mapping);
+    c.feed(&[START_SYSEX, EXTENDED_ANALOG, 17, 0x10, 0x02, END_SYSEX]);
+    assert_eq!(c.pins[19].value, 0x10 | (2 << 7));
+}
+
+#[test]
+fn analog_write_past_pin_15_goes_out_as_extended_analog() {
+    let mut c = FirmataClient::new();
+    assert_eq!(c.encode_analog_write(44, 30), vec![START_SYSEX, EXTENDED_ANALOG, 44, 30, 0, END_SYSEX]);
+    assert_eq!(
+        c.encode_analog_write(3, 0x4000),
+        vec![START_SYSEX, EXTENDED_ANALOG, 3, 0, 0, 1, END_SYSEX],
+        "a value past 14 bits needs a third byte"
+    );
+    assert_eq!(c.encode_analog_write(15, 0x3FFF), vec![ANALOG_MESSAGE | 15, 0x7F, 0x7F]);
+}
+
+#[test]
+fn firmware_name_recombines_seven_bit_pairs() {
+    let mut c = FirmataClient::new();
+    c.feed(&[START_SYSEX, REPORT_FIRMWARE, 2, 5, b'S', 0, b'F', 0, END_SYSEX]);
+    assert_eq!(c.firmware_name, "SF");
+    assert_eq!(c.firmware_version, "2.5");
+}
+
+#[test]
+fn a_cut_sysex_frame_ends_at_the_next_status_byte() {
+    let mut c = FirmataClient::new();
+    c.pins = vec![Pin::default(); 20];
+    // An I2C reply that lost its tail (F7 included), then an intact analog report.
+    let msgs = c.feed(&[START_SYSEX, I2C_REPLY, 0x29, 0x00, ANALOG_MESSAGE, 5, 0]);
+    assert_eq!(msgs, vec![Message::Analog]);
+    assert!(c.i2c_data.is_empty(), "the cut reply is dropped, not decoded");
+    assert_eq!(c.pins[14].value, 5);
+    // The same cut across reads: the partial waits, then yields to the next frame.
+    let mut c = FirmataClient::new();
+    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 0x29]).is_empty());
+    let msgs = c.feed(&[START_SYSEX, I2C_REPLY, 0x29, 0, 0x14, 0, 0x11, 0, END_SYSEX]);
+    assert_eq!(msgs, vec![Message::I2cReply]);
+    assert_eq!(c.i2c_data[0].data, vec![0x11]);
+    assert_eq!(c.pending_bytes(), 0);
 }
 
 #[test]
@@ -216,7 +275,7 @@ fn digital_message_updates_pullup_pins() {
 #[test]
 fn report_firmware_sets_name_and_version() {
     let mut c = FirmataClient::new();
-    let frame = [START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX];
+    let frame = [START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', 0, b'F', 0, END_SYSEX];
     let msgs = c.feed(&frame);
     assert_eq!(msgs, vec![Message::ReportFirmware]);
     assert_eq!(c.firmware_version, "2.3");
@@ -280,7 +339,7 @@ fn parses_multiple_messages_in_one_feed() {
     let mut stream = Vec::new();
     stream.extend_from_slice(&[PROTOCOL_VERSION, 2, 5]);
     stream.extend_from_slice(&[ANALOG_MESSAGE, 1, 0]);
-    stream.extend_from_slice(&[START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX]);
+    stream.extend_from_slice(&[START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', 0, b'F', 0, END_SYSEX]);
     let msgs = c.feed(&stream);
     assert_eq!(
         msgs,
@@ -294,7 +353,7 @@ fn incomplete_sysex_waits_for_end_marker() {
     let mut c = FirmataClient::new();
     assert_eq!(c.feed(&[START_SYSEX, REPORT_FIRMWARE, 2, 3]), vec![]);
     assert!(c.pending_bytes() > 0);
-    assert_eq!(c.feed(&[b'S', b'F', END_SYSEX]), vec![Message::ReportFirmware]);
+    assert_eq!(c.feed(&[b'S', 0, b'F', 0, END_SYSEX]), vec![Message::ReportFirmware]);
     assert_eq!(c.firmware_name, "SF");
 }
 
@@ -306,7 +365,7 @@ fn chunking_never_changes_the_parse() {
     let mut stream = Vec::new();
     stream.extend_from_slice(&[PROTOCOL_VERSION, 2, 5]);
     stream.extend_from_slice(&[ANALOG_MESSAGE, 1, 0]);
-    stream.extend_from_slice(&[START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX]);
+    stream.extend_from_slice(&[START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', 0, b'F', 0, END_SYSEX]);
     stream.extend_from_slice(&[DIGITAL_MESSAGE, 0b0000_0111, 0]);
     stream.extend_from_slice(&[START_SYSEX, I2C_REPLY, 0x08, 0, 0, 0, 0x42, 0, END_SYSEX]);
     stream.extend_from_slice(&[ANALOG_MESSAGE, 2, 0]);

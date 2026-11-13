@@ -63,16 +63,6 @@ struct I2cReplyOut {
     data: Vec<u8>,
 }
 
-/// Pin capability info, matching the ts-rs `PinInfo` binding shape so the board
-/// store can reuse it verbatim.
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PinInfo {
-    pin: usize,
-    supported_modes: Vec<u8>,
-    analog_channel: i32,
-}
-
 /// What changed after feeding a chunk of incoming bytes. Returned as JSON from
 /// [`FirmataSession::feed`].
 #[derive(Serialize, TS)]
@@ -133,7 +123,7 @@ impl FirmataSession {
     #[wasm_bindgen(js_name = encodeSafeState)]
     #[must_use]
     pub fn encode_safe_state(&self) -> Vec<u8> {
-        encode_safe_state(self.client.pins.len())
+        encode_safe_state(&self.client.profile)
     }
 
     #[wasm_bindgen(js_name = encodeAnalogWrite)]
@@ -153,26 +143,16 @@ impl FirmataSession {
         self.client.encode_report_analog(analog_channel, enabled)
     }
 
-    /// Enable/disable analog reporting for a digital pin, computing the Firmata
-    /// analog channel from the capability table (same indexing the desktop
-    /// uses). Returns the report-analog bytes; empty if the pin is not analog.
+    /// Enable/disable analog reporting for a pin, through the analog channel
+    /// the board maps it to (its pin profile). Returns the report-analog bytes;
+    /// empty if the pin is not analog.
     #[wasm_bindgen(js_name = encodeAnalogReporting)]
     #[must_use]
     pub fn encode_analog_reporting(&self, pin: u8, enabled: bool) -> Vec<u8> {
-        let Some(info) = self.client.pins.get(pin as usize) else {
-            return Vec::new();
-        };
-        if !info.analog {
-            return Vec::new();
+        match self.client.profile.analog_channel(pin) {
+            Some(channel) => self.client.encode_report_analog(channel, enabled),
+            None => Vec::new(),
         }
-        let channel = self
-            .client
-            .pins
-            .iter()
-            .take(pin as usize)
-            .filter(|p| p.analog)
-            .count() as u8;
-        self.client.encode_report_analog(channel, enabled)
     }
 
     #[wasm_bindgen(js_name = encodeI2cConfig)]
@@ -282,7 +262,7 @@ impl FirmataSession {
             pin_changes.push(PinChange {
                 pin: i as u8,
                 value: current as u16,
-                is_analog: pin.analog,
+                is_analog: self.client.profile.analog_channel(i as u8).is_some(),
             });
         }
 
@@ -320,24 +300,15 @@ impl FirmataSession {
 
     // --- State accessors --------------------------------------------------
 
-    /// The current pin table as JSON (`PinInfo[]`), matching the ts-rs binding.
+    /// The board's pin profile as JSON (`PinInfo[]`, the ts-rs binding): the
+    /// UI's pin list and the runtime's seed. `analogChannel` is the channel
+    /// the board maps the pin to (`A0` = 0), not the pin index.
     ///
     /// # Errors
     /// Returns a `JsError` only if JSON serialization fails.
     #[wasm_bindgen(js_name = pinsJson)]
     pub fn pins_json(&self) -> Result<String, JsError> {
-        let pins: Vec<PinInfo> = self
-            .client
-            .pins
-            .iter()
-            .enumerate()
-            .map(|(index, pin)| PinInfo {
-                pin: index,
-                supported_modes: pin.modes.iter().map(|m| m.mode).collect(),
-                analog_channel: if pin.analog { index as i32 } else { -1 },
-            })
-            .collect();
-        serde_json::to_string(&pins)
+        serde_json::to_string(&self.client.profile.pin_infos())
             .map_err(|e| JsError::new(&format!("failed to serialize pins: {e}")))
     }
 
@@ -533,7 +504,7 @@ mod tests {
         let json = s.feed(&cap).expect("feed ok");
         assert!(json.contains("\"capabilitiesUpdated\":true"), "got: {json}");
 
-        let fw = [START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', b'F', END_SYSEX];
+        let fw = [START_SYSEX, REPORT_FIRMWARE, 2, 3, b'S', 0, b'F', 0, END_SYSEX];
         let json = s.feed(&fw).expect("feed ok");
         assert!(json.contains("\"firmwareUpdated\":true"), "got: {json}");
         assert_eq!(s.firmware_name(), "SF");
@@ -566,14 +537,14 @@ mod tests {
     fn safe_state_is_sized_to_the_session_pin_table() {
         let mut s = FirmataSession::new();
         assert_eq!(s.encode_safe_state(), vec![0xFF], "no pin table: the reset alone");
-        // Nine pins (the codec counts the trailing 127 as one more): two ports.
+        // Nine pins: two ports.
         let mut cap = vec![START_SYSEX, CAPABILITY_RESPONSE];
-        for _ in 0..8 {
+        for _ in 0..9 {
             cap.extend([MODE_OUTPUT, 1, 127]);
         }
         cap.push(END_SYSEX);
         s.feed(&cap).expect("feed ok");
-        assert_eq!(s.encode_safe_state(), encode_safe_state(s.client.pins.len()));
+        assert_eq!(s.encode_safe_state(), encode_safe_state(&s.client.profile));
         assert_eq!(s.encode_safe_state().len(), 2 * 6 + 1);
     }
 
@@ -589,6 +560,25 @@ mod tests {
         let json = s.pins_json().expect("pins json");
         assert!(json.contains("\"supportedModes\""), "got: {json}");
         assert!(json.contains("\"analogChannel\""), "got: {json}");
+    }
+
+    /// `analogChannel` is the board's channel, not the pin index: a Mega's A0
+    /// is pin 54, channel 0.
+    #[test]
+    fn pins_json_carries_the_boards_analog_channels() {
+        use microflow_core::firmata::sim::{BoardLayout, SimBoard};
+        let mut board = SimBoard::new(BoardLayout::mega2560());
+        let mut s = FirmataSession::new();
+        s.feed(&board.take_output()).expect("feed ok");
+        board.receive(&s.encode_query_capabilities());
+        board.receive(&s.encode_query_analog_mapping());
+        s.feed(&board.take_output()).expect("feed ok");
+        let pins: Vec<serde_json::Value> = serde_json::from_str(&s.pins_json().unwrap()).unwrap();
+        assert_eq!(pins.len(), 70, "no phantom pin");
+        assert_eq!(pins[54]["analogChannel"], 0);
+        assert_eq!(pins[13]["analogChannel"], -1);
+        assert_eq!(s.encode_analog_reporting(54, true), vec![0xC0, 1]);
+        assert_eq!(s.firmware_name(), "StandardFirmata.ino");
     }
 
     #[test]

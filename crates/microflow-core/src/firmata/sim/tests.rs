@@ -22,9 +22,10 @@ fn handshake_describes_every_layout() {
         let client = probe(&mut board);
         assert_eq!(client.protocol_version, "2.5", "{}", layout.name());
         assert_eq!(client.firmware_version, "2.5", "{}", layout.name());
-        for (index, pin) in client.pins.iter().take(layout.pin_count()).enumerate() {
-            let caps = layout.caps(index as u8);
-            assert_eq!(pin.analog, caps.analog_channel.is_some(), "{} pin {index}", layout.name());
+        for index in 0..layout.pin_count() as u8 {
+            let caps = layout.caps(index);
+            let pin = client.profile.caps(index).expect("pin described");
+            assert_eq!(pin.analog_channel, caps.analog_channel, "{} pin {index}", layout.name());
             let modes: Vec<(u8, u8)> = pin.modes.iter().map(|m| (m.mode, m.resolution)).collect();
             assert_eq!(modes, caps.modes(), "{} pin {index}", layout.name());
         }
@@ -32,14 +33,25 @@ fn handshake_describes_every_layout() {
 }
 
 /// The capability response ends every pin, the last one included, with `127`;
-/// the codec opens a new pin on each `127`, so the table comes out one pin
-/// longer than the board — a phantom pin past `TOTAL_PINS` in every pin seed.
+/// the table must come out exactly as long as the board, with no phantom pin
+/// past `TOTAL_PINS` in the pin seed.
 #[test]
-#[ignore = "track I: CAPABILITY_RESPONSE decode appends a phantom pin after the final 127"]
 fn capability_response_yields_exactly_the_boards_pins() {
     for layout in [BoardLayout::uno(), BoardLayout::mega2560(), BoardLayout::leonardo()] {
         let mut board = SimBoard::new(layout.clone());
-        assert_eq!(probe(&mut board).pins.len(), layout.pin_count(), "{}", layout.name());
+        let client = probe(&mut board);
+        assert_eq!(client.profile.len(), layout.pin_count(), "{}", layout.name());
+        assert_eq!(client.pins.len(), layout.pin_count(), "{}", layout.name());
+    }
+}
+
+/// The analog mapping is the board's: A0 is pin 14, 54 or 18.
+#[test]
+fn analog_channel_zero_is_the_boards_a0() {
+    for layout in [BoardLayout::uno(), BoardLayout::mega2560(), BoardLayout::leonardo()] {
+        let mut board = SimBoard::new(layout.clone());
+        let client = probe(&mut board);
+        assert_eq!(client.profile.analog_pin(0), layout.analog_pin(0), "{}", layout.name());
     }
 }
 
@@ -47,7 +59,6 @@ fn capability_response_yields_exactly_the_boards_pins() {
 /// raw bytes (copying `firmata-rs`), so a real board's name decodes with a NUL
 /// after every character — "S\0t\0a\0n\0…" — wherever the hosts show it.
 #[test]
-#[ignore = "track I: codec decodes REPORT_FIRMWARE's name without recombining its 7-bit pairs"]
 fn firmware_name_decodes_as_text() {
     let mut board = SimBoard::new(BoardLayout::uno()).with_firmware("StandardFirmata.ino", 2, 5);
     let client = probe(&mut board);
@@ -148,9 +159,9 @@ fn system_reset_alone_leaves_latched_pins_high() {
 fn safe_state_leaves_every_pin_low_on_every_layout() {
     for layout in [BoardLayout::uno(), BoardLayout::mega2560(), BoardLayout::leonardo()] {
         let mut board = SimBoard::new(layout.clone());
-        let pins = probe(&mut board).pins.len();
+        let pins = probe(&mut board).profile;
         drive_everything(&mut board);
-        board.receive(&crate::firmata::encode_safe_state(pins));
+        board.receive(&crate::firmata::encode_safe_state(&pins));
         for pin in 0..layout.pin_count() as u8 {
             let p = board.pin(pin);
             assert!(!p.level(), "{} pin {pin} still HIGH in mode {:?}", layout.name(), p.mode());
@@ -295,12 +306,10 @@ mod through_the_runtime {
         assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
-    /// A reply cut short (its `F7` lost) must cost that one reply only. The
-    /// codec scans to the next `F7` without treating a status byte as a frame
-    /// boundary, so the next, intact reply is swallowed into one garbage frame
-    /// whose misaligned bytes reach the node as data.
+    /// A reply cut short (its `F7` lost) must cost that one reply only: the
+    /// next status byte ends the cut frame, so the next, intact reply is
+    /// decoded rather than swallowed into one garbage frame.
     #[test]
-    #[ignore = "track I: codec framing — a sysex cut short swallows the next frame (status byte inside sysex is not a boundary)"]
     fn a_cut_sysex_costs_one_reply_not_the_next() {
         let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
         rig.board.i2c_device(0x29).set_registers(0x14, &[0x11, 0x22]);

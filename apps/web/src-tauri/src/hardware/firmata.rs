@@ -55,9 +55,8 @@ pub fn detect(port_name: &str) -> Option<Detected> {
     // runtime owns its own codec and is seeded from `pins_json`.
     let (info, port, _client) = full_detect_with_board(port_name, baud_rate)?;
 
-    // `PinInfo` serialises as `[{ pin, supportedModes, analogChannel }]`; the
-    // runtime's `seed_pins` reads `pin` + `analogChannel` and ignores the rest,
-    // so this is exactly the pin table it needs.
+    // `PinInfo` serialises as `[{ pin, supportedModes, analogChannel }]` — the
+    // pin profile the runtime's `seed_pins` rebuilds, modes included.
     let pins_json = serde_json::to_string(&info.pins).unwrap_or_else(|_| "[]".to_string());
 
     Some(Detected {
@@ -258,18 +257,11 @@ fn full_detect_with_board(
     let _ = port.write_all(&client.encode_report_digital(1, true));
     let _ = port.flush();
 
-    let pins = client
-        .pins
-        .iter()
-        .enumerate()
-        .map(|(index, pin)| PinInfo {
-            pin: index,
-            supported_modes: pin.modes.iter().map(|m| m.mode).collect(),
-            analog_channel: if pin.analog { index as i32 } else { -1 },
-        })
-        .collect();
+    // The board's pin profile, projected: `analogChannel` is the channel the
+    // board maps the pin to (`A0` = 0), not the pin index.
+    let pins = client.profile.pin_infos();
 
-    log::info!("Found {} pins", client.pins.len());
+    log::info!("Found {} pins", pins.len());
 
     let info = FirmataInfo {
         firmware_name: client.firmware_name.clone(),

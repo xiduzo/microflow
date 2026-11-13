@@ -371,11 +371,12 @@ impl Drop for BoardSession {
     }
 }
 
-/// The safe state for the board a `pins_json` describes: sized to its pin
-/// table, as the browser sizes it to its detection codec's.
+/// The safe state for the board a `pins_json` describes: its pin profile, as
+/// the browser uses its detection codec's.
 fn safe_state_for(pins_json: &str) -> Vec<u8> {
-    let pins = serde_json::from_str::<Vec<serde_json::Value>>(pins_json).map_or(0, |p| p.len());
-    microflow_core::firmata::encode_safe_state(pins)
+    use microflow_core::firmata::{encode_safe_state, PinInfo, PinProfile};
+    let infos = serde_json::from_str::<Vec<PinInfo>>(pins_json).unwrap_or_default();
+    encode_safe_state(&PinProfile::from_pin_infos(&infos))
 }
 
 /// Builds a fresh runtime: `FlowRuntime::new` in the app; tests add a node.
@@ -1032,7 +1033,8 @@ mod tests {
         let written = Arc::clone(&port.written);
         let (s, _ended) = session(port);
         drop(s.with_safe_state(safe_state_for(&pins_json(20))));
-        assert_eq!(*written.lock().unwrap(), microflow_core::firmata::encode_safe_state(20));
+        let twenty = microflow_core::firmata::PinProfile::new(vec![microflow_core::firmata::PinCaps::default(); 20]);
+        assert_eq!(*written.lock().unwrap(), microflow_core::firmata::encode_safe_state(&twenty));
     }
 
     #[test]

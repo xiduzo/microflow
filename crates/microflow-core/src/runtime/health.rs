@@ -10,8 +10,9 @@
 //! raised on a transition only, and cleared when the cause goes away.
 //!
 //! The ledger keeps every fault it knows about per node and projects the most
-//! severe one: build > start > runaway (errors) > overload > rejected input
-//! (warnings). Everything it emits is tagged [`DiagnosticOrigin::Runtime`], so
+//! severe one: build > start > runaway > pin (errors) > overload > rejected
+//! input > pin (warnings) — a pin the board cannot use (`runtime::pin_check`)
+//! is judged once per build, so it ranks under the faults that come and go. Everything it emits is tagged [`DiagnosticOrigin::Runtime`], so
 //! the UI keeps it apart from what a node reports about itself (I2C NACK, Music
 //! "no songs", [`DiagnosticOrigin::Node`]): neither origin can clear or
 //! downgrade the other's diagnostic.
@@ -33,6 +34,10 @@ struct NodeFaults {
     overload: Option<String>,
     /// Inputs (`dispatch` methods) currently being rejected, in failure order.
     rejected: Vec<(String, String)>,
+    /// The node sits on a pin the connected board cannot use the way it needs
+    /// (`runtime::pin_check`): an error when it cannot work, a warning when it
+    /// works degraded. Judged once per build.
+    pins: Option<(DiagnosticLevel, String)>,
     /// The diagnostic last sent for this node, so only transitions are sent.
     shown: Option<(DiagnosticLevel, String)>,
 }
@@ -42,10 +47,14 @@ impl NodeFaults {
         if let Some(m) = self.build.as_ref().or(self.start.as_ref()).or(self.runaway.as_ref()) {
             return Some((DiagnosticLevel::Error, m.clone()));
         }
+        if let Some((DiagnosticLevel::Error, m)) = &self.pins {
+            return Some((DiagnosticLevel::Error, m.clone()));
+        }
         self.overload
             .as_ref()
             .or(self.rejected.last().map(|(_, m)| m))
             .map(|m| (DiagnosticLevel::Warning, m.clone()))
+            .or_else(|| self.pins.clone())
     }
 
     fn is_healthy(&self) -> bool {
@@ -54,6 +63,7 @@ impl NodeFaults {
             && self.runaway.is_none()
             && self.overload.is_none()
             && self.rejected.is_empty()
+            && self.pins.is_none()
     }
 }
 
@@ -78,7 +88,13 @@ impl NodeHealth {
             f.runaway = None;
             f.overload = None;
             f.rejected.clear();
+            f.pins = None;
         });
+    }
+
+    /// The freshly built node's pin fault on this board, if any.
+    pub(crate) fn pin_fault(&mut self, id: &str, fault: Option<(DiagnosticLevel, String)>) {
+        self.touch(id, |f| f.pins = fault);
     }
 
     /// Warn (`Some`) or clear (`None`) a node where a loop-free turn ran out of
@@ -268,6 +284,19 @@ mod tests {
         let mut out = Vec::new();
         health.flush(&mut out);
         assert!(out.iter().all(|d| d.origin == DiagnosticOrigin::Runtime));
+    }
+
+    #[test]
+    fn a_pin_warning_sits_under_transient_faults_and_clears_on_rebuild() {
+        let mut health = NodeHealth::default();
+        health.pin_fault("n", Some((DiagnosticLevel::Warning, "no PWM".into())));
+        assert_eq!(flushed(&mut health), vec![(Some("no PWM".into()), DiagnosticLevel::Warning)]);
+        health.input_rejected("n", "value", "bad".into());
+        assert_eq!(flushed(&mut health), vec![(Some("bad".into()), DiagnosticLevel::Warning)]);
+        health.input_accepted("n", "value");
+        assert_eq!(flushed(&mut health), vec![(Some("no PWM".into()), DiagnosticLevel::Warning)]);
+        health.rebuilt("n");
+        assert_eq!(flushed(&mut health), vec![(None, DiagnosticLevel::Error)]);
     }
 
     #[test]

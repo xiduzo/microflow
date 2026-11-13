@@ -5,6 +5,7 @@
 //! `on_pin_change`), and analog reporting is no longer enabled here — the
 //! runtime's `update_flow` reconciles reporting centrally from `listener_wiring`.
 
+use crate::firmata::PinProfile;
 use crate::runtime::{
     pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue,
     HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
@@ -12,39 +13,27 @@ use crate::runtime::{
 
 use super::config::ProximityConfig;
 
-/// Firmata pin of analog channel 0 on an `ATmega328` board (Uno/Nano): the same
-/// `"A<n>"` → `14 + n` rule the Sensor node applies, and the base the codec's
-/// analog decode assumes. Board-aware resolution belongs to the pin-mapping
-/// work; until then both analog inputs must agree with the codec.
-const ANALOG_PIN_BASE: u8 = 14;
-
 pub(crate) struct Proximity {
     base: ComponentBase,
     config: ProximityConfig,
+    /// The Firmata pin this sensor reads: `config.pin` (`"A0"` or a pin
+    /// number) resolved against the connected board's analog mapping
+    /// (`bind_pins`; the Uno layout until a board is described). Reading the
+    /// label's index as a pin put the default `"A0"` on pin 0 — the serial RX
+    /// pin — and the sensor never reported.
+    pin: u8,
     last_cm: f64,
 }
 
 impl Proximity {
     #[must_use]
     pub(crate) fn new(id: String, config: ProximityConfig) -> Self {
+        let pin = PinProfile::default().resolve_label(&config.pin, 0);
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
+            pin,
             last_cm: 0.0,
-        }
-    }
-
-    /// The Firmata pin this sensor reads. `config.analog_pin()` is the analog
-    /// *index* for an `"A<n>"` label (the emitter resolves it against the
-    /// board's pin map), so the live side adds the channel-0 pin; a numeric
-    /// pin is used as is. Reading the index as a pin put the default `"A0"`
-    /// on pin 0 — the serial RX pin — and the sensor never reported.
-    fn firmata_pin(&self) -> u8 {
-        let index = self.config.analog_pin();
-        if self.config.pin.starts_with(['A', 'a']) {
-            ANALOG_PIN_BASE.saturating_add(index)
-        } else {
-            index
         }
     }
 
@@ -102,7 +91,7 @@ impl Component for Proximity {
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         // Proximity has no threshold field; FlowRuntime previously defaulted to 1.
         vec![ListenerWiring::AnalogPin {
-            pin: self.firmata_pin(),
+            pin: self.pin,
             threshold: 1,
         }]
     }
@@ -125,8 +114,12 @@ impl Component for Proximity {
 }
 
 impl HardwareComponent for Proximity {
+    fn bind_pins(&mut self, pins: &PinProfile) {
+        self.pin = pins.resolve_label(&self.config.pin, 0);
+    }
+
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        ctx.board().set_pin_mode(self.firmata_pin(), pin_mode::ANALOG)?;
+        ctx.board().set_pin_mode(self.pin, pin_mode::ANALOG)?;
         Ok(())
     }
 
@@ -158,7 +151,11 @@ mod sim_tests {
     use serde_json::json;
 
     fn proximity(pin: &str) -> SimRig {
-        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        proximity_on(BoardLayout::uno(), pin)
+    }
+
+    fn proximity_on(layout: BoardLayout, pin: &str) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(layout));
         rig.apply_flow(
             vec![node("ir", "Proximity", json!({ "pin": pin, "controller": "GP2Y0A21YK" }))],
             vec![],
@@ -190,6 +187,16 @@ mod sim_tests {
         assert_eq!(rig.board.pin(14).mode(), Some(MODE_ANALOG));
         assert!(rig.board.is_reporting_analog(0), "{:?}", rig.board.violations());
         rig.board.set_analog(14, 307);
+        rig.sample();
+        assert!((distance(&rig) - 25.8).abs() < 0.1, "{}", distance(&rig));
+    }
+
+    /// The same label on a Mega reads its A0, pin 54.
+    #[test]
+    fn a0_label_follows_the_board() {
+        let mut rig = proximity_on(BoardLayout::mega2560(), "A0");
+        assert_eq!(rig.board.pin(54).mode(), Some(MODE_ANALOG));
+        rig.board.set_analog(54, 307);
         rig.sample();
         assert!((distance(&rig) - 25.8).abs() < 0.1, "{}", distance(&rig));
     }

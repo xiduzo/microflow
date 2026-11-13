@@ -10,7 +10,6 @@ export const dataSchema = baseDataSchema.extend({
   isPullup: z.boolean().default(false),
   isPulldown: z.boolean().default(false),
   holdtime: z.number().default(500),
-  invert: z.boolean().default(false),
 });
 export type Data = z.infer<typeof dataSchema>;
 

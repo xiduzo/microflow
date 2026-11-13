@@ -11,6 +11,7 @@
 //! - **No `Send + Sync` bound.** The core is single-threaded (`Rc`); the desktop
 //!   host confines it to one owner thread.
 
+use crate::firmata::PinProfile;
 use crate::runtime::context::RuntimeContext;
 use crate::runtime::error::RuntimeError;
 use crate::runtime::value::{ComponentEvent, ComponentValue};
@@ -171,6 +172,13 @@ pub trait Component {
 /// reconnect). Hardware Callbacks (`on_pin_change`, `on_i2c_reply`) are
 /// delivered by the runtime's inbound path, never via [`Component::dispatch`].
 pub trait HardwareComponent: Component {
+    /// Learn the connected board's pins. Called once, right after the node is
+    /// built and before its wiring is read or [`initialize`](Self::initialize)
+    /// runs, so a node that names a pin by label (`"A0"`) resolves it against
+    /// the real board here, and one that needs a capability (PWM) asks here.
+    /// An empty profile means no board has been described.
+    fn bind_pins(&mut self, _pins: &PinProfile) {}
+
     /// Acquire pin modes, reporting toggles, or I/O state against the board.
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError>;
 

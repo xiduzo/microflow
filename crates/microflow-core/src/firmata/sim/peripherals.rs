@@ -228,8 +228,13 @@ pub enum StepperInterface {
     FourWire,
 }
 
-/// One `AccelStepper` motor as `ConfigurableFirmata` would hold it. Moves
-/// complete on the board's next main-loop pass.
+/// One `AccelStepper` motor as `ConfigurableFirmata` would hold it.
+///
+/// **Simplified motion.** There is no speed profile: a move completes on the
+/// board's next main-loop pass, and `stop` halts the motor where it stands
+/// (target = position). Real `AccelStepper::stop` decelerates, overrunning by
+/// the stopping distance `v² / 2a` — a test that cares about where a stopped
+/// motor ends up cannot use this model.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SimStepper {
     pub interface: StepperInterface,
@@ -242,16 +247,17 @@ pub struct SimStepper {
     pub acceleration: f32,
 }
 
-/// The `ConfigurableFirmata` decoder for a 32-bit sign-magnitude integer: 28
-/// bits in four 7-bit bytes, bits 28..30 in the fifth byte's low three bits,
-/// the sign in its bit 3.
+/// The `AccelStepperFirmata` decoder for a sign-magnitude step count: 28 bits
+/// of magnitude in four 7-bit bytes and the sign in bit 3 of the fifth byte
+/// (the sign position is inferred from firmata.js `encode32BitSignedInteger`).
+/// The fifth byte's low bits are not part of the magnitude, so a larger count
+/// wraps — the runtime clamps to `±(2^28 − 1)`.
 #[must_use]
 pub fn decode_stepper_long(b: [u8; 5]) -> i32 {
     let magnitude = i64::from(b[0])
         | (i64::from(b[1]) << 7)
         | (i64::from(b[2]) << 14)
-        | (i64::from(b[3]) << 21)
-        | (i64::from(b[4] & 0x07) << 28);
+        | (i64::from(b[3]) << 21);
     let value = if b[4] & 0x08 != 0 { -magnitude } else { magnitude };
     value as i32
 }

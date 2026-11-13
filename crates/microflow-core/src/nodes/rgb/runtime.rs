@@ -1,8 +1,9 @@
 //! RGB LED Component — Output. Template port for the workflow node fan-out.
 
+use crate::firmata::PinProfile;
 use crate::runtime::{
-    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, RuntimeContext, RuntimeError,
+    analog_write_like_arduino, pin_mode, Component, ComponentBase, ComponentBuilder,
+    ComponentValue, HardwareComponent, RuntimeContext, RuntimeError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +34,10 @@ pub(crate) struct Rgb {
     base: ComponentBase,
     config: RgbConfig,
     color: RgbaColor,
+    /// Per channel (red, green, blue): whether the board has PWM on its pin
+    /// (`bind_pins`; `None` = unknown, treated as PWM). A channel without PWM
+    /// stays a digital OUTPUT and rounds like Arduino's `analogWrite`.
+    has_pwm: [Option<bool>; 3],
 }
 
 impl Rgb {
@@ -42,6 +47,7 @@ impl Rgb {
             base: ComponentBase::new(id, RgbaColor::default().into()),
             config,
             color: RgbaColor::default(),
+            has_pwm: [None; 3],
         }
     }
 
@@ -73,11 +79,15 @@ impl Rgb {
     fn update_hardware(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
         let (r, g, b) = self.apply_intensity();
         let (r, g, b) = self.apply_anode(r, g, b);
-        ctx.board().analog_write(self.config.pins.red, u16::from(r))?;
-        ctx.board().analog_write(self.config.pins.green, u16::from(g))?;
-        ctx.board().analog_write(self.config.pins.blue, u16::from(b))?;
+        for ((pin, level), has_pwm) in self.channel_pins().into_iter().zip([r, g, b]).zip(self.has_pwm) {
+            analog_write_like_arduino(ctx.board(), pin, level, has_pwm)?;
+        }
         self.base.set_value(self.color.clone().into());
         Ok(())
+    }
+
+    fn channel_pins(&self) -> [u8; 3] {
+        [self.config.pins.red, self.config.pins.green, self.config.pins.blue]
     }
 
     fn apply_intensity(&self) -> (u8, u8, u8) {
@@ -138,10 +148,15 @@ impl Component for Rgb {
 }
 
 impl HardwareComponent for Rgb {
+    fn bind_pins(&mut self, pins: &PinProfile) {
+        self.has_pwm = self.channel_pins().map(|pin| pins.supports(pin, pin_mode::PWM));
+    }
+
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        ctx.board().set_pin_mode(self.config.pins.red, pin_mode::PWM)?;
-        ctx.board().set_pin_mode(self.config.pins.green, pin_mode::PWM)?;
-        ctx.board().set_pin_mode(self.config.pins.blue, pin_mode::PWM)?;
+        for (pin, has_pwm) in self.channel_pins().into_iter().zip(self.has_pwm) {
+            let mode = if has_pwm == Some(false) { pin_mode::OUTPUT } else { pin_mode::PWM };
+            ctx.board().set_pin_mode(pin, mode)?;
+        }
         self.off(ctx)
     }
 }
@@ -187,6 +202,22 @@ mod sim_tests {
         assert_eq!(duty(&rig), (Some(100), Some(0), Some(50)));
         rig.dispatch("rgb", "off", true);
         assert_eq!(duty(&rig), (Some(0), Some(0), Some(0)));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    /// A channel on a pin without PWM (12 on an Uno) rounds like
+    /// `analogWrite`: on from 128.
+    #[test]
+    fn a_channel_without_pwm_switches_at_128() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![node("rgb", "Rgb", json!({ "pins": { "red": 9, "green": 10, "blue": 12 } }))],
+            vec![],
+        );
+        rig.dispatch("rgb", "blue", 200.0);
+        assert!(rig.board.pin(12).is_high());
+        rig.dispatch("rgb", "blue", 100.0);
+        assert!(!rig.board.pin(12).is_high());
         assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
     }
 

@@ -22,7 +22,7 @@
 //! write never touches pins in ANALOG, PWM or SERVO mode, so analog inputs stay
 //! analog inputs.
 
-use super::DIGITAL_MESSAGE;
+use super::{PinProfile, DIGITAL_MESSAGE};
 
 /// `SYSTEM_RESET`: a single unframed byte. `StandardFirmata` answers it with
 /// `systemResetCallback` — the same defaults it boots into, minus the latch
@@ -32,17 +32,13 @@ pub const SYSTEM_RESET: u8 = 0xFF;
 /// A `DIGITAL_MESSAGE` addresses its port in the low nibble: 16 ports, 128 pins.
 const MAX_PORTS: usize = 16;
 
-/// The safe-state bytes for a board with `pin_count` Firmata pins: ports zeroed,
-/// `SYSTEM_RESET`, ports zeroed again (see the module docs for why both).
-///
-/// `pin_count` is the length of the detection codec's pin table. A table one pin
-/// too long (the capability response's trailing `127`) at most adds a port the
-/// firmware ignores (`digitalWriteCallback` checks `port < TOTAL_PORTS`); an
-/// empty table — no capability response yet — yields the reset alone.
-// TODO(track I): take the board pin profile once it lands, instead of a count.
+/// The safe-state bytes for the board `pins` describes: each of its ports
+/// zeroed, `SYSTEM_RESET`, the ports zeroed again (see the module docs for why
+/// both). With no board described — no capability response yet — the reset
+/// alone.
 #[must_use]
-pub fn encode_safe_state(pin_count: usize) -> Vec<u8> {
-    let ports = pin_count.div_ceil(8).min(MAX_PORTS);
+pub fn encode_safe_state(pins: &PinProfile) -> Vec<u8> {
+    let ports = pins.len().div_ceil(8).min(MAX_PORTS);
     let zero_ports = (0..ports).flat_map(|port| [DIGITAL_MESSAGE | port as u8, 0, 0]);
     let mut out = Vec::with_capacity(ports * 6 + 1);
     out.extend(zero_ports.clone());
@@ -54,6 +50,11 @@ pub fn encode_safe_state(pin_count: usize) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::firmata::PinCaps;
+
+    fn board(pins: usize) -> PinProfile {
+        PinProfile::new(vec![PinCaps::default(); pins])
+    }
 
     #[test]
     fn zeroes_every_port_around_the_reset() {
@@ -61,17 +62,17 @@ mod tests {
         let mut expected = ports.to_vec();
         expected.push(SYSTEM_RESET);
         expected.extend(ports);
-        assert_eq!(encode_safe_state(20), expected);
+        assert_eq!(encode_safe_state(&board(20)), expected);
     }
 
     #[test]
     fn with_no_pin_table_only_the_reset() {
-        assert_eq!(encode_safe_state(0), vec![SYSTEM_RESET]);
+        assert_eq!(encode_safe_state(&PinProfile::default()), vec![SYSTEM_RESET]);
     }
 
     #[test]
     fn caps_at_the_sixteen_addressable_ports() {
-        let bytes = encode_safe_state(300);
+        let bytes = encode_safe_state(&board(300));
         assert_eq!(bytes.len(), 16 * 6 + 1);
         assert_eq!(bytes[16 * 3 - 3], 0x9F, "last port addressed is 15");
     }
