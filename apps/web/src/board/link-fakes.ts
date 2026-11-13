@@ -140,9 +140,19 @@ export class FakeSession {
   encodeQueryAnalogMapping(): Uint8Array {
     return Uint8Array.of(0xf0, 0x69, 0xf7);
   }
-  encodeDigitalWrite(pin: number, _value: boolean): Uint8Array {
-    return Uint8Array.of(0x90 | (pin >> 3), 0, 0);
+  /** Encodes like the core codec: the pin's level joins its port's tracked
+   *  value, and the message carries the whole port (LSB = pin 0 of the port). */
+  encodeDigitalWrite(pin: number, value: boolean): Uint8Array {
+    this.levels[pin] = value;
+    const port = pin >> 3;
+    let mask = 0;
+    for (let bit = 0; bit < 8; bit += 1) {
+      if (this.levels[port * 8 + bit]) mask |= 1 << bit;
+    }
+    return Uint8Array.of(0x90 | port, mask & 0x7f, (mask >> 7) & 0x7f);
   }
+  /** Each pin's last written level. */
+  private readonly levels: boolean[] = [];
 
   /** Typed as the wasm class the link takes. */
   asSession(): FirmataSession {
