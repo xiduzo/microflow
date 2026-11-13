@@ -52,6 +52,17 @@ export const FLOW_COLORS = [
 export const uid = () =>
   Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
+/**
+ * The flow's document as collaborators see it right now. `flow.ydoc` trails a
+ * live room by up to the persist ceiling (or longer while the store is
+ * failing), so readers that serve or snapshot a flow take the room's state
+ * when one is loaded.
+ */
+function currentYdoc(flowId: string, stored: Buffer | null): Buffer | null {
+  const live = yjsServer.currentState(flowId);
+  return live ? Buffer.from(live) : stored;
+}
+
 export function decodeFlowData(ydoc: Buffer | null) {
   if (!ydoc) return { nodes: [], edges: [] };
   try {
@@ -137,14 +148,14 @@ export const flowRouter = router({
 
     const ownedFlows = ownedFlowsRaw.map((f) => {
       const { ydoc, owner, collaborators, ...rest } = f;
-      return { ...rest, ...decodeFlowData(ydoc), people: peopleOf(f) };
+      return { ...rest, ...decodeFlowData(currentYdoc(f.id, ydoc)), people: peopleOf(f) };
     });
 
     const collaboratedFlows = collaborations.map((c) => {
       const { ydoc, owner, collaborators, ...rest } = c.flow;
       return {
         ...rest,
-        ...decodeFlowData(ydoc),
+        ...decodeFlowData(currentYdoc(c.flow.id, ydoc)),
         people: peopleOf(c.flow),
         role: c.role,
       };
@@ -223,12 +234,11 @@ export const flowRouter = router({
       });
 
       // Decode ydoc to get nodes/edges
-      const { nodes, edges } = decodeFlowData(flowRecord.ydoc);
+      const ydoc = currentYdoc(flowRecord.id, flowRecord.ydoc);
+      const { nodes, edges } = decodeFlowData(ydoc);
 
       // Return ydoc as base64 for client to initialize FlowDocument
-      const ydocBase64 = flowRecord.ydoc
-        ? Buffer.from(flowRecord.ydoc).toString("base64")
-        : null;
+      const ydocBase64 = ydoc ? Buffer.from(ydoc).toString("base64") : null;
 
       return {
         id: flowRecord.id,
@@ -396,7 +406,8 @@ export const flowRouter = router({
       await db
         .update(flow)
         .set({
-          publishedYdoc: flowRecord.ydoc,
+          // The live room, not the debounced row: publish what the owner sees.
+          publishedYdoc: currentYdoc(input.id, flowRecord.ydoc),
           publishedAt: new Date(),
           description: input.description,
           updatedAt: flowRecord.updatedAt, // publishing is not an edit
