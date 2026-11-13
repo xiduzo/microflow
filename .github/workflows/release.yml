@@ -151,11 +151,11 @@ jobs:
       matrix:
         include:
           # macOS Intel
-          - platform: macos-14
+          - platform: macos-15
             target: x86_64-apple-darwin
             args: --target x86_64-apple-darwin
           # macOS Apple Silicon
-          - platform: macos-14
+          - platform: macos-15
             target: aarch64-apple-darwin
             args: --target aarch64-apple-darwin
           # Windows
