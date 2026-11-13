@@ -708,6 +708,29 @@ mod tests {
     }
 
     #[test]
+    fn port_back_inside_the_retry_window_is_a_fresh_candidate() {
+        // A replug mid-retry is a new bring-up: a recognised board without
+        // Firmata gets flashed. A stale retry would win instead (it is tried
+        // before candidates) and probe it as a no-flash reconnect.
+        let mut link = link_with_firmata(&[UNO]);
+        link.scan(vec![uno(UNO)]);
+        link.io_mut().fail_next.insert(UNO.to_string(), u32::MAX);
+        link.session_ended(1);
+        link.scan(vec![uno(UNO)]); // reconnect attempt 0 fails; next due in 1s
+        assert_eq!(link.io().probes.len(), 2);
+
+        scan_after(&mut link, 500, vec![]); // unplugged…
+        scan_after(&mut link, 1_500, vec![uno(UNO)]); // …and back after the retry was due
+
+        assert_eq!(link.io().probes.len(), 3);
+        assert_eq!(link.io().flashes, vec![UNO], "treated as a fresh candidate");
+        for _ in 0..(60 * 4) {
+            scan_after(&mut link, 250, vec![uno(UNO)]);
+        }
+        assert_eq!(link.io().probes.len(), 3, "no leftover retry probes it again");
+    }
+
+    #[test]
     fn one_probe_per_scan_so_port_facts_are_read_between_probes() {
         let adapter = |name: &str| usb(name, 0x067b, 0x2303);
         let (a, b, c) = ("/dev/cu.usbserial-a", "/dev/cu.usbserial-b", "/dev/cu.usbserial-c");
@@ -779,9 +802,11 @@ mod tests {
     }
 
     #[test]
-    fn write_error_in_the_runtime_session_disconnects_the_link() {
-        // End to end across the seam: the actor's session fails a write, reports
-        // its id over the channel, and the link (fed that fact) disconnects.
+    fn board_session_write_error_reaches_the_link_through_the_channel() {
+        // Covers `BoardSession::write` → the session-ended channel →
+        // `drain_session_ends` (the monitor tick's first step). Not covered:
+        // `Actor::write_bytes` (it needs a Tauri `AppHandle`; it only drops the
+        // session on `Err`) and the tick's real port scan.
         use crate::runtime::host::BoardSession;
         use std::io::{self, Read, Write};
 
