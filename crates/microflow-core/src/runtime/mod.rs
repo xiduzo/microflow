@@ -188,6 +188,9 @@ pub struct FlowRuntime {
     paused: HashSet<Arc<str>>,
     /// The edges among `paused` when they were paused — the loop's shape.
     paused_edges: Vec<[String; 4]>,
+    /// Re-announces seen recently, and the outputs held at the safe state while
+    /// the board keeps resetting (see `session`).
+    reset_guard: session::ResetGuard,
 }
 
 impl FlowRuntime {
@@ -217,6 +220,7 @@ impl FlowRuntime {
             health: NodeHealth::default(),
             paused: HashSet::new(),
             paused_edges: Vec::new(),
+            reset_guard: session::ResetGuard::default(),
         }
     }
 
@@ -279,6 +283,7 @@ impl FlowRuntime {
         //    next turn that runs long, so every update clears it.
         self.release_paused(&new_ids, &to_add, &edges);
         self.health.clear_overloads();
+        self.end_reset_storm();
         for id in &removed {
             self.remove_component(id);
             self.node_data.remove(id);
@@ -410,6 +415,8 @@ impl FlowRuntime {
         }
         if Self::is_reannounce(&parsed) {
             self.board_reannounced(&mut out, &mut reqs);
+        } else {
+            self.resume_after_reset_storm(&mut out, &mut reqs);
         }
         self.detect_pin_changes();
         self.drain_i2c_replies();

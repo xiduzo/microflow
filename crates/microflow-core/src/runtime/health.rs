@@ -32,6 +32,10 @@ struct NodeFaults {
     /// A turn ran out of budget at this node without a loop (fan-out). Nothing
     /// is paused; cleared by the next flow update.
     overload: Option<String>,
+    /// The board keeps resetting, so this node's output is held at the safe
+    /// state instead of restored (`runtime::session`). Cleared when the board
+    /// goes quiet or the flow is updated.
+    resetting: Option<String>,
     /// Inputs (`dispatch` methods) currently being rejected, in failure order.
     rejected: Vec<(String, String)>,
     /// The node sits on a pin the connected board cannot use the way it needs
@@ -50,8 +54,9 @@ impl NodeFaults {
         if let Some((DiagnosticLevel::Error, m)) = &self.pins {
             return Some((DiagnosticLevel::Error, m.clone()));
         }
-        self.overload
+        self.resetting
             .as_ref()
+            .or(self.overload.as_ref())
             .or(self.rejected.last().map(|(_, m)| m))
             .map(|m| (DiagnosticLevel::Warning, m.clone()))
             .or_else(|| self.pins.clone())
@@ -62,6 +67,7 @@ impl NodeFaults {
             && self.start.is_none()
             && self.runaway.is_none()
             && self.overload.is_none()
+            && self.resetting.is_none()
             && self.rejected.is_empty()
             && self.pins.is_none()
     }
@@ -87,6 +93,7 @@ impl NodeHealth {
             f.start = None;
             f.runaway = None;
             f.overload = None;
+            f.resetting = None;
             f.rejected.clear();
             f.pins = None;
         });
@@ -101,6 +108,12 @@ impl NodeHealth {
     /// budget.
     pub(crate) fn overloaded(&mut self, id: &str, message: Option<String>) {
         self.touch(id, |f| f.overload = message);
+    }
+
+    /// Warn (`Some`) that the board keeps resetting and this node's output is
+    /// held at the safe state, or clear it (`None`).
+    pub(crate) fn board_resetting(&mut self, id: &str, message: Option<String>) {
+        self.touch(id, |f| f.resetting = message);
     }
 
     /// Clear every overload warning — a flow update re-judges the flow.

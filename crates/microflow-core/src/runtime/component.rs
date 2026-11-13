@@ -189,12 +189,22 @@ pub trait HardwareComponent: Component {
     /// the old output again is safe without knowing why the board reset (a
     /// plain digital or PWM output); the default leaves the initialized state.
     /// Must not emit: the node's value did not change as far as the flow knows.
+    ///
+    /// Only called when [`restores_output`](Self::restores_output) says it
+    /// would re-drive `last`.
     fn restore_output(
         &mut self,
         _last: &ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
         Ok(())
+    }
+
+    /// Whether [`restore_output`](Self::restore_output) would drive something
+    /// for `last` (an LED that was lit, a relay that was open). A board that
+    /// keeps resetting holds exactly these outputs at the safe state.
+    fn restores_output(&self, _last: &ComponentValue) -> bool {
+        false
     }
 
     /// Pin-change Hardware Callback for a registered `DigitalPin` / `AnalogPin`.

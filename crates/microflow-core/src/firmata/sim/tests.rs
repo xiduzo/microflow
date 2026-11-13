@@ -306,6 +306,122 @@ mod through_the_runtime {
         assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
+    /// The board resets while it is part-way through an I2C reply: the reply's
+    /// `F7` never comes, and the boot announcement follows the cut frame. The
+    /// re-announce must still be seen, or the flow goes silent.
+    #[test]
+    fn a_reset_mid_i2c_reply_still_re_applies_the_flow() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x11, 0x22]);
+        rig.apply_flow(
+            vec![node(
+                "dev",
+                "I2cDevice",
+                json!({ "address": 0x29, "register": 0x14, "readLength": 2, "output": "raw" }),
+            )],
+            vec![],
+        );
+        rig.board.sample(); // a reply is on the wire…
+        rig.board.reset(); // …when the board reboots and announces itself
+        rig.board.cut_next_sysex(5); // the reply loses its tail and F7
+        rig.pump();
+        assert_eq!(rig.board.boots(), 2);
+        assert!(rig.board.i2c_enabled(), "the re-apply configured the bus again");
+        assert_eq!(rig.board.i2c_queries().len(), 1, "and re-armed the read");
+    }
+
+    /// The same with a `STRING_DATA` frame cut by the reset.
+    #[test]
+    fn a_reset_mid_string_data_still_re_applies_the_flow() {
+        let mut rig = button_rig(BoardLayout::uno());
+        rig.board.inject_output(&[START_SYSEX, crate::firmata::STRING_DATA, 0x41, 0x00]);
+        rig.board.reset();
+        rig.pump();
+        assert!(rig.board.is_reporting_digital(0), "reporting re-enabled after the reset");
+        press(&mut rig, true);
+        assert!(rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
+    }
+
+    /// Reset the board `times` times, a second apart, the relay open each time.
+    fn reset_repeatedly(rig: &mut SimRig, times: usize) {
+        for _ in 0..times {
+            rig.advance(1_000);
+            rig.board.reset();
+            rig.pump();
+        }
+    }
+
+    fn resetting_badge(rig: &SimRig, node: &str) -> Option<Option<String>> {
+        rig.diagnostics()
+            .iter()
+            .rev()
+            .find(|d| d.node == node && d.origin == crate::runtime::DiagnosticOrigin::Runtime)
+            .map(|d| d.message.clone())
+    }
+
+    fn relay_rig() -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("relay", "Relay", json!({ "pin": 7 }))], vec![]);
+        rig.dispatch("relay", "true", true);
+        rig.take_events();
+        rig
+    }
+
+    /// A relay on the board's own 5 V rail: re-closing it browns the board out,
+    /// which resets and re-announces. After three resets in 30 s the runtime
+    /// stops re-driving it, says why on the node, and restores it once the
+    /// board has been quiet for 30 s.
+    #[test]
+    fn a_board_that_keeps_resetting_holds_its_outputs_until_it_is_quiet() {
+        let mut rig = relay_rig();
+        reset_repeatedly(&mut rig, 2);
+        assert!(rig.board.pin(7).is_high(), "two resets: still restored");
+        assert_eq!(resetting_badge(&rig, "relay"), None);
+
+        reset_repeatedly(&mut rig, 1);
+        assert!(!rig.board.pin(7).is_high(), "the third reset in 30 s holds it off");
+        let badge = resetting_badge(&rig, "relay").flatten().expect("a badge on the held node");
+        assert!(badge.contains("keeps resetting") && badge.contains("power supply"), "{badge}");
+
+        // Still resetting: still held, and the value to restore is not lost.
+        reset_repeatedly(&mut rig, 1);
+        assert!(!rig.board.pin(7).is_high());
+
+        // Quiet for 30 s: the next chunk from the board restores it.
+        rig.advance(30_000);
+        rig.board.inject_output(&[0xF9, 2, 5]);
+        rig.pump();
+        assert!(rig.board.pin(7).is_high(), "restored once the board is quiet");
+        assert_eq!(resetting_badge(&rig, "relay"), Some(None), "badge cleared");
+        assert!(rig.events().is_empty(), "nothing emitted: {:?}", rig.events());
+    }
+
+    /// Resets spread wider than the window are each restored.
+    #[test]
+    fn resets_far_apart_are_not_a_storm() {
+        let mut rig = relay_rig();
+        for _ in 0..4 {
+            rig.advance(20_000);
+            rig.board.reset();
+            rig.pump();
+            assert!(rig.board.pin(7).is_high());
+        }
+        assert_eq!(resetting_badge(&rig, "relay"), None);
+    }
+
+    /// A flow update ends the storm: the badge clears and the count restarts.
+    #[test]
+    fn a_flow_update_ends_a_reset_storm() {
+        let mut rig = relay_rig();
+        reset_repeatedly(&mut rig, 3);
+        assert!(resetting_badge(&rig, "relay").flatten().is_some());
+        rig.apply_flow(vec![node("relay", "Relay", json!({ "pin": 7 }))], vec![]);
+        assert_eq!(resetting_badge(&rig, "relay"), Some(None));
+        rig.dispatch("relay", "true", true);
+        reset_repeatedly(&mut rig, 1);
+        assert!(rig.board.pin(7).is_high(), "a fresh count: one reset is restored");
+    }
+
     /// A reply cut short (its `F7` lost) must cost that one reply only: the
     /// next status byte ends the cut frame, so the next, intact reply is
     /// decoded rather than swallowed into one garbage frame.

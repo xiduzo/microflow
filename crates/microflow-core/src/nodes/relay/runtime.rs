@@ -92,6 +92,10 @@ impl HardwareComponent for Relay {
         self.close(ctx)
     }
 
+    fn restores_output(&self, last: &ComponentValue) -> bool {
+        last.as_bool() == Some(true)
+    }
+
     /// A relay is a plain output: switch it back to open if it was. Mirrors
     /// `open` without its `set_value` emit.
     fn restore_output(
