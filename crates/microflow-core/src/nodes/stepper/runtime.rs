@@ -17,8 +17,8 @@
 //! a reserved string for it.
 
 use crate::runtime::{
-    Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent, RuntimeContext,
-    RuntimeError,
+    Component, ComponentBase, ComponentBuilder, ComponentValue, DiagnosticLevel,
+    HardwareComponent, RuntimeContext, RuntimeError,
 };
 
 use super::config::{StepperConfig, StepperInterface};
@@ -36,10 +36,18 @@ const CMD_STOP: u8 = 0x05;
 const CMD_SET_ACCEL: u8 = 0x08;
 const CMD_SET_SPEED: u8 = 0x09;
 
+/// The largest step count (either way) `AccelStepperFirmata` can take: it
+/// decodes 28 bits of magnitude (4 × 7), so a bigger move would wrap silently
+/// on the board. Moves are clamped to it.
+pub(crate) const MAX_STEPS: i32 = (1 << 28) - 1;
+
 pub(crate) struct Stepper {
     base: ComponentBase,
     config: StepperConfig,
     current_position: i32,
+    /// A move was clamped to [`MAX_STEPS`] and the node says so; the next move
+    /// in range clears it.
+    clamp_shown: bool,
 }
 
 impl Stepper {
@@ -49,7 +57,29 @@ impl Stepper {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             current_position: 0,
+            clamp_shown: false,
         }
+    }
+
+    /// A requested step count or position, clamped to what the board can take
+    /// ([`MAX_STEPS`]); a clamp warns on the node, the next move in range
+    /// clears it. A non-number reads as 0.
+    fn steps_in_range(&mut self, requested: f64, ctx: &mut RuntimeContext) -> i32 {
+        let max = f64::from(MAX_STEPS);
+        if requested.abs() > max {
+            ctx.report_diagnostic(
+                DiagnosticLevel::Warning,
+                format!(
+                    "A move to {requested} steps is past what the board can take; it moves {} steps instead (the limit is ±{MAX_STEPS})",
+                    requested.clamp(-max, max) as i32
+                ),
+            );
+            self.clamp_shown = true;
+        } else if self.clamp_shown {
+            ctx.clear_diagnostic();
+            self.clamp_shown = false;
+        }
+        requested.clamp(-max, max) as i32
     }
 
     /// Send a sysex message for the `AccelStepper` protocol.
@@ -136,12 +166,14 @@ impl Stepper {
         ]
     }
 
-    /// Encode a 32-bit signed integer the way `AccelStepperFirmata` decodes it
+    /// Encode a signed step count the way `AccelStepperFirmata` decodes it
     /// (firmata.js `encode32BitSignedInteger`): **sign-magnitude**, the
-    /// magnitude in 4 × 7 + 3 bits and the sign in bit 3 of the fifth byte.
-    /// Two's complement here turned a 50-step move backwards into a move of
-    /// ~268 million steps.
+    /// magnitude in 4 × 7 bits and the sign in bit 3 of the fifth byte. Two's
+    /// complement here turned a 50-step move backwards into a move of ~268
+    /// million steps. The magnitude is clamped to [`MAX_STEPS`], so the fifth
+    /// byte's low bits stay clear and `i32::MIN` cannot go out as −0.
     fn encode_signed_long(value: i32) -> [u8; 5] {
+        let value = value.clamp(-MAX_STEPS, MAX_STEPS);
         let magnitude = value.unsigned_abs();
         let mut out = [
             (magnitude & 0x7F) as u8,
@@ -241,7 +273,7 @@ impl Component for Stepper {
         match method {
             "value" => {
                 // Relative move: number of steps
-                let steps = args.as_number().unwrap_or(0.0) as i32;
+                let steps = self.steps_in_range(args.as_number().unwrap_or(0.0), ctx);
                 if steps != 0 {
                     self.step(ctx, steps)?;
                 }
@@ -249,7 +281,7 @@ impl Component for Stepper {
             }
             "to" => {
                 // Absolute move: target position
-                let position = args.as_number().unwrap_or(0.0) as i32;
+                let position = self.steps_in_range(args.as_number().unwrap_or(0.0), ctx);
                 self.move_to(ctx, position)?;
                 Ok(())
             }
@@ -364,6 +396,34 @@ mod sim_tests {
         assert_eq!(position(&rig), 0, "stop before the move ran");
         rig.dispatch("motor", "enable", 0.0);
         assert!(!rig.board.stepper(0).expect("configured").enabled);
+    }
+
+    /// A move past the 28 bits `AccelStepperFirmata` decodes wrapped silently;
+    /// it is clamped and the node warns until a move in range.
+    #[test]
+    fn a_move_past_28_bits_is_clamped_and_warned() {
+        let mut rig = stepper(json!({}));
+        rig.dispatch("motor", "to", 1e12);
+        rig.pump();
+        assert_eq!(position(&rig), super::MAX_STEPS);
+        let warning = rig.diagnostics().last().expect("warned").clone();
+        assert_eq!(warning.level, crate::runtime::DiagnosticLevel::Warning);
+        assert!(warning.message.as_deref().is_some_and(|m| m.contains("268435455")), "{warning:?}");
+
+        rig.dispatch("motor", "to", f64::from(i32::MIN));
+        rig.pump();
+        assert_eq!(position(&rig), -super::MAX_STEPS, "i32::MIN must not go out as -0");
+
+        rig.dispatch("motor", "to", 10.0);
+        rig.pump();
+        assert_eq!(position(&rig), 10);
+        assert_eq!(rig.diagnostics().last().and_then(|d| d.message.clone()), None, "an in-range move clears it");
+    }
+
+    #[test]
+    fn the_encoder_keeps_the_fifth_byte_to_the_sign() {
+        assert_eq!(super::Stepper::encode_signed_long(i32::MAX), [0x7F, 0x7F, 0x7F, 0x7F, 0x00]);
+        assert_eq!(super::Stepper::encode_signed_long(i32::MIN), [0x7F, 0x7F, 0x7F, 0x7F, 0x08]);
     }
 
     /// The custom float kept only the integer part above 1 (1.5 → 1) and put
