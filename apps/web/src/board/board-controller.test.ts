@@ -8,6 +8,7 @@ import {
 } from "./board-controller-core";
 import type { BoardState } from "@/lib/bindings/BoardState";
 import type { BringUpAction, BringUpEvent } from "./wasm";
+import { FakeClock } from "./link-fakes";
 
 // A fake port. Only `getInfo` is ever read by the controller itself.
 function fakePort(label = "usb1") {
@@ -18,7 +19,10 @@ function fakeConnection(port: unknown) {
   return {
     port,
     session: {},
+    pinSeed: "[]",
+    phase: "ready",
     write: async () => {},
+    attachInbound: () => {},
     disconnect: async () => {},
   } as never;
 }
@@ -105,6 +109,8 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
     track: ((event: string, data?: Record<string, unknown>) => {
       tracked.push({ event, data });
     }) as never,
+    clock: new FakeClock(),
+    onPageLifecycle: () => () => {},
     isDesktop: () => false,
   };
 

@@ -30,6 +30,7 @@ import { createBringUp, handleBringUp } from "./wasm";
 import { FlowReactor, type CloudDeps } from "@/runtime/flow-reactor";
 import { isDesktop } from "@/platform/platform";
 import { BoardController, type BoardControllerDeps } from "./board-controller-core";
+import { realClock } from "./clock";
 
 export {
   BoardController,
@@ -89,6 +90,7 @@ export const browserBoardDeps: BoardControllerDeps = {
     },
   },
   track: trackEvent,
+  clock: realClock,
   isDesktop,
 };
 

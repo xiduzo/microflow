@@ -6,10 +6,14 @@
 // transitions — lives once in the sans-IO `microflow_core::bringup` state
 // machine (via the firmata wasm crate); both hosts drive the same machine.
 //
-// What is left here is not policy but *sequencing*, and it has invariants worth
-// testing: one serialised queue so no two port operations overlap, the in-flight
-// attempt's bookkeeping, and the latched engine fault that must never respawn a
-// runtime into the same trap (ADR-0017).
+// What is left here is the host's half, and it is the one owner of the browser
+// board connection:
+//
+// - the live link (`board-link.ts`) — at most one, replaced only through the
+//   machine's `closePort`, and its inbound stream handed to the flow runtime
+//   only once that runtime exists;
+// - the board store, written through `publish`, so a latched engine fault can
+//   never be painted over by a later phase.
 //
 // Every import below is type-only, so this module pulls in no store, no toast
 // library and no wasm. `board-controller.ts` is the composition root that binds
@@ -18,7 +22,9 @@
 
 import type * as WebSerial from "./web-serial";
 import type * as Analytics from "@/lib/analytics";
-import type { BoardConnection, ProbeHooks, WebSerialPort } from "./web-serial";
+import type { BoardConnection, LinkLoss, ProbeHooks } from "./board-link";
+import type { Clock } from "./clock";
+import type { WebSerialPort } from "./serial-port";
 import type {
   BringUpAction,
   BringUpEvent,
@@ -74,6 +80,7 @@ export interface BoardControllerDeps {
   setBoard(state: BoardState): void;
   notify: Notifier;
   track: typeof Analytics.track;
+  clock: Clock;
   /** The desktop host runs its own bring-up; this controller stands down there. */
   isDesktop(): boolean;
 }
@@ -90,19 +97,20 @@ type Attempt = {
 };
 
 export class BoardController {
-  /** The single active browser board connection — the adapter's I/O handle;
-   *  every DECISION about it comes from the shared bring-up machine. */
-  private active: BoardConnection | null = null;
-  /** The wasm flow-runtime host for the active connection. */
+  /** The single live board link. Every DECISION about it comes from the shared
+   *  bring-up machine; its transport lifecycle is the link's own. */
+  private link: BoardConnection | null = null;
+  /** The wasm flow-runtime host — board-backed while a link is attached,
+   *  boardless otherwise. */
   private reactor: ReactorHandle | null = null;
   /** Latest core `FlowUpdate`, applied when a board attaches. */
   private latestFlow: CoreFlowUpdate | null = null;
   /** The shared bring-up policy machine (lazy: wasm loads on first use). */
   private machinePromise: Promise<BringUpMachine> | null = null;
   private started = false;
-  // A trapped wasm module never runs a flow again (ADR-0017); latched so the
-  // boardless runtime is not respawned into the same fault on every disconnect.
-  private engineDead = false;
+  /** Set once the wasm engine traps (ADR-0017). Terminal until reload: no
+   *  runtime is respawned, no board is brought up, the store stays `error`. */
+  private engineFault: string | null = null;
   // Serialise every port operation so connect / auto-reconnect / plug events
   // never race to open the same port.
   private queue: Promise<unknown> = Promise.resolve();
@@ -123,7 +131,13 @@ export class BoardController {
   /** Resolve once every queued port operation has settled. Tests only — the app
    *  never waits on the queue, it just adds to it. */
   async settled(): Promise<void> {
-    await this.queue;
+    let seen: Promise<unknown> | null = null;
+    // A task may queue another (a lost link queues `connectionLost`); wait the
+    // chain out rather than the snapshot taken on entry.
+    while (seen !== this.queue) {
+      seen = this.queue;
+      await seen;
+    }
   }
 
   /**
@@ -144,6 +158,14 @@ export class BoardController {
     this.reactor?.dispatchToNode(nodeId, port, value);
   }
 
+  /** The one writer of the board store: a latched engine fault outranks every
+   *  phase the machine reports after it. */
+  private publish(state: BoardState): void {
+    this.deps.setBoard(
+      this.engineFault === null ? state : { state: "error", error: this.engineFault },
+    );
+  }
+
   /**
    * Stand up a runtime with no board behind it, so the software half of a flow
    * (Hotkey, Interval, Llm, Mqtt, Midi, …) runs from page load instead of
@@ -154,15 +176,20 @@ export class BoardController {
    * and a fresh one would just re-run the flow that trapped it (ADR-0017).
    */
   private ensureBoardlessReactor(): void {
-    if (this.deps.isDesktop() || this.engineDead || this.reactor !== null) return;
+    if (this.deps.isDesktop() || this.engineFault !== null || this.reactor !== null) return;
     void this.run(async () => {
       // `run` serialises against bring-up, so a board may have won the race.
-      if (this.reactor !== null || this.active !== null || this.engineDead) return;
+      if (this.reactor !== null || this.link !== null || this.engineFault !== null) return;
       try {
-        this.reactor = await this.deps.attachReactor(null, {
+        const reactor = await this.deps.attachReactor(null, {
           onEngineFault: (m) => this.onEngineFault(m),
         });
-        if (this.latestFlow) this.reactor.applyFlow(this.latestFlow);
+        if (this.engineFault !== null) {
+          reactor.dispose();
+          return;
+        }
+        this.reactor = reactor;
+        if (this.latestFlow) reactor.applyFlow(this.latestFlow);
       } catch (error) {
         console.error("[board-controller] boardless reactor attach failed:", error);
         this.reactor = null;
@@ -175,7 +202,7 @@ export class BoardController {
       via: a.explicit ? "gesture" : "auto",
       board: a.board,
       flashed: a.flashed,
-      seconds: Math.round((performance.now() - a.startedAt) / 1000),
+      seconds: Math.round((this.deps.clock.now() - a.startedAt) / 1000),
     };
   }
 
@@ -194,36 +221,36 @@ export class BoardController {
    * run again on this runtime (ADR-0017). Drop the reactor so nothing calls back
    * into the dead module, and surface it on the board-level error state.
    *
-   * Deliberately NOT a bring-up event: the port is open and the board is fine,
-   * so `connectionLost` would be a lie, and the machine's retry would close a
-   * working port to reconnect into the same dead module, forever. This sets the
-   * store directly instead — a *notify* without a transition.
-   *
-   * It uses the `error` state rather than a toast alone because the condition is
-   * persistent and a toast is not: until the page reloads, this board runs no
-   * flow, and a UI still reading `connected` would say otherwise. Reload is the
-   * recovery (a trapped module cannot be revived in place), which is also why it
-   * does not matter that `connect()` short-circuits while `active` is set.
+   * Deliberately NOT a bring-up event: `connectionLost` would retry into the
+   * same dead module, forever (ADR-0017 D3). `publish` keeps `error` showing
+   * over any later phase; reload is the recovery.
    */
   private onEngineFault(message: string): void {
-    this.engineDead = true;
+    if (this.engineFault !== null) return;
+    this.engineFault = message;
     this.reactor?.dispose();
     this.reactor = null;
     console.error("[board-controller] flow engine fault:", message);
-    this.deps.setBoard({ state: "error", error: message });
+    this.publish({ state: "error", error: message });
     this.deps.notify.error(message);
   }
 
-  /** The probe hooks: raw bytes feed the flow runtime; an unexpected read-loop
-   *  end while connected re-enters the machine as `connectionLost`. */
-  private probeHooks(): ProbeHooks {
+  /** The link's hooks: a live link losing its transport re-enters the machine
+   *  as `connectionLost`, which closes the port and schedules the retry. */
+  private linkHooks(): ProbeHooks {
     return {
-      // Only once a connection is live: mid-bring-up the reactor is still the
-      // boardless one, whose empty pin table cannot decode this board's traffic.
-      onBytes: (bytes) => {
-        if (this.active) this.reactor?.feedBytes(bytes);
+      onLost: (link: BoardConnection, loss: LinkLoss) => {
+        console.warn(
+          `[board-controller] board link lost (${loss.cause})`,
+          loss.cause === "writeFailed" ? String(loss.error) : "",
+        );
+        void this.run(async () => {
+          // A link that was already replaced or closed must not tear down its
+          // successor.
+          if (this.link !== link) return;
+          await this.dispatch({ type: "connectionLost" });
+        });
       },
-      onClosed: () => void this.run(() => this.dispatch({ type: "connectionLost" })),
     };
   }
 
@@ -233,9 +260,9 @@ export class BoardController {
         const a = this.attempt;
         if (!a) return;
         const probe = action.afterFlash ? this.deps.serial.probeAfterFlash : this.deps.serial.probeFirmata;
-        const connection = await probe(a.port, this.probeHooks()).catch(() => null);
+        const connection = await probe(a.port, this.linkHooks()).catch(() => null);
         if (connection) {
-          this.active = connection;
+          this.link = connection;
           await this.dispatch({ type: "probeOk" });
         } else {
           await this.dispatch({ type: "probeFailed" });
@@ -259,9 +286,9 @@ export class BoardController {
       case "closePort": {
         this.reactor?.dispose();
         this.reactor = null;
-        const connection = this.active;
-        this.active = null;
-        await connection?.disconnect();
+        const link = this.link;
+        this.link = null;
+        await link?.disconnect();
         // The board is gone, the flow is not: fall back to the boardless runtime.
         this.ensureBoardlessReactor();
         break;
@@ -291,7 +318,7 @@ export class BoardController {
     const a = this.attempt;
     switch (phase.kind) {
       case "connecting":
-        this.deps.setBoard({ state: "connecting" });
+        this.publish({ state: "connecting" });
         break;
       case "flashing": {
         if (a) {
@@ -299,7 +326,7 @@ export class BoardController {
           a.board = phase.board;
           a.flashToast ??= this.deps.notify.loading("Flashing StandardFirmata…");
         }
-        this.deps.setBoard({
+        this.publish({
           state: "flashing",
           port: a ? this.deps.serial.portLabel(a.port.getInfo()) : "Serial port",
           board: phase.board,
@@ -307,28 +334,15 @@ export class BoardController {
         break;
       }
       case "connected": {
-        if (this.active)
-          this.deps.setBoard(this.deps.serial.connectedState(this.active.port, this.active.session));
+        const link = this.link;
+        if (link) this.publish(this.deps.serial.connectedState(link.port, link.session));
         if (a?.flashToast !== undefined) {
           this.deps.notify.success(`Flashed StandardFirmata to ${a.board}.`, { id: a.flashToast });
           a.flashToast = undefined;
         }
-        // Stand up the wasm flow runtime for this connection and apply the
-        // current flow. A reactor failure (e.g. wasm load) must not fail the
-        // connection — the board is still up; the flow just won't run.
         this.reactor?.dispose();
         this.reactor = null;
-        if (this.active) {
-          try {
-            this.reactor = await this.deps.attachReactor(this.active, {
-              onEngineFault: (m) => this.onEngineFault(m),
-            });
-            if (this.latestFlow) this.reactor.applyFlow(this.latestFlow);
-          } catch (reactorError) {
-            console.error("[board-controller] flow reactor attach failed:", reactorError);
-            this.reactor = null;
-          }
-        }
+        if (link) await this.attachToLink(link);
         if (a) {
           this.deps.track("board_connected", this.trackData(a));
           this.attempt = null;
@@ -345,7 +359,7 @@ export class BoardController {
           this.deps.track("board_connect_failed", { ...this.trackData(a), error: "no firmata" });
           this.attempt = null;
         }
-        this.deps.setBoard({ state: "disconnected" });
+        this.publish({ state: "disconnected" });
         break;
       case "error":
         if (a?.flashToast !== undefined) {
@@ -360,10 +374,40 @@ export class BoardController {
           this.attempt = null;
         }
         // Full detail reaches the store + toast (do not collapse it — 7c8f7e2).
-        this.deps.setBoard({ state: "error", error: phase.detail });
+        this.publish({ state: "error", error: phase.detail });
         this.deps.notify.error(phase.detail);
         break;
     }
+  }
+
+  /**
+   * Stand up the wasm flow runtime for `link`, apply the current flow, then
+   * hand it the link's inbound stream — the bytes queued since the handshake
+   * first, in order. The flow goes in before the replay so a pin change that
+   * arrived during attach reaches the node that listens for it.
+   *
+   * A reactor failure (e.g. wasm load) must not fail the connection — the board
+   * is still up; the flow just won't run — but the link stops queueing.
+   */
+  private async attachToLink(link: BoardConnection): Promise<void> {
+    let reactor: ReactorHandle;
+    try {
+      reactor = await this.deps.attachReactor(link, {
+        onEngineFault: (m) => this.onEngineFault(m),
+      });
+    } catch (reactorError) {
+      console.error("[board-controller] flow reactor attach failed:", reactorError);
+      link.attachInbound(() => {});
+      return;
+    }
+    if (this.link !== link || this.engineFault !== null) {
+      // The link went away (or the engine died) while the runtime loaded.
+      reactor.dispose();
+      return;
+    }
+    this.reactor = reactor;
+    if (this.latestFlow) reactor.applyFlow(this.latestFlow);
+    link.attachInbound((bytes) => reactor.feedBytes(bytes));
   }
 
   /** Start a bring-up attempt for `port`; the machine takes it from here. */
@@ -375,7 +419,7 @@ export class BoardController {
     this.attempt = {
       port,
       explicit: flags.explicit,
-      startedAt: performance.now(),
+      startedAt: this.deps.clock.now(),
       board: board ?? "unknown",
       flashed: false,
     };
@@ -396,6 +440,11 @@ export class BoardController {
     }
   }
 
+  /** Whether a background path may open a port right now. */
+  private mayAutoConnect(): boolean {
+    return this.link === null;
+  }
+
   /**
    * Connect from a user gesture: pick a port, then let the machine run probe →
    * flash-if-missing → connect. `requestPort` must fire synchronously inside the
@@ -414,10 +463,10 @@ export class BoardController {
       const { port } = await picked;
       if (!port) {
         // Picker dismissed — not an error.
-        if (!this.active) this.deps.setBoard({ state: "disconnected" });
+        if (!this.link) this.publish({ state: "disconnected" });
         return;
       }
-      if (this.active) return; // auto-reconnect won the race
+      if (this.link) return; // auto-reconnect won the race
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
   }
@@ -430,12 +479,12 @@ export class BoardController {
   /**
    * Reconnect a granted board — recognised boards only, so we never hang
    * handshaking an unrelated serial device the user once authorised. Shared by the
-   * load scan and the reset-recovery path.
+   * load scan and the reconnect backoff.
    */
   private async reconnectGranted(): Promise<void> {
-    if (this.active) return;
+    if (!this.mayAutoConnect()) return;
     for (const port of await this.deps.serial.listGrantedPorts()) {
-      if (this.active) break;
+      if (!this.mayAutoConnect()) break;
       if (!(await this.looksLikeBoard(port))) continue;
       await this.bringUp(port, { autoFlash: false, explicit: false });
     }
@@ -444,7 +493,7 @@ export class BoardController {
   /**
    * Start the background orchestration once: stand up the boardless flow runtime,
    * reconnect any already-granted board on load, and watch for plug/unplug of
-   * granted devices. Idempotent.
+   * granted devices and for the page going away. Idempotent.
    *
    * Only the board half needs Chromium — the runtime runs in every browser, so a
    * Firefox user still gets their software nodes.
@@ -464,13 +513,13 @@ export class BoardController {
     this.deps.serial.onConnectivity({
       onConnect: (port) =>
         void this.run(async () => {
-          if (this.active) return;
+          if (!this.mayAutoConnect()) return;
           if (!(await this.looksLikeBoard(port))) return;
           await this.bringUp(port, { autoFlash: false, explicit: false });
         }),
       onDisconnect: (port) =>
         void this.run(async () => {
-          if (this.active && this.active.port === port) {
+          if (this.link && this.link.port === port) {
             await this.dispatch({ type: "portGone" });
           }
         }),
