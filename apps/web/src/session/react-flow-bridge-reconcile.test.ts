@@ -258,7 +258,52 @@ describe("pending edge intent survives a doc change before the flush", () => {
   });
 });
 
+describe("remove and re-add of one id inside a frame", () => {
+  test("an unchanged re-add keeps the node", () => {
+    const { doc, bridge } = setup();
+    const n1 = snapNode(bridge, "n1")!;
+    bridge.applyNodeChanges([{ type: "remove", id: "n1" }]);
+    bridge.applyNodeChanges([{ type: "add", item: n1 }]);
+
+    expect(snapNode(bridge, "n1")).toBeDefined();
+    bridge.flush();
+    expect(doc.hasNode("n1")).toBe(true);
+  });
+
+  test("a changed re-add writes the change", () => {
+    const { doc, bridge } = setup();
+    const n1 = snapNode(bridge, "n1")!;
+    bridge.applyNodeChanges([{ type: "remove", id: "n1" }]);
+    bridge.applyNodeChanges([{ type: "add", item: { ...n1, position: { x: 5, y: 6 } } }]);
+
+    bridge.flush();
+    expect(doc.getNode("n1")?.position).toEqual({ x: 5, y: 6 });
+  });
+});
+
 describe("deleting a node leaves no dangling edge", () => {
+  test("a new local edge to a node a peer deleted inside the frame is not written", () => {
+    const { doc, bridge } = setup();
+    bridge.applyEdgeChanges([{ type: "add", item: mkEdge("e1", "n1", "n2") } as EdgeChange]);
+
+    remote(doc, () => doc.removeNode("n2"));
+
+    expect(bridge.getSnapshot().edges).toHaveLength(0);
+    bridge.flush();
+    expect(doc.hasEdge("e1")).toBe(false);
+  });
+
+  test("the canvas keeps the doc pruned while it is mounted", () => {
+    const { doc, bridge } = setup();
+    // A peer's edge to a node another peer deleted, merged in afterwards.
+    remote(doc, () => doc.deleteNode("n2"));
+    remote(doc, () => doc.addEdge(mkEdge("late", "n1", "n2")));
+
+    expect(doc.hasEdge("late")).toBe(false);
+    expect(bridge.getSnapshot().edges).toHaveLength(0);
+    bridge.destroy();
+  });
+
   test("an edge a peer attached before the flush goes with the node", () => {
     const { doc, bridge } = setup();
     bridge.applyNodeChanges([{ type: "remove", id: "n1" }]);
