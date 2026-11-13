@@ -16,9 +16,9 @@ permissions:
 jobs:
   # Release gate: the same checks pull requests run, on the tagged commit.
   # Nothing below starts (no draft release, no version bump on main, no
-  # build) unless both pass. Note: build-tauri builds main as bump-version
-  # leaves it, which is the tagged commit plus the version bump only when the
-  # tag was pushed on main's head (the normal release flow).
+  # build) unless they pass. build-tauri builds main as bump-version leaves
+  # it, and bump-version refuses to run unless main's head is the tagged
+  # commit, so what ships is exactly the gated commit plus the version bump.
   rust:
     name: Gate / Rust
     uses: ./.github/workflows/rust.yml
@@ -68,6 +68,20 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
+
+      # The gate tested the tagged commit, and the build below starts from
+      # main. If main has moved on since the tag, those commits were never
+      # gated, so stop rather than ship them.
+      - name: Check main is the tagged commit
+        env:
+          TAG: ${{ needs.create-release.outputs.tag_name }}
+          TAGGED_SHA: ${{ github.sha }}
+        run: |
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if [ "$MAIN_SHA" != "$TAGGED_SHA" ]; then
+            echo "::error::main has moved past $TAG; re-tag the current main head (after it passes CI) to release it. main is $MAIN_SHA, $TAG is $TAGGED_SHA."
+            exit 1
+          fi
 
       - name: Bump version files
         run: |
