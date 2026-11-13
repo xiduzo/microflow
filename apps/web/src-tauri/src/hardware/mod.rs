@@ -323,9 +323,12 @@ impl HardwareMonitorLoop {
                     // Wait for the board to reboot into the fresh sketch.
                     thread::sleep(Duration::from_millis(2500));
                 }
-                match firmata::detect_and_connect(&port_name, &self.board) {
-                    Some(state) => {
-                        self.last_connected = Some(state);
+                match firmata::detect(&port_name) {
+                    Some(detected) => {
+                        // Hand the open port + pin table to the runtime actor,
+                        // which seeds its codec and (re)applies the active flow.
+                        self.board.connect_board(detected.port, detected.pins_json);
+                        self.last_connected = Some(detected.state);
                         self.drive(BringUpEvent::ProbeOk);
                     }
                     None => self.drive(BringUpEvent::ProbeFailed),
