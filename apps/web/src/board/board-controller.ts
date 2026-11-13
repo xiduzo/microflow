@@ -18,6 +18,7 @@ import {
   connectedState,
   detectBoard,
   flashPort,
+  guessBoard,
   isWebSerialSupported,
   listGrantedPorts,
   onSerialConnectivity,
@@ -69,6 +70,7 @@ export const browserBoardDeps: BoardControllerDeps = {
     listGrantedPorts,
     requestBoardPort,
     detectBoard,
+    guessBoard,
     probeFirmata,
     probeAfterFlash,
     flashPort,
@@ -86,6 +88,9 @@ export const browserBoardDeps: BoardControllerDeps = {
     error: (message) => toast.error(message),
     dismiss: (id) => {
       toast.dismiss(id);
+    },
+    confirm: (message, { label, onConfirm }) => {
+      toast.warning(message, { duration: Infinity, action: { label, onClick: onConfirm } });
     },
   },
   track: trackEvent,

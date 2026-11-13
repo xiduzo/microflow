@@ -46,6 +46,8 @@ type Harness = {
   events: BringUpEvent[];
   boardStates: BoardState[];
   toasts: string[];
+  /** Actions offered through `notify.confirm`, in order. */
+  confirms: Array<{ label: string; onConfirm: () => void }>;
   tracked: Array<{ event: string; data?: Record<string, unknown> }>;
   reactors: Array<ReturnType<typeof fakeReactor>>;
   grantedPorts: unknown[];
@@ -58,6 +60,7 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
   const events: BringUpEvent[] = [];
   const boardStates: BoardState[] = [];
   const toasts: string[] = [];
+  const confirms: Array<{ label: string; onConfirm: () => void }> = [];
   const tracked: Array<{ event: string; data?: Record<string, unknown> }> = [];
   const reactors: Array<ReturnType<typeof fakeReactor>> = [];
   const state = {
@@ -73,6 +76,7 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
       listGrantedPorts: (async () => state.grantedPorts) as never,
       requestBoardPort: (async () => fakePort()) as never,
       detectBoard: (async () => "Arduino Uno") as never,
+      guessBoard: (async () => "Arduino Uno") as never,
       probeFirmata: (async () => state.probeResult()) as never,
       probeAfterFlash: (async () => state.probeResult()) as never,
       flashPort: (async () => "ok") as never,
@@ -101,6 +105,10 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
       success: (m) => void toasts.push(`success:${m}`),
       error: (m) => void toasts.push(`error:${m}`),
       dismiss: () => void toasts.push("dismiss"),
+      confirm: (m, action) => {
+        toasts.push(`confirm:${m}`);
+        confirms.push(action);
+      },
     },
     track: ((event: string, data?: Record<string, unknown>) => {
       tracked.push({ event, data });
@@ -116,6 +124,7 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
     events,
     boardStates,
     toasts,
+    confirms,
     tracked,
     reactors,
     get grantedPorts() {
@@ -189,6 +198,77 @@ describe("bring-up sequence", () => {
 
     expect(h.boardStates).toEqual([]);
     expect(h.events).toEqual([]);
+  });
+});
+
+describe("auto-flash needs a positively identified board", () => {
+  function portReadyOf(h: Harness) {
+    const ready = h.events.find((e) => e.type === "portReady");
+    if (ready?.type !== "portReady") throw new Error("no portReady");
+    return ready;
+  }
+
+  test("an official Arduino may be auto-flashed", async () => {
+    const h = harness({
+      detectBoard: (async () => "uno") as never,
+      guessBoard: (async () => "uno") as never,
+    });
+    const controller = new BoardController(h.deps);
+
+    await controller.connect();
+    await controller.settled();
+
+    expect(portReadyOf(h)).toMatchObject({ board: "uno", autoFlash: true, explicit: true });
+  });
+
+  test("a CH340 device is never flashed without confirmation", async () => {
+    const flashed: Array<string | undefined> = [];
+    const h = harness({
+      // A bridge chip: no positive identification, only a guess.
+      detectBoard: (async () => undefined) as never,
+      guessBoard: (async () => "nano") as never,
+      flashPort: (async (_port: unknown, opts: { board?: string }) => {
+        flashed.push(opts.board);
+        return "nano";
+      }) as never,
+    });
+    h.probeResult = () => null;
+    h.script((event) => {
+      if (event.type === "portReady") return [{ type: "probe", afterFlash: false } as BringUpAction];
+      if (event.type === "probeFailed")
+        return [{ type: "notify", phase: { kind: "confirmFlash", board: "nano" } } as BringUpAction];
+      if (event.type === "flashConfirmed") return [{ type: "flash", board: "nano" } as BringUpAction];
+      return [];
+    });
+    const controller = new BoardController(h.deps);
+
+    await controller.connect();
+    await controller.settled();
+
+    expect(portReadyOf(h)).toMatchObject({ board: "nano", autoFlash: false, explicit: true });
+    expect(flashed).toEqual([]);
+    expect(h.confirms.map((c) => c.label)).toEqual(["Flash as nano"]);
+    expect(h.boardStates.at(-1)?.state).toBe("error");
+
+    // The user's yes is the only thing that flashes — and it flashes the
+    // offered board, not a re-detection.
+    h.confirms[0].onConfirm();
+    await controller.settled();
+    expect(h.events.map((e) => e.type)).toContain("flashConfirmed");
+    expect(flashed).toEqual(["nano"]);
+  });
+
+  test("an unknown device is never flashed", async () => {
+    const h = harness({
+      detectBoard: (async () => undefined) as never,
+      guessBoard: (async () => undefined) as never,
+    });
+    const controller = new BoardController(h.deps);
+
+    await controller.connect();
+    await controller.settled();
+
+    expect(portReadyOf(h)).toMatchObject({ board: null, autoFlash: false });
   });
 });
 
