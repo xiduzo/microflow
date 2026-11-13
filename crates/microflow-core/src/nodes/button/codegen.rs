@@ -34,16 +34,11 @@ pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let pin = config.pin;
     let pin_var = format!("button_{}_pin", node.id_token());
     let state = state_var(node);
-    let pullup = config.is_pullup;
-
-    let mode = if pullup { "INPUT_PULLUP" } else { "INPUT" };
-    // With INPUT_PULLUP a pressed button reads LOW, so invert to a logical
-    // "pressed = true" to match the runtime's semantics.
-    let read_expr = if pullup {
-        format!("(digitalRead({pin_var}) == LOW)")
-    } else {
-        format!("(digitalRead({pin_var}) == HIGH)")
-    };
+    let mode = if config.is_pullup { "INPUT_PULLUP" } else { "INPUT" };
+    // With INPUT_PULLUP a pressed button reads LOW — the rule the runtime
+    // applies too (`ButtonConfig::pressed_when_high`).
+    let level = if config.pressed_when_high() { "HIGH" } else { "LOW" };
+    let read_expr = format!("(digitalRead({pin_var}) == {level})");
 
     NodeEmission {
         declarations: vec![

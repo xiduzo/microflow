@@ -18,6 +18,7 @@ pub mod component;
 pub mod context;
 pub mod error;
 mod health;
+mod pin_check;
 pub mod pin_mode;
 pub mod reconcile;
 pub mod registry;
@@ -41,7 +42,7 @@ pub mod cloud;
 // (so shared configs can use them without the `runtime` feature); re-exported
 // here so existing `crate::runtime::serde_utils` references keep resolving.
 pub use crate::config::serde_utils;
-pub use board::{BoardWriter, BufferBoardWriter, I2cBus};
+pub use board::{analog_write_like_arduino, BoardWriter, BufferBoardWriter, I2cBus, ANALOG_WRITE_ON_THRESHOLD};
 pub use component::{
     Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent,
 };
@@ -224,40 +225,19 @@ impl FlowRuntime {
         self.now_ms = ms;
     }
 
-    /// Seed the codec's pin table from the connection handshake's discovered
-    /// capabilities (`[{ "pin", "analogChannel" }]`, the `FirmataSession.pinsJson`
-    /// shape). The browser's detection session consumes the capability response
-    /// before the runtime attaches, so without this the runtime's pin table is
-    /// empty and inbound digital/analog messages have nowhere to land. The pin
-    /// count and analog flag drive change detection and analog channel math;
-    /// `supportedModes`, when the seed carries it (both hosts' does), tells a
-    /// node whether the firmware has the extension it needs.
+    /// Seed the board's pin profile from the connection handshake
+    /// ([`PinInfo`](crate::firmata::PinInfo)`[]`, the `FirmataSession.pinsJson`
+    /// shape both hosts project from their detection codec). The browser's
+    /// detection session consumes the capability response before the runtime
+    /// attaches, so without this the runtime would not know the board's pins:
+    /// inbound messages would have nowhere to land, `A<n>` labels and analog
+    /// channels would assume an Uno, and no pin could be judged.
     ///
     /// # Errors
     /// Returns the parse error if `pins_json` is not the expected array shape.
     pub fn seed_pins(&mut self, pins_json: &str) -> Result<(), serde_json::Error> {
-        #[derive(serde::Deserialize)]
-        struct PinInfo {
-            pin: usize,
-            #[serde(rename = "analogChannel")]
-            analog_channel: i32,
-            #[serde(rename = "supportedModes", default)]
-            supported_modes: Vec<u8>,
-        }
-        let infos: Vec<PinInfo> = serde_json::from_str(pins_json)?;
-        let len = infos.iter().map(|p| p.pin + 1).max().unwrap_or(0);
-        let mut pins = vec![crate::firmata::Pin::default(); len];
-        for info in infos {
-            if let Some(pin) = pins.get_mut(info.pin) {
-                pin.analog = info.analog_channel >= 0;
-                pin.modes = info
-                    .supported_modes
-                    .into_iter()
-                    .map(|mode| crate::firmata::Mode { mode, resolution: 0 })
-                    .collect();
-            }
-        }
-        self.client.pins = pins;
+        let infos: Vec<crate::firmata::PinInfo> = serde_json::from_str(pins_json)?;
+        self.client.set_profile(crate::firmata::PinProfile::from_pin_infos(&infos));
         Ok(())
     }
 
@@ -314,7 +294,10 @@ impl FlowRuntime {
             let instance = node_instance(node);
             self.health.rebuilt(&node.id);
             match self.registry.create(&node.id, instance, &node.data) {
-                Ok(component) => {
+                Ok(mut component) => {
+                    if let Some(hw) = component.as_hardware_mut() {
+                        hw.bind_pins(&self.client.profile);
+                    }
                     self.add_component(&node.id, component);
                     self.node_data.insert(node.id.clone(), node.data.clone());
                 }
@@ -323,6 +306,14 @@ impl FlowRuntime {
                     self.health.build_failed(&node.id, build_failure_message(instance, &e));
                 }
             }
+        }
+
+        // 3b. Judge every running node's pins against the board — every node,
+        //     not just the rebuilt ones, since a newly wired edge can change
+        //     what a pin must do (a Led's `value` port drives PWM).
+        for node in nodes.iter().filter(|n| self.components.contains_key(&n.id)) {
+            let fault = pin_check::problem(node, &edges, &self.client.profile);
+            self.health.pin_fault(&node.id, fault);
         }
 
         // 4. Recompute the wiring tables + the desired board config from every
@@ -621,7 +612,7 @@ impl FlowRuntime {
             let Some(pin) = self.client.pins.get(index) else { continue };
             let pin_num = index as u8;
             let current = pin.value as u16;
-            let is_analog = pin.analog;
+            let is_analog = self.client.profile.analog_channel(pin_num).is_some();
 
             let last = self.pin_values.get(&pin_num).copied();
             if last == Some(current) {
@@ -2037,16 +2028,24 @@ mod tests {
         /// Test helper: give the codec `n` plain digital pins so inbound digital
         /// messages have a pin table to land in.
         fn seed_digital_pins(&mut self, n: usize) {
-            self.client.pins = (0..n)
-                .map(|_| crate::firmata::Pin { analog: false, value: 0, ..Default::default() })
-                .collect();
+            let caps = vec![crate::firmata::PinCaps::default(); n];
+            self.client.set_profile(crate::firmata::PinProfile::new(caps));
         }
 
-        /// Test helper: mark a seeded pin as analog so analog reporting encodes.
+        /// Test helper: mark a seeded pin as analog (channels numbered in pin
+        /// order) so analog reporting encodes.
         fn mark_pin_analog(&mut self, pin: usize) {
-            if let Some(p) = self.client.pins.get_mut(pin) {
-                p.analog = true;
+            let mut infos = self.client.profile.pin_infos();
+            let Some(info) = infos.get_mut(pin) else { return };
+            info.analog_channel = 0;
+            let mut channel = 0;
+            for info in &mut infos {
+                if info.analog_channel >= 0 {
+                    info.analog_channel = channel;
+                    channel += 1;
+                }
             }
+            self.client.profile = crate::firmata::PinProfile::from_pin_infos(&infos);
         }
     }
 }

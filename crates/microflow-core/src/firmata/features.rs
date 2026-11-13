@@ -67,26 +67,22 @@ impl FirmataClient {
     /// seed without `supportedModes`, or no response yet) — never a false alarm.
     #[must_use]
     pub fn supports(&self, feature: FirmwareFeature) -> Option<bool> {
-        if self.pins.iter().all(|p| p.modes.is_empty()) {
-            return None;
-        }
-        let mode = feature.pin_mode();
-        Some(self.pins.iter().any(|p| p.modes.iter().any(|m| m.mode == mode)))
+        self.profile.any_pin_supports(feature.pin_mode())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::firmata::{Mode, Pin, MODE_INPUT, MODE_OUTPUT};
+    use crate::firmata::{Mode, PinCaps, PinProfile, MODE_INPUT, MODE_OUTPUT};
 
     fn client(modes: &[u8]) -> FirmataClient {
         let mut c = FirmataClient::new();
-        let pin = Pin {
+        let pin = PinCaps {
             modes: modes.iter().map(|&mode| Mode { mode, resolution: 1 }).collect(),
-            ..Pin::default()
+            ..PinCaps::default()
         };
-        c.pins = vec![Pin::default(), pin];
+        c.set_profile(PinProfile::new(vec![PinCaps::default(), pin]));
         c
     }
 

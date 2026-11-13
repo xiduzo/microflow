@@ -16,7 +16,7 @@ use crate::runtime::{
     ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-use super::config::{SwitchConfig, SwitchType};
+use super::config::SwitchConfig;
 
 /// Quiet window a line must hold before a deferred level is accepted. Must
 /// exceed one 50Hz mains period (20ms) — see [`crate::nodes::button::runtime`] for the full
@@ -49,14 +49,11 @@ impl Switch {
         }
     }
 
-    /// Translate raw pin reading to logical closed/open based on wiring type.
-    /// - NO (normally open): pin HIGH (pulled up) = open, pin LOW = closed
-    /// - NC (normally closed): pin HIGH (pulled up) = closed, pin LOW = open
+    /// Translate the raw pin level to logical closed/open through the wiring
+    /// type's truth table, shared with the emitted sketch
+    /// ([`SwitchType::closed_when_high`]).
     fn is_logically_closed(&self, pin_high: bool) -> bool {
-        match self.config.switch_type {
-            SwitchType::NO => !pin_high,
-            SwitchType::NC => pin_high,
-        }
+        pin_high == self.config.switch_type.closed_when_high()
     }
 
     fn process_state(&mut self, pin_high: bool, ctx: &mut RuntimeContext) {
@@ -215,22 +212,24 @@ mod sim_tests {
         rig.last_value("sw").cloned()
     }
 
-    /// The runtime's documented wiring: the line is pulled up, NO closes to
-    /// ground. (The emitted sketch reads NO as closed-on-HIGH — see the report.)
+    /// NO (johnny-five's default, and the emitted sketch): the contact pulls
+    /// the line HIGH when actuated, so HIGH is closed. Live and sketch used to
+    /// disagree — the runtime read NO as closed-on-LOW.
     #[test]
-    fn normally_open_closes_when_the_line_goes_low() {
+    fn normally_open_closes_when_the_line_goes_high() {
         let mut rig = switch("NO");
         assert_eq!(rig.board.pin(2).mode(), Some(MODE_INPUT));
-        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(true)));
-        assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(false)));
-    }
-
-    #[test]
-    fn normally_closed_closes_when_the_line_goes_high() {
-        let mut rig = switch("NC");
         assert_eq!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "{:?}", rig.events());
         assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(false)));
         assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(true)));
+    }
+
+    #[test]
+    fn normally_closed_closes_when_the_line_goes_low() {
+        let mut rig = switch("NC");
+        assert_ne!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "{:?}", rig.events());
+        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(true)));
+        assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(false)));
     }
 }
 
@@ -270,18 +269,18 @@ mod tests {
     /// The regression behind "the switch flips once, then stops responding":
     /// a digital report only arrives on change, so an edge dropped inside the
     /// debounce window desyncs `is_closed` from the pin forever unless the
-    /// deferred level is settled by the wakeup. (NO wiring: pin LOW = closed.)
+    /// deferred level is settled by the wakeup. (NO wiring: pin HIGH = closed.)
     #[test]
     fn edge_inside_the_window_settles_instead_of_desyncing() {
         let mut sw = Switch::new("sw".into(), SwitchConfig::default());
         let sink: EventSink = Rc::new(RefCell::new(VecDeque::new()));
         sw.set_sink(sink.clone());
 
-        feed(&mut sw, false, 0.0); // pin LOW → closed: accepted immediately
+        feed(&mut sw, true, 0.0); // pin HIGH → closed: accepted immediately
         assert!(sw.is_closed);
         assert!(drained_handles(&sink).contains(&"true".to_string()));
 
-        feed(&mut sw, true, 5.0); // pin HIGH → open, inside the window: deferred
+        feed(&mut sw, false, 5.0); // pin LOW → open, inside the window: deferred
         assert!(sw.is_closed, "edge inside the window is deferred, not applied");
 
         // No further reports ever arrive. The armed wakeup must resync.
@@ -298,9 +297,9 @@ mod tests {
         let sink: EventSink = Rc::new(RefCell::new(VecDeque::new()));
         sw.set_sink(sink.clone());
 
-        feed(&mut sw, false, 0.0); // closed
-        feed(&mut sw, true, 100.0); // open
-        feed(&mut sw, false, 200.0); // closed again
+        feed(&mut sw, true, 0.0); // closed
+        feed(&mut sw, false, 100.0); // open
+        feed(&mut sw, true, 200.0); // closed again
         let handles = drained_handles(&sink);
         assert_eq!(handles.iter().filter(|h| h.as_str() == "true").count(), 2);
         assert_eq!(handles.iter().filter(|h| h.as_str() == "false").count(), 1);
