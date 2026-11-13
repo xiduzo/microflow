@@ -285,16 +285,34 @@ describe("undo across the nested shape", () => {
 });
 
 describe("materialising a node the room wrote badly", () => {
-  test("a plain-object node from an outdated client is skipped, not thrown on", () => {
+  test("a plain-object node from an outdated client is read, not thrown on", () => {
     const doc = new FlowDocument();
     doc.addNode(mkNode("ok"));
     // A live update from a pre-ADR-0019 client, after the load-time upgrade.
     doc.doc.transact(() => {
+      doc.doc.getMap<unknown>("nodes").set("flat", mkNode("flat", { position: { x: 5, y: 6 } }));
+    }, "remote");
+
+    expect(doc.getNodes().map((n) => n.id).sort()).toEqual(["flat", "ok"]);
+    expect(doc.getNode("flat")).toMatchObject({ type: "Led", position: { x: 5, y: 6 } });
+  });
+
+  test("an edit to a plain-object node writes it in the map form, edit included", () => {
+    const doc = new FlowDocument();
+    doc.doc.transact(() => {
       doc.doc.getMap<unknown>("nodes").set("flat", mkNode("flat"));
     }, "remote");
 
-    expect(doc.getNodes().map((n) => n.id)).toEqual(["ok"]);
-    expect(doc.getNode("flat")).toBeUndefined();
+    doc.updateNodeData("flat", { label: "edited" });
+    expect(doc.nodes.get("flat")).toBeInstanceOf(Y.Map);
+    expect(doc.getNode("flat")!.data).toEqual({ label: "edited", pin: 13 });
+
+    doc.doc.transact(() => {
+      doc.doc.getMap<unknown>("nodes").set("flat2", mkNode("flat2"));
+    }, "remote");
+    doc.updateNodePosition("flat2", { x: 9, y: 9 });
+    expect(doc.getNode("flat2")!.position).toEqual({ x: 9, y: 9 });
+    expect(doc.getNode("flat2")!.data).toEqual({ label: "LED", pin: 13 });
   });
 
   test("malformed scalars fall back to the defaults a missing one gets", () => {

@@ -293,14 +293,17 @@ export class FlowUpdateDispatcher {
    *  recognised as stale rather than overwriting a newer key. */
   private dispatchSequence = 0;
   private latestDispatchSequence = 0;
-  /** Consecutive failed sends of the latest update; 0 after any success. */
+  /** Consecutive failed sends, whatever triggered them; reset only by a
+   *  success. A doc change does not reset it: in a busy room every remote edit
+   *  would, and a runtime that never accepts an update would never be reported. */
   private failedAttempts = 0;
+  /** Set once a run of failures has been reported; cleared by a success. */
+  private gaveUp = false;
 
   private requestDispatch(): void {
     if (this.destroyed) return;
     // A fresh request supersedes a pending retry: it sends the current doc.
     this.retry.scheduler.cancel();
-    this.failedAttempts = 0;
     this.scheduler.schedule(() => this.dispatchCurrent());
   }
 
@@ -350,6 +353,7 @@ export class FlowUpdateDispatcher {
         this.latestDispatchSequence = sequence;
         this.lastDispatchKey = precomputedKey ?? runtimeRelevantKey(update);
         this.failedAttempts = 0;
+        this.gaveUp = false;
       }
     } else {
       console.error("[FLOW-DISPATCH] failed:", result.error);
@@ -362,17 +366,20 @@ export class FlowUpdateDispatcher {
 
   /**
    * A failed send used to leave the runtime on a stale flow until the next
-   * edit, with only a console line to show for it. Retry the current doc a
-   * bounded number of times, then report once and wait for the next change.
+   * edit, with only a console line to show for it. Retry the current doc until
+   * `maxAttempts` consecutive sends have failed, then report once; after that
+   * only doc changes try again, until one succeeds.
    */
   private onSendFailed(error: string): void {
     if (this.destroyed) return;
     this.failedAttempts += 1;
-    if (this.failedAttempts >= this.retry.maxAttempts) {
-      this.retry.onGiveUp(error);
+    if (this.failedAttempts < this.retry.maxAttempts) {
+      this.retry.scheduler.schedule(() => this.dispatchCurrent());
       return;
     }
-    this.retry.scheduler.schedule(() => this.dispatchCurrent());
+    if (this.gaveUp) return;
+    this.gaveUp = true;
+    this.retry.onGiveUp(error);
   }
 
   destroy(): void {

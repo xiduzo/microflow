@@ -9,13 +9,14 @@
 //! ([`Effects::node_diagnostics`](super::Effects)) — attributed to the node,
 //! raised on a transition only, and cleared when the cause goes away.
 //!
-//! A node shows one badge, so the ledger keeps every fault it knows about and
-//! projects the most severe one: build > start > runaway > rejected input. It
-//! only ever clears what it raised — a node that never faulted produces no
-//! diagnostics from here, so node-owned diagnostics (I2C NACK, Music "no
-//! songs") are untouched unless the same node also had a runtime fault.
+//! The ledger keeps every fault it knows about per node and projects the most
+//! severe one: build > start > runaway (errors) > overload > rejected input
+//! (warnings). Everything it emits is tagged [`DiagnosticOrigin::Runtime`], so
+//! the UI keeps it apart from what a node reports about itself (I2C NACK, Music
+//! "no songs", [`DiagnosticOrigin::Node`]): neither origin can clear or
+//! downgrade the other's diagnostic.
 
-use crate::runtime::{DiagnosticLevel, NodeDiagnostic};
+use crate::runtime::{DiagnosticLevel, DiagnosticOrigin, NodeDiagnostic};
 use std::collections::HashMap;
 
 /// What the runtime knows is wrong with one node.
@@ -27,6 +28,9 @@ struct NodeFaults {
     start: Option<String>,
     /// The node is paused because it sits in a loop that blew the turn budget.
     runaway: Option<String>,
+    /// A turn ran out of budget at this node without a loop (fan-out). Nothing
+    /// is paused; cleared by the next flow update.
+    overload: Option<String>,
     /// Inputs (`dispatch` methods) currently being rejected, in failure order.
     rejected: Vec<(String, String)>,
     /// The diagnostic last sent for this node, so only transitions are sent.
@@ -38,11 +42,18 @@ impl NodeFaults {
         if let Some(m) = self.build.as_ref().or(self.start.as_ref()).or(self.runaway.as_ref()) {
             return Some((DiagnosticLevel::Error, m.clone()));
         }
-        self.rejected.last().map(|(_, m)| (DiagnosticLevel::Warning, m.clone()))
+        self.overload
+            .as_ref()
+            .or(self.rejected.last().map(|(_, m)| m))
+            .map(|m| (DiagnosticLevel::Warning, m.clone()))
     }
 
     fn is_healthy(&self) -> bool {
-        self.build.is_none() && self.start.is_none() && self.runaway.is_none() && self.rejected.is_empty()
+        self.build.is_none()
+            && self.start.is_none()
+            && self.runaway.is_none()
+            && self.overload.is_none()
+            && self.rejected.is_empty()
     }
 }
 
@@ -65,8 +76,28 @@ impl NodeHealth {
             f.build = None;
             f.start = None;
             f.runaway = None;
+            f.overload = None;
             f.rejected.clear();
         });
+    }
+
+    /// Warn (`Some`) or clear (`None`) a node where a loop-free turn ran out of
+    /// budget.
+    pub(crate) fn overloaded(&mut self, id: &str, message: Option<String>) {
+        self.touch(id, |f| f.overload = message);
+    }
+
+    /// Clear every overload warning — a flow update re-judges the flow.
+    pub(crate) fn clear_overloads(&mut self) {
+        let flagged: Vec<String> = self
+            .nodes
+            .iter()
+            .filter(|(_, f)| f.overload.is_some())
+            .map(|(id, _)| id.clone())
+            .collect();
+        for id in flagged {
+            self.overloaded(&id, None);
+        }
     }
 
     /// The node left the flow: clear any badge the runtime put on it, so an undo
@@ -148,6 +179,7 @@ impl NodeHealth {
                     node: id.clone(),
                     level: next.as_ref().map_or(DiagnosticLevel::Error, |(level, _)| *level),
                     message: next.as_ref().map(|(_, m)| m.clone()),
+                    origin: DiagnosticOrigin::Runtime,
                 });
                 faults.shown = next;
             }
@@ -218,6 +250,24 @@ mod tests {
 
         health.rebuilt("n");
         assert_eq!(flushed(&mut health), vec![(None, DiagnosticLevel::Error)], "a rebuild clears every fault");
+    }
+
+    #[test]
+    fn an_overload_warns_and_any_flow_update_clears_it() {
+        let mut health = NodeHealth::default();
+        health.overloaded("n", Some("fans out".into()));
+        assert_eq!(flushed(&mut health), vec![(Some("fans out".into()), DiagnosticLevel::Warning)]);
+        health.clear_overloads();
+        assert_eq!(flushed(&mut health), vec![(None, DiagnosticLevel::Error)]);
+    }
+
+    #[test]
+    fn everything_the_ledger_sends_is_tagged_runtime() {
+        let mut health = NodeHealth::default();
+        health.build_failed("n", "broken".into());
+        let mut out = Vec::new();
+        health.flush(&mut out);
+        assert!(out.iter().all(|d| d.origin == DiagnosticOrigin::Runtime));
     }
 
     #[test]
