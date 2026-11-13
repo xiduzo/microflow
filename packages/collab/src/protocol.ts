@@ -41,3 +41,37 @@ export const MESSAGE_ACK = 4;
  * mid-session — so a removed collaborator stops hammering the server.
  */
 export const CLOSE_ACCESS_DENIED = 4401;
+
+/**
+ * Ours: the server telling one connection what it may do with the room,
+ * carrying an `ACCESS_CODES` entry as a varUint.
+ *
+ * Sent on join and whenever `YjsServer.setAccess` changes a live
+ * connection's write bit. Without it a demoted collaborator keeps editing a
+ * document whose writes the room now drops, and the two copies drift apart in
+ * silence. Clients that predate this message log y-websocket's "Unable to
+ * compute message" and otherwise ignore it.
+ */
+export const MESSAGE_ACCESS = 5;
+
+/** Wire encoding for `MESSAGE_ACCESS`. Index = code. */
+export const ACCESS_CODES = ["none", "read", "write"] as const;
+export type WireAccess = (typeof ACCESS_CODES)[number];
+
+/**
+ * The close code the server's auth gate uses today (`apps/server`): RFC 6455
+ * "policy violation", sent for both an invalid session and a user who may not
+ * open this flow. Outside y-websocket's 4400–4499 terminal range, so by default
+ * the provider retries it forever — `isTerminalClose` adds it.
+ */
+export const CLOSE_POLICY_VIOLATION = 1008;
+
+/**
+ * Whether reconnecting after this close code can help. 4400–4499 is
+ * y-websocket's convention (`CLOSE_ACCESS_DENIED`); 1008 is what the server's
+ * auth gate sends. Both mean the answer will not change by asking again with
+ * the same credentials.
+ */
+export function isTerminalClose(code: number): boolean {
+  return code === CLOSE_POLICY_VIOLATION || (code >= 4400 && code < 4500);
+}

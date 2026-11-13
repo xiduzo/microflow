@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import * as Y from "yjs";
 import * as decoding from "lib0/decoding";
+import * as encoding from "lib0/encoding";
+import * as syncProtocol from "y-protocols/sync";
 
 import { SyncProvider } from "./sync-provider";
-import { MESSAGE_ACK, MESSAGE_AWARENESS } from "./protocol";
+import {
+  MESSAGE_ACCESS,
+  MESSAGE_ACK,
+  MESSAGE_AWARENESS,
+  MESSAGE_SYNC,
+  isTerminalClose,
+} from "./protocol";
 
 /**
  * What this class still owns after moving the transport onto `y-websocket`:
@@ -274,5 +282,127 @@ describe("SyncProvider lifecycle", () => {
     provider.updateCursor({ x: 5, y: 5 });
     await new Promise((r) => setTimeout(r, 30));
     expect(socket.sent.length).toBe(0);
+  });
+});
+
+/** The server ending the connection with a close code, as a real socket would. */
+function serverClose(socket: FakeSocket, code: number, reason = ""): void {
+  socket.readyState = FakeSocket.CLOSED;
+  socket.onclose?.({ code, reason });
+}
+
+/** y-websocket's first retry fires after 2^1 * 100ms. */
+const FIRST_RETRY_MS = 260;
+
+describe("SyncProvider auth and access", () => {
+  function makeAuthedProvider(readToken: () => string | undefined) {
+    const doc = new Y.Doc();
+    const provider = new SyncProvider({
+      flowId: `flow-${++flowCounter}`,
+      doc,
+      wsUrl: "wss://example.test",
+      user: { id: "user-1", name: "Ada" },
+      authToken: readToken,
+      WebSocketPolyfill: FakeSocket as unknown as typeof WebSocket,
+    });
+    return { doc, provider };
+  }
+
+  const lastSocket = () => FakeSocket.instances[FakeSocket.instances.length - 1]!;
+  const tokenOf = (socket: FakeSocket) => new URL(socket.url).searchParams.get("token");
+
+  test("a reconnect after token expiry presents the refreshed token", async () => {
+    let token = "token-a";
+    const { provider } = makeAuthedProvider(() => token);
+    const first = lastSocket();
+    expect(tokenOf(first)).toBe("token-a");
+    first.open();
+
+    // The session was refreshed while connected; then the network blipped.
+    token = "token-b";
+    serverClose(first, 1006);
+    await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
+
+    const second = lastSocket();
+    expect(second).not.toBe(first);
+    expect(tokenOf(second)).toBe("token-b");
+    provider.destroy();
+  });
+
+  test("a 1008 close is terminal: no retry, and the reason is surfaced", async () => {
+    const { provider } = makeAuthedProvider(() => "stale");
+    const denied: Array<[string, number]> = [];
+    provider.on("accessDenied", (reason, code) => denied.push([reason, code]));
+
+    const first = lastSocket();
+    first.open();
+    serverClose(first, 1008, "Unauthorized");
+    await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
+
+    expect(denied).toEqual([["Unauthorized", 1008]]);
+    expect(FakeSocket.instances.length).toBe(1);
+    expect(provider.state).toBe("disconnected");
+    provider.destroy();
+  });
+
+  test("an explicit reconnect after a terminal close tries again with a fresh token", () => {
+    let token = "expired";
+    const { provider } = makeAuthedProvider(() => token);
+    const first = lastSocket();
+    first.open();
+    serverClose(first, 4401, "Access revoked");
+
+    token = "renewed";
+    provider.reconnect();
+    expect(FakeSocket.instances.length).toBe(2);
+    expect(tokenOf(lastSocket())).toBe("renewed");
+    provider.destroy();
+  });
+
+  test("a server access frame is decoded and emitted", () => {
+    const { provider } = makeAuthedProvider(() => undefined);
+    const socket = lastSocket();
+    socket.open();
+    const seen: string[] = [];
+    provider.on("access", (access) => seen.push(access));
+
+    // MESSAGE_ACCESS, then the ACCESS_CODES index ("read" = 1).
+    socket.onmessage?.({ data: new Uint8Array([MESSAGE_ACCESS, 1]).buffer as ArrayBuffer });
+
+    expect(seen).toEqual(["read"]);
+    expect(provider.access).toBe("read");
+    expect(MESSAGE_ACCESS).toBeGreaterThan(3);
+    provider.destroy();
+  });
+
+  test("local edits are reported; edits arriving from the server are not", () => {
+    const { doc, provider } = makeAuthedProvider(() => undefined);
+    const socket = lastSocket();
+    socket.open();
+    let local = 0;
+    provider.on("localUpdate", () => local++);
+
+    doc.getMap("nodes").set("a", 1);
+    expect(local).toBe(1);
+
+    // A remote update: sync message type 2 (update) wrapping a peer's change.
+    const peer = new Y.Doc();
+    peer.getMap("nodes").set("b", 2);
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_SYNC);
+    syncProtocol.writeUpdate(encoder, Y.encodeStateAsUpdate(peer));
+    socket.onmessage?.({ data: encoding.toUint8Array(encoder).buffer as ArrayBuffer });
+
+    expect(doc.getMap("nodes").get("b")).toBe(2);
+    expect(local).toBe(1);
+    provider.destroy();
+  });
+
+  test("terminal close codes: 1008 and 4400–4499 only", () => {
+    expect(isTerminalClose(1008)).toBe(true);
+    expect(isTerminalClose(4401)).toBe(true);
+    expect(isTerminalClose(1006)).toBe(false);
+    expect(isTerminalClose(1000)).toBe(false);
+    expect(isTerminalClose(4500)).toBe(false);
   });
 });

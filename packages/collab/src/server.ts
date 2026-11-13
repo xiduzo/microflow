@@ -19,4 +19,9 @@ export {
   MESSAGE_QUERY_AWARENESS,
   MESSAGE_ACK,
   CLOSE_ACCESS_DENIED,
+  MESSAGE_ACCESS,
+  ACCESS_CODES,
+  CLOSE_POLICY_VIOLATION,
+  isTerminalClose,
+  type WireAccess,
 } from "./protocol";

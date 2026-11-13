@@ -8,7 +8,9 @@ import { upgradeLegacyNodes } from "./schema";
 // Shared with the client provider — the numbering is constrained by
 // y-websocket's reserved range. See `protocol.ts`.
 import {
+  ACCESS_CODES,
   CLOSE_ACCESS_DENIED,
+  MESSAGE_ACCESS,
   MESSAGE_ACK,
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
@@ -245,6 +247,11 @@ export class YjsServer {
     // Send current awareness state
     this.sendAwarenessState(socket, room.awareness);
 
+    // State the access this connection was granted. The client's role came
+    // from an earlier `flow.get`; a demotion while it was offline would
+    // otherwise go unnoticed until its writes silently vanished.
+    this.sendAccess(socket, canWrite ? "write" : "read");
+
     return connection;
   }
 
@@ -299,6 +306,9 @@ export class YjsServer {
         continue;
       }
       connection.canWrite = access === "write";
+      // Tell the client, so a demoted editor's canvas stops accepting edits
+      // the room would now drop.
+      this.sendAccess(connection.socket, access);
     }
   }
 
@@ -506,6 +516,13 @@ export class YjsServer {
         // Already gone
       }
     }
+  }
+
+  private sendAccess(socket: Connection, access: Exclude<Access, "none">): void {
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_ACCESS);
+    encoding.writeVarUint(encoder, ACCESS_CODES.indexOf(access));
+    socket.send(encoding.toUint8Array(encoder));
   }
 
   private broadcastAck(room: Room, version: number): void {
