@@ -42,13 +42,23 @@ use std::time::{Duration, Instant};
 /// runtime actor holds the port under it and reports failures by it.
 pub type SessionId = u64;
 
+/// Which device a "flash as <board>?" offer is about: the port path and the
+/// USB ids seen when it was offered. An answer names the offer it answers, so a
+/// stale answer can never act on a different device.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OfferId {
+    pub port: String,
+    pub vid: u16,
+    pub pid: u16,
+}
+
 /// The user's answer to a `confirmFlash` board state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FlashAnswer {
     /// Flash `StandardFirmata` as the offered board.
-    Confirm,
+    Confirm(OfferId),
     /// Leave the device alone.
-    Decline,
+    Decline(OfferId),
 }
 
 /// Fast reconnect attempts after the live connection drops with the port still
@@ -83,6 +93,9 @@ pub trait LinkIo {
     /// The current time. Read after a probe returns, so retry delays start
     /// when the (blocking) probe ended, not when the scan began.
     fn now(&self) -> Instant;
+    /// The device on `port` right now (a fresh port listing), to re-check a
+    /// confirmed offer just before flashing.
+    fn device_at(&mut self, port: &str) -> Option<SerialPortInfo>;
 }
 
 /// A port the link has seen, and whether it may still be tried as the board.
@@ -129,6 +142,9 @@ pub struct BoardLink<Io: LinkIo> {
     /// A slow (post-error) reconnect is in flight: only `Connected` is
     /// published, so the "not responding" error stays up between probes.
     quiet: bool,
+    /// The open "flash as <board>?" offer, as published. While it is open no
+    /// other attempt starts, and leaving it is always published.
+    offer: Option<OfferId>,
 }
 
 impl<Io: LinkIo> BoardLink<Io> {
@@ -144,6 +160,7 @@ impl<Io: LinkIo> BoardLink<Io> {
             next_session: 0,
             retry: None,
             quiet: false,
+            offer: None,
         }
     }
 
@@ -239,14 +256,47 @@ impl<Io: LinkIo> BoardLink<Io> {
         }
     }
 
-    /// Fact: the user answered the "flash as <board>?" offer. Ignored by the
-    /// machine unless an offer is open, so a late answer is harmless.
+    /// Fact: the user answered the "flash as <board>?" offer. Acts only when
+    /// the answer names the open offer; a yes also re-checks that the same
+    /// device is still on that path, right before flashing. A mismatch
+    /// withdraws the offer and lets the next scan offer the device now there.
     pub fn answer_flash(&mut self, answer: FlashAnswer) {
         log::info!("Flash offer answered: {answer:?}");
-        self.drive(match answer {
-            FlashAnswer::Confirm => Event::FlashConfirmed,
-            FlashAnswer::Decline => Event::FlashDeclined,
-        });
+        let (FlashAnswer::Confirm(id) | FlashAnswer::Decline(id)) = &answer;
+        if self.offer.as_ref() != Some(id) {
+            log::warn!("Ignoring an answer to {id:?}; open offer: {:?}", self.offer);
+            // Re-show the offer that is actually open, if any.
+            if self.offer.is_some() {
+                self.republish_offer();
+            }
+            return;
+        }
+        match answer {
+            FlashAnswer::Decline(_) => self.drive(Event::FlashDeclined),
+            FlashAnswer::Confirm(id) => {
+                let now = self.io.device_at(&id.port).and_then(|d| d.usb_ids());
+                if now == Some((id.vid, id.pid)) {
+                    self.drive(Event::FlashConfirmed);
+                } else {
+                    log::warn!("Device on {} changed ({now:?}) since the offer; withdrawing", id.port);
+                    self.drive(Event::FlashDeclined);
+                    if let Some(known) = self.board.as_ref().and_then(|b| self.ports.get_mut(b)) {
+                        known.probed = false;
+                    }
+                }
+            }
+        }
+    }
+
+    fn republish_offer(&mut self) {
+        if let (Some(board), Some(id)) = (self.attempt_board, self.offer.clone()) {
+            self.io.board_state(&BoardState::ConfirmFlash {
+                port: id.port,
+                board: board.as_str().to_string(),
+                vid: id.vid,
+                pid: id.pid,
+            });
+        }
     }
 
     /// Feed every flash-offer answer the UI sent since the last call — part of
@@ -283,7 +333,9 @@ impl<Io: LinkIo> BoardLink<Io> {
     /// reconnect first, else the next untried candidate. One per scan, so the
     /// next scan's port facts are read between (blocking) probes.
     fn bring_up_next(&mut self) {
-        if self.is_connected() {
+        // An open offer is stable: other candidates and reconnects wait until
+        // it is answered or withdrawn (both still pending afterwards).
+        if self.is_connected() || self.bringup.is_offering() {
             return;
         }
         if self.retry.as_ref().is_some_and(|r| r.due <= self.io.now()) {
@@ -419,7 +471,14 @@ impl<Io: LinkIo> BoardLink<Io> {
     /// payloads (probe result, port name). `Error.detail` passes through
     /// verbatim — the UI shows it in full (commit `7c8f7e2`).
     fn publish(&mut self, phase: &Phase) {
-        if self.quiet && *phase != Phase::Connected {
+        // Leaving an offer is always published, quiet or not, so the UI never
+        // shows an offer the machine no longer holds.
+        let leaving_offer =
+            self.offer.is_some() && !matches!(phase, Phase::ConfirmFlash { .. });
+        if leaving_offer {
+            self.offer = None;
+        }
+        if self.quiet && *phase != Phase::Connected && !leaving_offer {
             return;
         }
         let state = match phase {
@@ -432,7 +491,15 @@ impl<Io: LinkIo> BoardLink<Io> {
             }),
             Phase::Disconnected => BoardState::Disconnected {},
             Phase::ConfirmFlash { board } => {
-                BoardState::ConfirmFlash { port: self.attempt_port_name(), board: board.clone() }
+                let port = self.attempt_port_name();
+                let (vid, pid) = self
+                    .board
+                    .as_ref()
+                    .and_then(|id| self.ports.get(id))
+                    .and_then(|known| known.info.usb_ids())
+                    .unwrap_or_default();
+                self.offer = Some(OfferId { port: port.clone(), vid, pid });
+                BoardState::ConfirmFlash { port, board: board.clone(), vid, pid }
             }
             Phase::Error { detail } => BoardState::Error { error: Some(detail.clone()) },
         };
@@ -480,6 +547,8 @@ mod tests {
         flashes: Vec<String>,
         /// Whether a flash succeeds (and leaves Firmata on the port).
         flash_ok: bool,
+        /// What a fresh port listing finds on each path (`device_at`).
+        devices: HashMap<String, SerialPortInfo>,
         closes: u32,
         states: Vec<BoardState>,
         appeared: Vec<String>,
@@ -518,6 +587,9 @@ mod tests {
         }
         fn now(&self) -> Instant {
             self.clock
+        }
+        fn device_at(&mut self, port: &str) -> Option<SerialPortInfo> {
+            self.devices.get(port).cloned()
         }
     }
 
@@ -563,6 +635,7 @@ mod tests {
             probes: Vec::new(),
             flashes: Vec::new(),
             flash_ok: false,
+            devices: HashMap::new(),
             closes: 0,
             states: Vec::new(),
             appeared: Vec::new(),
@@ -877,14 +950,36 @@ mod tests {
     }
 
     const NANO: &str = "/dev/cu.wchusbserial1410";
+    const NANO_2: &str = "/dev/cu.wchusbserial2420";
 
     /// A CH340 Nano clone: the chip's VID/PID only suggests a Nano.
     fn ch340(name: &str) -> SerialPortInfo {
         usb(name, 0x1a86, 0x7523)
     }
 
+    fn offer_id(port: &str) -> OfferId {
+        OfferId { port: port.to_string(), vid: 0x1a86, pid: 0x7523 }
+    }
+
+    /// `ports` are present (to a scan and to `device_at`); scan after `ms`.
+    fn present(link: &mut BoardLink<FakeIo>, ms: u64, ports: Vec<SerialPortInfo>) {
+        link.io_mut().devices = ports.iter().map(|p| (p.port_name.clone(), p.clone())).collect();
+        scan_after(link, ms, ports);
+    }
+
+    fn offered_port(state: &BoardState) -> Option<&str> {
+        match state {
+            BoardState::ConfirmFlash { port, .. } => Some(port),
+            _ => None,
+        }
+    }
+
     fn is_offer(state: &BoardState) -> bool {
         matches!(state, BoardState::ConfirmFlash { board, .. } if board == "nano")
+    }
+
+    fn any_offer(link: &BoardLink<FakeIo>) -> bool {
+        link.io().states.iter().any(|s| offered_port(s).is_some())
     }
 
     #[test]
@@ -894,28 +989,28 @@ mod tests {
         link.scan(vec![uno(UNO)]);
         assert_eq!(link.io().flashes, vec![UNO]);
         assert_eq!(link.board_port(), Some(UNO));
-        assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
+        assert!(!any_offer(&link));
     }
 
     #[test]
     fn bridge_chip_is_offered_then_flashed_only_once_confirmed() {
         let mut link = link_with_firmata(&[]);
         link.io_mut().flash_ok = true;
-        link.scan(vec![ch340(NANO)]);
+        present(&mut link, 0, vec![ch340(NANO)]);
         assert!(link.io().flashes.is_empty(), "never flashed unasked");
         assert!(link.io().states.last().is_some_and(is_offer));
         assert!(matches!(
             link.io().states.last(),
-            Some(BoardState::ConfirmFlash { port, .. }) if port == NANO
+            Some(BoardState::ConfirmFlash { port, vid: 0x1a86, pid: 0x7523, .. }) if port == NANO
         ));
 
         // Scans while the offer is open neither re-probe nor flash.
-        scan_after(&mut link, 250, vec![ch340(NANO)]);
+        present(&mut link, 250, vec![ch340(NANO)]);
         assert_eq!(probes(&link), vec![NANO]);
         assert!(link.io().flashes.is_empty());
 
         let (tx, rx) = std::sync::mpsc::channel();
-        tx.send(FlashAnswer::Confirm).expect("send");
+        tx.send(FlashAnswer::Confirm(offer_id(NANO))).expect("send");
         link.drain_flash_answers(&rx);
         assert_eq!(link.io().flashes, vec![NANO]);
         assert_eq!(probes(&link), vec![NANO, NANO], "re-probed after the flash");
@@ -927,12 +1022,12 @@ mod tests {
     fn declining_the_offer_leaves_the_device_alone() {
         let mut link = link_with_firmata(&[]);
         link.io_mut().flash_ok = true;
-        link.scan(vec![ch340(NANO)]);
-        link.answer_flash(FlashAnswer::Decline);
+        present(&mut link, 0, vec![ch340(NANO)]);
+        link.answer_flash(FlashAnswer::Decline(offer_id(NANO)));
         assert!(link.io().states.last().is_some_and(is_disconnected));
         // A late yes after the no does nothing.
-        link.answer_flash(FlashAnswer::Confirm);
-        scan_after(&mut link, 250, vec![ch340(NANO)]);
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
+        present(&mut link, 250, vec![ch340(NANO)]);
         assert!(link.io().flashes.is_empty());
         assert_eq!(probes(&link), vec![NANO], "a declined device is not re-probed");
         assert_eq!(link.io().closes, 0, "the probe already closed the port");
@@ -942,10 +1037,10 @@ mod tests {
     fn unplug_while_offering_withdraws_the_offer() {
         let mut link = link_with_firmata(&[]);
         link.io_mut().flash_ok = true;
-        link.scan(vec![ch340(NANO)]);
-        scan_after(&mut link, 250, vec![]);
+        present(&mut link, 0, vec![ch340(NANO)]);
+        present(&mut link, 250, vec![]);
         assert!(link.io().states.last().is_some_and(is_disconnected));
-        link.answer_flash(FlashAnswer::Confirm);
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
         assert!(link.io().flashes.is_empty(), "a yes after the unplug flashes nothing");
     }
 
@@ -954,17 +1049,118 @@ mod tests {
         let mut link = link_with_firmata(&[NANO]);
         link.scan(vec![ch340(NANO)]);
         assert_eq!(link.board_port(), Some(NANO));
-        assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
+        assert!(!any_offer(&link));
     }
 
     #[test]
     fn late_answer_never_touches_a_live_board() {
         let mut link = link_with_firmata(&[UNO]);
         link.scan(vec![uno(UNO)]);
-        link.answer_flash(FlashAnswer::Decline);
-        link.answer_flash(FlashAnswer::Confirm);
+        link.answer_flash(FlashAnswer::Decline(offer_id(UNO)));
+        link.answer_flash(FlashAnswer::Confirm(offer_id(UNO)));
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().closes, 0);
+        assert!(link.io().flashes.is_empty());
+    }
+
+    #[test]
+    fn another_usb_port_does_not_withdraw_the_offer() {
+        // Review finding 1: a Prolific adapter (or 3D printer) next to a CH340
+        // Nano withdrew the offer within one poll, and it never came back.
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        present(&mut link, 0, vec![ch340(NANO)]);
+        for _ in 0..8 {
+            present(&mut link, 250, vec![gps(), ch340(NANO)]);
+        }
+        assert_eq!(probes(&link), vec![NANO], "the other port waits for the answer");
+        assert!(link.io().states.last().is_some_and(is_offer), "the offer stays up");
+
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
+        assert_eq!(link.io().flashes, vec![NANO]);
+        assert_eq!(link.board_port(), Some(NANO));
+    }
+
+    #[test]
+    fn the_waiting_port_is_tried_once_the_offer_is_declined() {
+        let mut link = link_with_firmata(&[]);
+        present(&mut link, 0, vec![ch340(NANO)]);
+        present(&mut link, 250, vec![gps(), ch340(NANO)]);
+        link.answer_flash(FlashAnswer::Decline(offer_id(NANO)));
+        present(&mut link, 250, vec![gps(), ch340(NANO)]);
+        assert_eq!(probes(&link), vec![NANO, GPS]);
+    }
+
+    #[test]
+    fn confirm_flashes_only_the_device_that_was_offered() {
+        // Review finding 2: with two bridge-chip devices, B's offer replaced A's
+        // and "yes" flashed a device the user was never asked about.
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        present(&mut link, 0, vec![ch340(NANO), ch340(NANO_2)]);
+        present(&mut link, 250, vec![ch340(NANO), ch340(NANO_2)]);
+        assert_eq!(probes(&link), vec![NANO], "the second device waits");
+        assert_eq!(link.io().states.last().and_then(offered_port), Some(NANO));
+
+        // An answer naming another device is ignored, and the open offer shown again.
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO_2)));
+        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().states.last().and_then(offered_port), Some(NANO));
+
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
+        assert_eq!(link.io().flashes, vec![NANO]);
+    }
+
+    #[test]
+    fn quiet_retries_wait_while_an_offer_is_open() {
+        // Review finding 3: the 30s quiet retry ran PortReady, killing the offer
+        // in the machine while the UI kept showing it.
+        let mut link = link_with_firmata(&[UNO]);
+        link.scan(vec![uno(UNO)]);
+        link.io_mut().fail_next.insert(UNO.to_string(), u32::MAX);
+        link.session_ended(1);
+        // Spend the fast retries (1, 2, 4, 8s): the link now probes quietly every 30s.
+        for _ in 0..80 {
+            present(&mut link, 250, vec![uno(UNO)]);
+        }
+        let uno_probes =
+            |link: &BoardLink<FakeIo>| probes(link).iter().filter(|p| **p == UNO).count();
+        let before = uno_probes(&link);
+        assert!(before >= 6, "fast retries spent ({before} probes)");
+
+        present(&mut link, 250, vec![uno(UNO), ch340(NANO)]);
+        assert!(link.io().states.last().is_some_and(is_offer));
+        for _ in 0..(4 * 70) {
+            present(&mut link, 250, vec![uno(UNO), ch340(NANO)]);
+        }
+        assert_eq!(uno_probes(&link), before, "no quiet retry while the offer is open");
+        assert!(link.io().states.last().is_some_and(is_offer), "the offer shown is the offer held");
+
+        // Once answered, the retry resumes.
+        link.answer_flash(FlashAnswer::Decline(offer_id(NANO)));
+        present(&mut link, 250, vec![uno(UNO), ch340(NANO)]);
+        assert_eq!(uno_probes(&link), before + 1);
+    }
+
+    #[test]
+    fn confirm_re_checks_the_device_before_flashing() {
+        // Review finding 4: a CP210x swapped onto the offered path got flashed.
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        present(&mut link, 0, vec![ch340(NANO)]);
+        let cp210x = usb(NANO, 0x10c4, 0xea60);
+        link.io_mut().devices.insert(NANO.to_string(), cp210x.clone());
+
+        link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
+        assert!(link.io().flashes.is_empty(), "a different device is never flashed");
+        assert!(link.io().states.last().is_some_and(is_disconnected), "the offer is withdrawn");
+
+        // The next scan offers the device that is actually there.
+        present(&mut link, 250, vec![cp210x]);
+        assert!(matches!(
+            link.io().states.last(),
+            Some(BoardState::ConfirmFlash { board, vid: 0x10c4, .. }) if board == "uno"
+        ));
         assert!(link.io().flashes.is_empty());
     }
 

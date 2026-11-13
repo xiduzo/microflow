@@ -135,8 +135,8 @@ export const start = (): void => {
   if (!flashOfferWatched && !isDesktop()) {
     flashOfferWatched = true;
     watchFlashOffer(useBoardStore, sonnerOfferToaster, {
-      confirm: () => void controller.confirmFlash(),
-      decline: () => void controller.declineFlash(),
+      confirm: (offer) => void controller.confirmFlash(offer),
+      decline: (offer) => void controller.declineFlash(offer),
     });
   }
   controller.start();

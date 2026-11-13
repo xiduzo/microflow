@@ -19,7 +19,12 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { isDesktop } from "@/platform/platform";
 import { cva } from "class-variance-authority";
-import { useBoardError, useBoardPort, useBoardState } from "@/board/board-store";
+import {
+  useBoardError,
+  useBoardPort,
+  useBoardState,
+  useFlashOfferTarget,
+} from "@/board/board-store";
 import { useWebSerialBoard } from "@/board/use-web-serial-board";
 import { useMemo } from "react";
 import { openDocs } from "@/lib/docs";
@@ -48,6 +53,7 @@ export function NavMicrocontroller() {
   const boardState = useBoardState();
   const boardError = useBoardError();
   const port = useBoardPort();
+  const flashTarget = useFlashOfferTarget();
   const webSerial = useWebSerialBoard();
   const desktop = isDesktop();
 
@@ -61,7 +67,7 @@ export function NavMicrocontroller() {
         return { message: "Flashing firmware", Icon: FileCodeIcon };
       case "confirmFlash":
         // The shared "Flash as <board>?" prompt (flash-offer.ts) holds the answer.
-        return { message: "Flash Firmata?", Icon: FileCodeIcon };
+        return { message: `Flash ${flashTarget ?? "Firmata"}?`, Icon: FileCodeIcon };
       case "disconnected":
         return desktop
           ? { message: "No microcontroller connected", Icon: UsbIcon }
@@ -71,7 +77,7 @@ export function NavMicrocontroller() {
       default:
         return { message: "Unknown state", Icon: OctagonXIcon };
     }
-  }, [boardState, port, desktop]);
+  }, [boardState, port, flashTarget, desktop]);
 
   // Web browser without Web Serial (Firefox/Safari): nudge to a Chromium
   // browser or the desktop app — there is no way to reach a serial port here.

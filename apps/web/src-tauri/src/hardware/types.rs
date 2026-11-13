@@ -34,7 +34,7 @@ pub enum BoardState {
     /// USB-serial chip: the UI asks before flashing (`confirm_board_flash` /
     /// `decline_board_flash`).
     #[serde(rename = "confirmFlash")]
-    ConfirmFlash { port: String, board: String },
+    ConfirmFlash { port: String, board: String, vid: u16, pid: u16 },
     #[serde(rename = "disconnected")]
     Disconnected {},
     #[serde(rename = "error")]
