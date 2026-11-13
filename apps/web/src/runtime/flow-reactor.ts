@@ -42,6 +42,10 @@ import type { BoardConnection } from "@/board/web-serial";
 // type now lives with the performer that consumes it.
 export type { CloudDeps };
 
+/** Whether {@link FlowReactor.applyFlow} reached a live runtime. The same shape
+ *  as the dispatcher's `SendResult`. */
+export type FlowApplyResult = { ok: true } | { ok: false; error: string };
+
 /** Optional wiring for {@link FlowReactor.attach}. */
 export type AttachOptions = {
   /** Called once when the wasm engine dies (a Rust panic traps the module). The
@@ -88,6 +92,8 @@ export class FlowReactor implements EffectsSink {
   private edges: FlowEdge[] = [];
   private disposed = false;
   private writeFailed = false;
+  /** The fault the last bridge call reported, read back by `applyFlow`. */
+  private lastFault: RuntimeFault | null = null;
 
   private constructor(
     /** The board this flow drives, or `null` when there is none: the software
@@ -153,9 +159,11 @@ export class FlowReactor implements EffectsSink {
   }
 
   /** Apply a flow graph (the core `FlowUpdate` shape; the bridge owns its
-   *  serialisation across the wasm crossing). */
-  applyFlow(flow: FlowUpdateShape): void {
-    if (this.disposed) return;
+   *  serialisation across the wasm crossing). Reports whether the runtime took
+   *  it, so the dispatcher's retry policy sees a rejected or dead runtime
+   *  instead of a blanket success. */
+  applyFlow(flow: FlowUpdateShape): FlowApplyResult {
+    if (this.disposed) return { ok: false, error: "the flow runtime was shut down" };
     this.edges = flow.edges;
     this.audioSources.clear();
     for (const node of flow.nodes) {
@@ -164,8 +172,17 @@ export class FlowReactor implements EffectsSink {
     }
     // A deleted (or re-pointed) Music node must not keep playing.
     this.audioPerformer.retain(this.audioSources);
-    this.applyTurn(this.bridge?.updateFlow(flow, now()));
+    this.lastFault = null;
+    const effects = this.bridge?.updateFlow(flow, now());
+    // Taken before `reconcile`, whose own faults are not this update's verdict.
+    // (Set by `handleFault` from inside the bridge call, hence the widening.)
+    const fault = this.lastFault as RuntimeFault | null;
+    this.applyTurn(effects);
     this.reconcile();
+    if (effects !== undefined) return { ok: true };
+    // The bridge already classified and surfaced the fault (ADR-0017); this
+    // only carries its message back to the caller.
+    return { ok: false, error: fault?.message ?? "the flow runtime is not running" };
   }
 
   /** Deliver one host-originated input to a node's port — the browser twin of
@@ -217,6 +234,7 @@ export class FlowReactor implements EffectsSink {
    *   already surfaced; a badge here would blame a node for a dead engine.
    */
   private handleFault(fault: RuntimeFault): void {
+    this.lastFault = fault;
     if (fault.kind === "engineBroken") {
       console.error(`[flow-reactor] wasm engine fault in ${fault.op}:`, fault.message);
       this.onEngineFault?.(`The flow engine stopped: ${fault.message}`);

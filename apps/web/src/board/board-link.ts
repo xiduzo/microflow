@@ -136,7 +136,9 @@ async function within(clock: Clock, ms: number, promise: Promise<unknown>): Prom
   }
 }
 
-class SerialBoardLink implements BoardConnection {
+/** Exported for tests, which drive the probing → ready edge directly; the app
+ *  only ever gets links from `probeBoard`. */
+export class SerialBoardLink implements BoardConnection {
   phase: LinkPhase = "probing";
   pinSeed = "[]";
   /** Set by the read loop or a rejected write while `probing`: the handshake
@@ -171,10 +173,18 @@ class SerialBoardLink implements BoardConnection {
     });
   }
 
-  /** The handshake answered: snapshot the seed and start queueing, together. */
-  markReady(): void {
+  /**
+   * The handshake answered: snapshot the seed and start queueing, together.
+   * False — and the link stays `probing`, for the caller to close — when the
+   * transport already failed: the reader can end in the hop between the
+   * handshake's last check and this call, and a `ready` link over a dead reader
+   * would never report its loss.
+   */
+  markReady(): boolean {
+    if (this.transportFailed) return false;
     this.pinSeed = this.session.pinsJson();
     this.phase = "ready";
+    return true;
   }
 
   attachInbound(sink: (bytes: Uint8Array) => void): void {
@@ -349,10 +359,7 @@ async function tryConnectAtBaud(
       throw error;
     }
     link = new SerialBoardLink(port, session, reader, writer, env.clock, hooks.onLost);
-    if (await handshake(link, session, env.clock)) {
-      link.markReady();
-      return link;
-    }
+    if ((await handshake(link, session, env.clock)) && link.markReady()) return link;
   } catch (error) {
     console.warn(`[board-link] probe at ${baud} baud failed:`, String(error));
   }

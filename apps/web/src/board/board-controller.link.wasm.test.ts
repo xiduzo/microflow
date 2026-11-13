@@ -1,11 +1,15 @@
-// The controller driving a real board link over the fake port: connection
-// loss, retry backoff, engine fault, write failure, unplug and page lifecycle —
-// the paths that had no test. The bring-up machine is a TS mimic of the
-// transitions `microflow_core::bringup` makes for these events (the real one
-// is wasm, and its own Rust tests pin it); everything below the controller is
-// the production link.
+// The controller driving a real board link over the fake port, with the real
+// bring-up machine — `microflow_core::bringup` compiled to wasm, not a TS copy
+// of it (a copy drifted once: its `probeFailed` never flashed, which hid a
+// controller path that reflashed a working board). Covers connection loss,
+// retry backoff, engine fault, write failure, unplug, page lifecycle, and
+// explicit connects overtaken by either.
+//
+// Needs the generated module: `bun run build:wasm:firmata`.
 
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import { BringUpMachine, initSync } from "./generated/microflow_firmata_wasm.js";
 import {
   BoardController,
   RETRY_CAP_MS,
@@ -24,49 +28,14 @@ import {
   FakeSession,
   firmataDevice,
   flush,
+  silentDevice,
 } from "./link-fakes";
 import type { BoardState } from "@/lib/bindings/BoardState";
-import type { BringUpAction, BringUpEvent } from "./wasm";
+import type { BringUpAction } from "./wasm";
 
-const notify = (kind: "connecting" | "connected" | "disconnected"): BringUpAction => ({
-  type: "notify",
-  phase: { kind },
+initSync({
+  module: readFileSync(new URL("./generated/microflow_firmata_wasm_bg.wasm", import.meta.url)),
 });
-
-/** The bring-up machine's transitions for the events these tests raise. */
-function machineMimic(): (event: BringUpEvent) => BringUpAction[] {
-  let state: "idle" | "probing" | "connected" = "idle";
-  return (event) => {
-    const was = state;
-    switch (event.type) {
-      case "disconnectRequested":
-        state = "idle";
-        return was === "idle" ? [notify("disconnected")] : [{ type: "closePort" }, notify("disconnected")];
-      case "portGone":
-        state = "idle";
-        if (was === "connected") return [{ type: "closePort" }, notify("disconnected")];
-        return was === "idle" ? [] : [notify("disconnected")];
-      case "connectionLost":
-        if (was !== "connected") return [];
-        state = "idle";
-        return [{ type: "closePort" }, notify("disconnected"), { type: "scheduleRetry" }];
-      case "portReady":
-        if (was !== "idle") return [];
-        state = "probing";
-        return [notify("connecting"), { type: "probe", afterFlash: false }];
-      case "probeOk":
-        if (was !== "probing") return [];
-        state = "connected";
-        return [notify("connected")];
-      case "probeFailed":
-        if (was !== "probing") return [];
-        state = "idle";
-        return [notify("disconnected")];
-      default:
-        return [];
-    }
-  };
-}
 
 type FakeReactor = ReactorHandle & {
   connection: BoardConnection | null;
@@ -94,7 +63,7 @@ function linked() {
     createSession: async () => new FakeSession().asSession(),
     listGrantedPorts: () => serial.getPorts(),
   };
-  const machine = machineMimic();
+  let flashes = 0;
 
   const deps: BoardControllerDeps = {
     serial: {
@@ -110,7 +79,10 @@ function linked() {
       detectBoard: async () => "uno",
       probeFirmata: (p, hooks) => probeBoard(env, p, hooks, { afterFlash: false }),
       probeAfterFlash: (p, hooks) => probeBoard(env, p, hooks, { afterFlash: true }),
-      flashPort: async () => "uno",
+      flashPort: async () => {
+        flashes += 1;
+        return "uno";
+      },
       onConnectivity: (handlers) => watchConnectivity(serial, handlers),
       portLabel: () => "USB 2341:0043",
       connectedState: () => ({
@@ -121,8 +93,9 @@ function linked() {
         pins: [],
       }),
     },
-    createMachine: async () => ({}) as never,
-    handleEvent: (_machine, event) => machine(event),
+    createMachine: async () => new BringUpMachine(),
+    handleEvent: (machine, event) =>
+      JSON.parse(machine.handle(JSON.stringify(event))) as BringUpAction[],
     attachReactor: async (connection, hooks) => {
       if (connection) {
         attachRequested += 1;
@@ -133,7 +106,7 @@ function linked() {
         fed: [],
         disposed: false,
         fault: hooks.onEngineFault,
-        applyFlow() {},
+        applyFlow: () => ({ ok: true }),
         feedBytes(bytes) {
           reactor.fed.push(...bytes);
         },
@@ -173,6 +146,9 @@ function linked() {
     controller,
     get pickerOpened() {
       return pickerOpened;
+    },
+    get flashes() {
+      return flashes;
     },
     get attachRequested() {
       return attachRequested;
@@ -273,7 +249,8 @@ describe("connection loss and retry", () => {
     expect(Math.max(...gaps)).toBe(RETRY_CAP_MS);
   });
 
-  test("an unplug event closes the port without a retry", async () => {
+  test("a disconnect event while the reader is still open closes the port without a retry", async () => {
+    // The `portGone` path on its own: the event wins the race with the reader.
     const h = linked();
     await h.connected();
 
@@ -283,6 +260,31 @@ describe("connection loss and retry", () => {
     expect(h.last()).toBe("disconnected");
     expect(h.port.isOpen).toBe(false);
     expect(h.controller.retrying).toBe(false);
+  });
+
+  test("a real unplug — reader error, then the disconnect event — closes the port; a replug reconnects", async () => {
+    const h = linked();
+    await h.connected();
+
+    // What Chromium does: the pending read rejects first, the device leaves
+    // the granted list, and `disconnect` follows.
+    h.port.unplug();
+    h.serial.granted = [];
+    h.serial.fire("disconnect", h.port);
+    await h.settle();
+
+    expect(h.last()).toBe("disconnected");
+    expect(h.port.isOpen).toBe(false);
+    // The rescans find nothing and the backoff runs out.
+    await h.clock.until(() => !h.controller.retrying);
+    expect(h.port.isOpen).toBe(false);
+
+    h.serial.granted = [h.port];
+    h.serial.fire("connect", h.port);
+    await h.clock.until(() => h.last() === "connected");
+    await h.settle();
+    expect(h.port.isOpen).toBe(true);
+    expect(h.flashes).toBe(0);
   });
 });
 
@@ -340,5 +342,72 @@ describe("page lifecycle", () => {
     expect(h.controller.retrying).toBe(false);
     await h.settle();
     expect(h.clock.pending).toBe(0);
+  });
+});
+
+describe("an explicit connect overtaken by pagehide or an engine fault", () => {
+  /** A controller with nothing granted, so only the gesture connects. */
+  function gestureOnly(device = firmataDevice()) {
+    const h = linked();
+    h.port.device = device;
+    h.serial.granted = [];
+    h.serial.picked = h.port;
+    h.controller.start();
+    return h;
+  }
+
+  test("control: the real machine flashes a known board that does not answer", async () => {
+    const h = gestureOnly(silentDevice());
+    await h.clock.run(h.controller.connect());
+    await h.settle();
+
+    expect(h.flashes).toBe(1);
+    expect(h.toasts.at(-1)).toContain("did not come back up");
+  });
+
+  test("a probe that answers after pagehide gives the port back, without flashing", async () => {
+    const h = gestureOnly();
+    const connecting = h.controller.connect();
+    await h.clock.until(() => h.port.isOpen);
+
+    h.lifecycle().onPageHide();
+    await h.clock.run(connecting);
+    await h.settle();
+
+    expect(h.flashes).toBe(0);
+    expect(h.port.isOpen).toBe(false);
+    expect(h.last()).toBe("disconnected");
+    expect(h.toasts).toEqual([]);
+  });
+
+  test("a probe that misses after pagehide does not flash either", async () => {
+    const h = gestureOnly(silentDevice());
+    const connecting = h.controller.connect();
+    await h.clock.until(() => h.port.isOpen);
+
+    h.lifecycle().onPageHide();
+    await h.clock.run(connecting);
+    await h.settle();
+
+    expect(h.flashes).toBe(0);
+    expect(h.port.isOpen).toBe(false);
+    expect(h.last()).toBe("disconnected");
+    expect(h.toasts).toEqual([]);
+  });
+
+  test("an engine fault during the probe: no flash, no false toast, the fault stays", async () => {
+    const h = gestureOnly();
+    const connecting = h.controller.connect();
+    await h.clock.until(() => h.port.isOpen);
+
+    const fault = "The flow engine stopped: unreachable";
+    h.reactors.find((r) => r.connection === null)!.fault(fault);
+    await h.clock.run(connecting);
+    await h.settle();
+
+    expect(h.flashes).toBe(0);
+    expect(h.port.isOpen).toBe(false);
+    expect(h.states.at(-1)).toEqual({ state: "error", error: fault });
+    expect(h.toasts).toEqual([fault]);
   });
 });
