@@ -65,6 +65,17 @@ export const ACCESS_CODES = ["none", "read", "write"] as const;
 export type WireAccess = (typeof ACCESS_CODES)[number];
 
 /**
+ * Ours: the room holds changes that are not durably stored. It withdraws any
+ * earlier `MESSAGE_ACK` — a client showing "Saved" goes back to "Saving"
+ * until the next ack. Carries an `UNSAVED_REASONS` index as a varUint:
+ * `pending` to a client joining a room with a save due or in flight,
+ * `failed` to the room when a persist fails (the room retries with backoff).
+ */
+export const MESSAGE_UNSAVED = 6;
+export const UNSAVED_REASONS = ["pending", "failed"] as const;
+export type UnsavedReason = (typeof UNSAVED_REASONS)[number];
+
+/**
  * Terminal (4400–4499): the authenticated user may not open this flow — the
  * auth gate's denial. Kept apart from a failure while *deciding* (a database
  * timeout, an unready pool), which closes with `CLOSE_INTERNAL_ERROR` and is

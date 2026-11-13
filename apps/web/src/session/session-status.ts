@@ -64,12 +64,19 @@ export type FlowSessionStatus = {
   readonly serverRestarting: boolean;
   /** Set only in `local-unsaved`: why the local flow is not being stored. */
   readonly localError: string | null;
+  /**
+   * The room's last save failed and it is retrying (`MESSAGE_UNSAVED`
+   * "failed"). Edits are held in server memory only until a retry lands.
+   */
+  readonly saveFailing: boolean;
 };
 
 export type SessionStatusEvent =
   | { type: "transport"; state: SyncState }
   | { type: "local-update" }
   | { type: "ack"; at: number }
+  /** The room withdrew its ack: changes pending a save, or a failed save. */
+  | { type: "unsaved"; reason: "pending" | "failed" }
   | { type: "access"; access: "read" | "write" }
   | { type: "access-denied"; reason: string; code: number }
   /** The server closed the socket and the transport is retrying. */
@@ -90,6 +97,10 @@ export type SessionStatusState = {
   readonly pendingSave: number;
   /** An ack has cleared `pendingSave` at least once since it last grew. */
   readonly confirmed: boolean;
+  /** The room said it holds unsaved changes; cleared by the next ack. */
+  readonly roomUnsaved: boolean;
+  /** …because a save failed. */
+  readonly saveFailing: boolean;
   readonly lastSavedAt: number | null;
 };
 
@@ -103,6 +114,8 @@ export function initialSessionStatusState(options: { readOnly: boolean }): Sessi
     pendingDelivery: 0,
     pendingSave: 0,
     confirmed: false,
+    roomUnsaved: false,
+    saveFailing: false,
     lastSavedAt: null,
   };
 }
@@ -110,10 +123,11 @@ export function initialSessionStatusState(options: { readOnly: boolean }): Sessi
 /**
  * The state machine. Pure: same state and event, same result.
  *
- * "Saved" is approximate by one race. The room's ack says "persisted at T",
- * not "persisted up to your update U"; an edit that lands while a save is in
- * flight is cleared by that save's ack. The room is then dirty again and acks
- * once more after its next persist, so the window is one debounce period.
+ * "Saved" follows the room: it acks only when settled (nothing dirty, no save
+ * in flight) and says "unsaved" on join when it is not, or when a save fails.
+ * One window remains: an edit of ours still in flight to the server when the
+ * room's ack leaves it is cleared by that ack; the room is dirty again, and
+ * its next settled ack is the truth, one debounce period later.
  */
 export function reduceSessionStatus(
   state: SessionStatusState,
@@ -154,7 +168,16 @@ export function reduceSessionStatus(
         ...state,
         pendingSave: 0,
         confirmed: true,
+        roomUnsaved: false,
+        saveFailing: false,
         lastSavedAt: event.at > 0 ? event.at : state.lastSavedAt,
+      };
+    case "unsaved":
+      return {
+        ...state,
+        confirmed: false,
+        roomUnsaved: true,
+        saveFailing: event.reason === "failed",
       };
     case "dropped":
       return { ...state, lastDropCode: event.code };
@@ -181,6 +204,7 @@ export function deriveSessionStatus(state: SessionStatusState): FlowSessionStatu
       state.accessLost === null &&
       state.transport !== "synced" &&
       state.lastDropCode === CLOSE_SERVICE_RESTART,
+    saveFailing: state.saveFailing && state.transport === "synced" && !state.readOnly,
     localError: null,
   };
 }
@@ -190,7 +214,7 @@ function kindOf(state: SessionStatusState): SessionStatusKind {
   switch (state.transport) {
     case "synced":
       if (state.readOnly) return "read-only";
-      if (state.pendingSave > 0) return "saving";
+      if (state.pendingSave > 0 || state.roomUnsaved) return "saving";
       return state.confirmed ? "saved" : "connected";
     case "syncing":
       return "syncing";
@@ -246,6 +270,7 @@ function statusEqual(a: FlowSessionStatus, b: FlowSessionStatus): boolean {
     a.unsyncedChanges === b.unsyncedChanges &&
     a.lastSavedAt === b.lastSavedAt &&
     a.serverRestarting === b.serverRestarting &&
+    a.saveFailing === b.saveFailing &&
     a.accessLost?.reason === b.accessLost?.reason &&
     a.accessLost?.code === b.accessLost?.code
   );
@@ -258,6 +283,7 @@ const LOCAL_STATUS: Omit<FlowSessionStatus, "readOnly"> = {
   accessLost: null,
   serverRestarting: false,
   localError: null,
+  saveFailing: false,
 };
 
 /** A status that never changes: previews, and sessions with no persistence to fail. */
@@ -304,7 +330,7 @@ export function localSessionStatus(whenSynced: Promise<void>): SessionStatusStor
 
 type SourceEvents = Pick<
   SyncProviderEvents,
-  "state" | "ack" | "access" | "accessDenied" | "localUpdate" | "dropped"
+  "state" | "ack" | "unsaved" | "access" | "accessDenied" | "localUpdate" | "dropped"
 >;
 
 /** The slice of `SyncProvider` the status needs. A fake satisfies it in tests. */
@@ -327,6 +353,7 @@ export function bindSessionStatus(
     source.on("state", (state) => machine.dispatch({ type: "transport", state })),
     source.on("localUpdate", () => machine.dispatch({ type: "local-update" })),
     source.on("ack", (at) => machine.dispatch({ type: "ack", at })),
+    source.on("unsaved", (reason) => machine.dispatch({ type: "unsaved", reason })),
     source.on("dropped", (code) => machine.dispatch({ type: "dropped", code })),
     source.on("access", (access) => machine.dispatch({ type: "access", access })),
     source.on("accessDenied", (reason, code) =>

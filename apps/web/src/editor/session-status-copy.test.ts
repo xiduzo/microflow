@@ -10,6 +10,7 @@ const base: FlowSessionStatus = {
   accessLost: null,
   serverRestarting: false,
   localError: null,
+  saveFailing: false,
 };
 
 const describe_ = (patch: Partial<FlowSessionStatus>) => describeSessionStatus({ ...base, ...patch });
@@ -32,6 +33,14 @@ describe("session status copy", () => {
       "Offline · 3 unsynced changes",
     );
     expect(describe_({ kind: "offline" })?.canRetry).toBe(true);
+  });
+
+  test("a failing save is a warning, not 'Saving…'", () => {
+    expect(describe_({ kind: "saving" })?.label).toBe("Saving…");
+    expect(describe_({ kind: "saving", saveFailing: true })).toMatchObject({
+      label: "Not saved yet",
+      tone: "warn",
+    });
   });
 
   test("view only with held edits says they can't be saved", () => {

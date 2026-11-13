@@ -27,7 +27,7 @@ import type { SyncAdapter } from "./sync-adapter";
 
 type Events = Pick<
   SyncProviderEvents,
-  "state" | "ack" | "access" | "accessDenied" | "localUpdate" | "dropped"
+  "state" | "ack" | "unsaved" | "access" | "accessDenied" | "localUpdate" | "dropped"
 >;
 
 class FakeSource implements SessionStatusSource {
@@ -147,6 +147,31 @@ describe("Flow Session Status", () => {
 
     source.emit("access", "write");
     expect(status().readOnly).toBe(false);
+  });
+
+  test("joining a room mid-save shows saving until its ack, never 'saved' early", () => {
+    const { source, status } = setup();
+    source.emit("state", "syncing");
+    source.emit("unsaved", "pending"); // the join said: not settled
+    source.emit("state", "synced");
+    expect(status().kind).toBe("saving");
+
+    source.emit("ack", 42);
+    expect(status().kind).toBe("saved");
+  });
+
+  test("a failed save after 'Saved' takes it back, and flags the failure", () => {
+    const { source, status } = setup();
+    source.connect();
+    source.emit("localUpdate");
+    source.emit("ack", 1);
+    expect(status().kind).toBe("saved");
+
+    source.emit("unsaved", "failed");
+    expect(status()).toMatchObject({ kind: "saving", saveFailing: true });
+
+    source.emit("ack", 2); // the retry landed
+    expect(status()).toMatchObject({ kind: "saved", saveFailing: false });
   });
 
   test("offline edits are not counted as delivered when the rejoin says read-only", () => {

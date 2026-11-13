@@ -17,6 +17,9 @@ import {
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
   MESSAGE_SYNC,
+  MESSAGE_UNSAVED,
+  UNSAVED_REASONS,
+  type UnsavedReason,
 } from "./protocol";
 
 // ============================================================================
@@ -113,6 +116,14 @@ function ackMessage(version: number): Uint8Array {
   const encoder = encoding.createEncoder();
   encoding.writeVarUint(encoder, MESSAGE_ACK);
   encoding.writeVarUint(encoder, version);
+  return encoding.toUint8Array(encoder);
+}
+
+/** `MESSAGE_UNSAVED`: the room holds changes that are not durably stored. */
+function unsavedMessage(reason: UnsavedReason): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_UNSAVED);
+  encoding.writeVarUint(encoder, UNSAVED_REASONS.indexOf(reason));
   return encoding.toUint8Array(encoder);
 }
 
@@ -291,10 +302,15 @@ export class YjsServer {
     // otherwise go unnoticed until its writes silently vanished.
     this.sendAccess(socket, canWrite ? "write" : "read");
 
-    // A clean room is fully persisted: say so. A client that disconnected
-    // between delivering an edit and the room's persist would otherwise have
-    // missed that ack and wait for one forever.
-    if (room.persistence.isSettled) socket.send(ackMessage(room.lastPersistedAt));
+    // Say where the room stands on durability. Settled (nothing dirty, no
+    // save in flight): ack, so a client that dropped between delivering an
+    // edit and its persist does not wait for an ack it missed. Otherwise
+    // "unsaved": an ack now would claim "Saved" in the middle of a save.
+    socket.send(
+      room.persistence.isSettled
+        ? ackMessage(room.lastPersistedAt)
+        : unsavedMessage("pending"),
+    );
 
     return connection;
   }
@@ -604,11 +620,18 @@ export class YjsServer {
     });
   }
 
-  /** A save landed: acknowledge it, and finish an idle room's teardown. */
+  /**
+   * A save landed: acknowledge it, and finish an idle room's teardown.
+   *
+   * Only a settled room is acked. A change that arrived while the write was
+   * in flight is not in it — the room is dirty again and a save is scheduled
+   * — so acking now would show "Saved" for an edit that is not; that save's
+   * own ack follows.
+   */
   private onRoomPersisted(flowId: string, room: Room, at: number): void {
     if (room.destroyed) return;
     room.lastPersistedAt = at;
-    this.broadcastAck(room, at);
+    if (room.persistence.isSettled) this.broadcastAck(room, at);
     console.log(`[YJS] Persisted room ${flowId}`);
     if (room.connections.size === 0 && room.persistence.isSettled) {
       this.destroyRoom(flowId, room);
@@ -682,8 +705,17 @@ export class YjsServer {
       lastPersistedAt: Date.now(),
       // After the stored state is applied (loading is not an edit), before the
       // migration below (which is, and must be written back).
-      persistence: new RoomPersistence(flowId, doc, this.store, this.persistPolicy, (at) =>
-        this.onRoomPersisted(flowId, room, at),
+      persistence: new RoomPersistence(
+        flowId,
+        doc,
+        this.store,
+        this.persistPolicy,
+        (at) => this.onRoomPersisted(flowId, room, at),
+        // Withdraw any ack the room's clients are showing: their edits are
+        // only in this process's memory until a retry lands.
+        () => {
+          if (!room.destroyed) this.broadcast(room, unsavedMessage("failed"), null);
+        },
       ),
     };
     const { awareness } = room;

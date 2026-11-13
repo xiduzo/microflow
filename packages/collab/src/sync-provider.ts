@@ -7,7 +7,10 @@ import {
   MAX_REAUTH_ATTEMPTS,
   MESSAGE_ACCESS,
   MESSAGE_ACK,
+  MESSAGE_UNSAVED,
+  UNSAVED_REASONS,
   classifyClose,
+  type UnsavedReason,
 } from "./protocol";
 
 // ============================================================================
@@ -66,6 +69,11 @@ export type SyncProviderEvents = {
   synced: () => void;
   error: (error: Error) => void;
   ack: (version: number) => void;
+  /**
+   * The room holds changes not durably stored (`MESSAGE_UNSAVED`): withdraws
+   * the last `ack`. `"failed"` when a persist failed and the room is retrying.
+   */
+  unsaved: (reason: UnsavedReason) => void;
   /**
    * The server closed and retrying will not help (see `classifyClose`): access
    * was denied or revoked, or the credentials stayed rejected after
@@ -268,6 +276,10 @@ export class SyncProvider {
     // Our own message type; the provider dispatches by number into this array.
     this.provider.messageHandlers[MESSAGE_ACK] = (_encoder, decoder) => {
       this.emit("ack", decoding.readVarUint(decoder));
+    };
+    this.provider.messageHandlers[MESSAGE_UNSAVED] = (_encoder, decoder) => {
+      const reason = UNSAVED_REASONS[decoding.readVarUint(decoder)] ?? "pending";
+      this.emit("unsaved", reason);
     };
     this.provider.messageHandlers[MESSAGE_ACCESS] = (_encoder, decoder) => {
       const access = ACCESS_CODES[decoding.readVarUint(decoder)];

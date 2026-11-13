@@ -10,6 +10,7 @@ import {
   MESSAGE_ACK,
   MESSAGE_AWARENESS,
   MESSAGE_SYNC,
+  MESSAGE_UNSAVED,
   MAX_REAUTH_ATTEMPTS,
   classifyClose,
 } from "./protocol";
@@ -457,6 +458,18 @@ describe("SyncProvider auth and access", () => {
     expect(seen).toEqual(["read"]);
     expect(provider.access).toBe("read");
     expect(MESSAGE_ACCESS).toBeGreaterThan(3);
+    provider.destroy();
+  });
+
+  test("an unsaved frame is decoded with its reason", () => {
+    const { provider } = makeAuthedProvider(() => undefined);
+    const socket = lastSocket();
+    socket.open();
+    const seen: string[] = [];
+    provider.on("unsaved", (reason) => seen.push(reason));
+    socket.onmessage?.({ data: new Uint8Array([MESSAGE_UNSAVED, 0]).buffer as ArrayBuffer });
+    socket.onmessage?.({ data: new Uint8Array([MESSAGE_UNSAVED, 1]).buffer as ArrayBuffer });
+    expect(seen).toEqual(["pending", "failed"]);
     provider.destroy();
   });
 

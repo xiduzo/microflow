@@ -71,6 +71,15 @@ export function describeSessionStatus(status: FlowSessionStatus): SessionStatusC
     case "connected":
       return { label: "Connected", detail: "Live with your collaborators.", tone: "good", canRetry: false };
     case "saving":
+      if (status.saveFailing) {
+        return {
+          label: "Not saved yet",
+          detail:
+            "The server could not store the latest changes and is retrying. Keep this tab open until it says Saved.",
+          tone: "warn",
+          canRetry: false,
+        };
+      }
       return { label: "Saving…", detail: "Your changes are being stored.", tone: "busy", canRetry: false };
     case "saved":
       return { label: "Saved", detail: "All changes are stored.", tone: "good", canRetry: false };
