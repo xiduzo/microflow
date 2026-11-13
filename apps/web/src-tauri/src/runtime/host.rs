@@ -17,18 +17,30 @@
 //! re-applied, so a (re)connected board gets clean pin-mode/reporting init — the
 //! same model the browser reactor uses (a fresh runtime per connection).
 //!
+//! **Supervision.** Every turn — one message, or one serial read — runs under
+//! `catch_unwind`. A panic throws the runtime away (its invariants died with
+//! the turn), puts the board in a safe state, and respawns a fresh runtime
+//! seeded from the live session's pin table with the last flow re-applied; the
+//! webview hears `runtime-crashed`. After [`supervisor::CRASH_LIMIT`] panics in
+//! [`supervisor::CRASH_WINDOW`] the actor halts instead and waits for
+//! [`ActorMsg::Restart`]. The policy half lives in [`supervisor`].
+//!
 //! [`Effects`]: microflow_core::runtime::Effects
 
 use crate::hardware::SessionId;
 use crate::runtime::services::MqttPublisher;
+use crate::runtime::supervisor::{self, CrashGuard, Fault, Verdict};
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::subscriptions::MidiListener;
 use microflow_core::runtime::{
     CloudRequest, CloudRequestKind, ComponentEvent, ComponentValue, Effects,
     EffectsSink, FlowRuntime, NodeDiagnostic, SubscriberWiring, Wakeup, WakeupId,
 };
+use serde::Serialize;
+use std::any::Any;
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -90,14 +102,67 @@ pub enum ActorMsg {
         value: ComponentValue,
     },
     /// A host timer fired: deliver `method` to `node_id` via `FlowRuntime::wake`.
-    /// `id` lets the actor drop the fired timer from its table.
+    /// `id` lets the actor drop the fired timer from its table; `epoch` names
+    /// the runtime instance that armed it, so a timer from a runtime since
+    /// thrown away (replug, respawn) is dropped instead of waking the new one.
     Wake {
         id: WakeupId,
+        epoch: u64,
         node_id: String,
         method: String,
     },
+    /// Leave a crash-loop halt (`runtime_restart`): forget the recorded panics
+    /// and respawn the runtime. A no-op beyond the reset when not halted.
+    Restart,
     /// Tear the actor down (app exit).
     Shutdown,
+}
+
+impl ActorMsg {
+    /// The turn's name in a crash fingerprint. Low-cardinality on purpose.
+    #[must_use]
+    pub fn op(&self) -> &'static str {
+        match self {
+            Self::Connect { .. } => "connect",
+            Self::Disconnect => "disconnect",
+            Self::FlowUpdate { .. } => "flowUpdate",
+            Self::Call { .. } => "dispatch",
+            Self::Key { .. } => "keyEvent",
+            Self::Deliver { .. } => "deliverMessage",
+            Self::MidiMessage { .. } => "midiMessage",
+            Self::Inject { .. } => "injectEvent",
+            Self::Wake { .. } => "wake",
+            Self::Restart => "restart",
+            Self::Shutdown => "shutdown",
+        }
+    }
+
+    /// A message that is a turn of the flow — dropped while the actor is
+    /// halted, since there is no runtime it may trust to take it.
+    fn drives_runtime(&self) -> bool {
+        matches!(
+            self,
+            Self::Call { .. }
+                | Self::Key { .. }
+                | Self::Deliver { .. }
+                | Self::MidiMessage { .. }
+                | Self::Inject { .. }
+                | Self::Wake { .. }
+        )
+    }
+}
+
+/// Where the actor's events to the webview go: the Tauri `AppHandle` in the
+/// app, a recorder in the tests — the seam that keeps the actor (and its
+/// supervision) testable without a Tauri app.
+pub trait HostEvents {
+    fn emit<S: Serialize + Clone>(&self, event: &str, payload: S);
+}
+
+impl HostEvents for AppHandle {
+    fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
+        let _ = Emitter::emit(self, event, payload);
+    }
 }
 
 /// Spawn the actor thread. The caller owns the channel (so the `Send + Sync`
@@ -114,10 +179,18 @@ pub fn run_actor(
     rt_handle: Handle,
     mqtt_publisher: Arc<dyn MqttPublisher>,
 ) {
+    supervisor::install_panic_hook();
     std::thread::Builder::new()
         .name("microflow-runtime".into())
         .spawn(move || {
-            let actor = Actor::new(app, rt_handle, mqtt_publisher, self_tx, session_ended);
+            let actor = Actor::new(
+                app,
+                rt_handle,
+                mqtt_publisher,
+                self_tx,
+                session_ended,
+                Box::new(FlowRuntime::new),
+            );
             actor.run(rx);
             log::info!("[actor] runtime thread stopped");
         })
@@ -211,14 +284,32 @@ impl BoardSession {
     }
 }
 
+/// Builds a fresh runtime: `FlowRuntime::new` in the app; tests add a node.
+type RuntimeFactory = Box<dyn Fn() -> FlowRuntime>;
+
 /// Owns the `!Send` `FlowRuntime` + the serial port; lives entirely on one thread.
-struct Actor {
+struct Actor<E: HostEvents> {
     rt: FlowRuntime,
+    /// How a fresh runtime is built — on connect, and on respawn after a panic.
+    make_runtime: RuntimeFactory,
+    /// Bumped each time the runtime is rebuilt; a `Wake` armed by an older
+    /// runtime is stale.
+    epoch: u64,
     /// The board connection while one is live; `None` otherwise.
     session: Option<BoardSession>,
+    /// The live session's pin table (`FirmataSession.pinsJson` shape), kept so
+    /// a respawned runtime is seeded exactly as the connect seeded the last one.
+    pins_json: Option<String>,
     /// Last flow, re-applied on (re)connect for clean board init.
     last_flow: Option<FlowUpdate>,
-    app: AppHandle,
+    /// The subscriber wirings the last `FlowUpdate` replied with — what the
+    /// `flow_update` command's MQTT subscriptions are reconciled against.
+    wirings: Vec<(String, SubscriberWiring)>,
+    /// The crash-loop guard.
+    guard: CrashGuard,
+    /// The guard tripped: no runtime drives the board until `Restart`.
+    halted: bool,
+    events: E,
     rt_handle: Handle,
     self_tx: UnboundedSender<ActorMsg>,
     /// Where a [`BoardSession`] reports its own end (to the board link).
@@ -243,23 +334,30 @@ struct Actor {
     midi_listeners: Rc<[MidiListener]>,
 }
 
-impl Actor {
+impl<E: HostEvents> Actor<E> {
     fn new(
-        app: AppHandle,
+        events: E,
         rt_handle: Handle,
         mqtt_publisher: Arc<dyn MqttPublisher>,
         self_tx: UnboundedSender<ActorMsg>,
         session_ended: Sender<SessionId>,
+        make_runtime: RuntimeFactory,
     ) -> Self {
         let cloud = CloudPerformer::new(mqtt_publisher, rt_handle.clone());
         // Cloud nodes are sans-IO and auto-registered by core (the `cloud`
         // feature); the actor only supplies the `CloudPerformer` that performs
         // their recorded requests.
         Self {
-            rt: FlowRuntime::new(),
+            rt: make_runtime(),
+            make_runtime,
+            epoch: 0,
             session: None,
+            pins_json: None,
             last_flow: None,
-            app,
+            wirings: Vec::new(),
+            guard: CrashGuard::default(),
+            halted: false,
+            events,
             rt_handle,
             self_tx,
             session_ended,
@@ -287,11 +385,11 @@ impl Actor {
             loop {
                 match rx.try_recv() {
                     Ok(msg) => {
-                        if !self.handle(msg) {
+                        if !self.step(msg) {
                             return;
                         }
                         if self.session.is_some() {
-                            self.pump_port();
+                            self.supervised_pump();
                         }
                     }
                     Err(TryRecvError::Empty) => break,
@@ -302,11 +400,11 @@ impl Actor {
             // Idle: keep reading while connected; block for the next message when
             // disconnected (no busy spin).
             if self.session.is_some() {
-                self.pump_port();
+                self.supervised_pump();
             } else {
                 match rx.blocking_recv() {
                     Some(msg) => {
-                        if !self.handle(msg) {
+                        if !self.step(msg) {
                             return;
                         }
                     }
@@ -316,49 +414,177 @@ impl Actor {
         }
     }
 
+    /// One message as a supervised turn. Returns `false` on shutdown.
+    fn step(&mut self, msg: ActorMsg) -> bool {
+        let op = msg.op();
+        self.supervised(op, |actor| actor.handle(msg))
+    }
+
+    /// One serial read as a supervised turn.
+    fn supervised_pump(&mut self) {
+        self.supervised("feedBytes", |actor| {
+            actor.pump_port();
+            true
+        });
+    }
+
+    /// Run `turn`; a panic inside it is caught here and answered by
+    /// [`Self::recover`] instead of killing the thread (and the port with it).
+    fn supervised(&mut self, op: &'static str, turn: impl FnOnce(&mut Self) -> bool) -> bool {
+        match catch_unwind(AssertUnwindSafe(|| turn(self))) {
+            Ok(keep_running) => keep_running,
+            Err(payload) => {
+                self.recover(op, &*payload);
+                true
+            }
+        }
+    }
+
+    /// A turn panicked. Report it, throw the runtime away, put the board in a
+    /// safe state, and — unless the crash guard trips — respawn. A respawn
+    /// that panics too (the re-applied flow is what panics) is one more crash,
+    /// so a deterministic fault halts after [`supervisor::CRASH_LIMIT`] tries.
+    fn recover(&mut self, op: &'static str, payload: &(dyn Any + Send)) {
+        let mut fault = Fault::capture(op);
+        let mut message = supervisor::panic_message(payload).to_string();
+        loop {
+            let verdict = self.guard.record(Instant::now());
+            log::error!(
+                "[actor] runtime panicked in {} at {} (#{}): {message}",
+                fault.op,
+                fault.location,
+                fault.fingerprint
+            );
+            self.events.emit(
+                "runtime-crashed",
+                fault.event(verdict == Verdict::Respawn, self.guard.recent()),
+            );
+            // The panicked runtime's state is indeterminate (ADR-0017 D3): it
+            // never drives the board again, and neither do its timers.
+            self.rebuild_runtime(false);
+            self.safe_state();
+            if verdict == Verdict::Halt {
+                log::error!("[actor] {} panics within the crash window; runtime halted", self.guard.recent());
+                self.halted = true;
+                return;
+            }
+            match catch_unwind(AssertUnwindSafe(|| self.respawn())) {
+                Ok(()) => return,
+                Err(payload) => {
+                    fault = Fault::capture("respawn");
+                    message = supervisor::panic_message(&*payload).to_string();
+                }
+            }
+        }
+    }
+
+    /// A fresh runtime with the live session's pins and the last flow: the
+    /// state a replug would reach, without the replug.
+    fn respawn(&mut self) {
+        self.halted = false;
+        self.rebuild_runtime(true);
+        self.apply_last_flow();
+        // Subscriptions. MIDI inputs live on the actor: rebuild the listener
+        // cache from the new runtime and reconcile. MQTT subscriptions live on
+        // `AppState`, keyed by node id, and are a function of the flow alone —
+        // the same flow yields the same wirings, so they stay valid. Say so
+        // loudly if that ever stops being true.
+        let wirings = self.rt.collect_subscriber_wirings();
+        if wirings != self.wirings {
+            log::warn!("[actor] respawned runtime wires subscribers differently; MQTT re-reconciles on the next flow_update");
+            self.wirings = wirings;
+        }
+        self.midi_listeners = self.rt.collect_midi_listeners().into();
+        self.midi.reconcile(&self.midi_listeners, &self.self_tx);
+        log::info!("[actor] runtime respawned (epoch {})", self.epoch);
+    }
+
+    /// Replace the runtime with a fresh one and abort the old one's timers — the
+    /// rebuild mints fresh wakeup ids, so stale timers would double-fire (e.g.
+    /// an interval ticking twice as fast after a replug). `seed`: seed the pin
+    /// table from the live session, if there is one.
+    fn rebuild_runtime(&mut self, seed: bool) {
+        for (_, handle) in self.timers.drain() {
+            handle.abort();
+        }
+        self.epoch += 1;
+        self.rt = (self.make_runtime)();
+        if !seed || self.session.is_none() {
+            return;
+        }
+        if let Some(pins_json) = &self.pins_json {
+            if let Err(e) = self.rt.seed_pins(pins_json) {
+                log::warn!("[actor] seed_pins failed: {e}");
+            }
+        }
+    }
+
+    /// Re-apply the last flow to the current runtime: clean pin-mode/reporting
+    /// init on the board.
+    fn apply_last_flow(&mut self) {
+        if let Some(flow) = self.last_flow.clone() {
+            self.set_now();
+            let effects = self.rt.update_flow(flow);
+            self.apply(effects);
+        }
+    }
+
+    /// Put the board in a safe state before a new runtime (or none) drives it.
+    fn safe_state(&mut self) {
+        // TODO(track J): write core's safe-state encoder here —
+        // `microflow_core::firmata::encode_safe_state(pin_count)` over the
+        // session's pin table, through `self.write_bytes`. Until it lands the
+        // respawn's re-applied flow re-inits every pin mode, and a halt leaves
+        // outputs as the panicked runtime drove them.
+    }
+
+    /// A board connected: hold its port, and — unless halted — build a fresh
+    /// runtime seeded from its pin table and re-apply the flow.
+    fn connect(&mut self, port: Box<dyn SerialIo>, pins_json: String, session: SessionId) {
+        // Diagnostic (Bug B): the seeded table decides which pins the
+        // runtime will accept analog reporting for (a pin needs
+        // `analogChannel >= 0`). Logging the raw JSON distinguishes
+        // "analog mapping never parsed" (no pin analog) from "A0 is not
+        // pin 14 on this board" (some other pin carries the analog flag).
+        log::info!("[actor] seeded pins_json: {pins_json}");
+        self.session = Some(BoardSession::new(session, port, self.session_ended.clone()));
+        self.pins_json = Some(pins_json);
+        log::info!("[actor] board connected (session {session})");
+        if self.halted {
+            return;
+        }
+        // Fresh runtime → clean pin-mode/reporting init on the new board.
+        self.rebuild_runtime(true);
+        self.apply_last_flow();
+    }
+
     /// Process one message. Returns `false` on shutdown.
     fn handle(&mut self, msg: ActorMsg) -> bool {
+        if self.halted && msg.drives_runtime() {
+            return true;
+        }
         match msg {
             ActorMsg::Connect { port, pins_json, session } => {
-                // Abort timers from the previous runtime instance — the rebuild
-                // below mints fresh wakeup ids, so stale timers would double-fire
-                // (e.g. an interval ticking twice as fast after a replug).
-                for (_, handle) in self.timers.drain() {
-                    handle.abort();
-                }
-                // Fresh runtime → clean pin-mode/reporting init on the new board.
-                self.rt = FlowRuntime::new();
-                if let Err(e) = self.rt.seed_pins(&pins_json) {
-                    log::warn!("[actor] seed_pins failed: {e}");
-                }
-                // Diagnostic (Bug B): the seeded table decides which pins the
-                // runtime will accept analog reporting for (a pin needs
-                // `analogChannel >= 0`). Logging the raw JSON distinguishes
-                // "analog mapping never parsed" (no pin analog) from "A0 is not
-                // pin 14 on this board" (some other pin carries the analog flag).
-                log::info!("[actor] seeded pins_json: {pins_json}");
                 let mut port = port;
                 let _ = port.set_timeout(Duration::from_millis(READ_TIMEOUT_MS));
-                self.session =
-                    Some(BoardSession::new(session, Box::new(port), self.session_ended.clone()));
-                log::info!("[actor] board connected (session {session})");
-
-                if let Some(flow) = self.last_flow.clone() {
-                    self.set_now();
-                    let effects = self.rt.update_flow(flow);
-                    self.apply(effects);
-                }
+                self.connect(Box::new(port), pins_json, session);
             }
             ActorMsg::Disconnect => {
                 self.session = None;
                 log::info!("[actor] board disconnected");
+            }
+            ActorMsg::FlowUpdate { flow, reply } if self.halted => {
+                // Kept for the restart; the subscriptions stay as they are.
+                self.last_flow = Some(flow);
+                let _ = reply.send(self.wirings.clone());
             }
             ActorMsg::FlowUpdate { flow, reply } => {
                 self.last_flow = Some(flow.clone());
                 self.set_now();
                 let effects = self.rt.update_flow(flow);
                 self.apply(effects);
-                let _ = reply.send(self.rt.collect_subscriber_wirings());
+                self.wirings = self.rt.collect_subscriber_wirings();
+                let _ = reply.send(self.wirings.clone());
                 // The flow changed: this is the only place the listener cache
                 // can go stale, so it is the only place it is rebuilt.
                 self.midi_listeners = self.rt.collect_midi_listeners().into();
@@ -398,11 +624,21 @@ impl Actor {
                 let effects = self.rt.inject_event(&source, &handle, value);
                 self.apply(effects);
             }
-            ActorMsg::Wake { id, node_id, method } => {
+            ActorMsg::Wake { epoch, .. } if epoch != self.epoch => {
+                // Armed by a runtime since thrown away (replug, respawn).
+            }
+            ActorMsg::Wake { id, node_id, method, .. } => {
                 self.timers.remove(&id);
                 self.set_now();
                 let effects = self.rt.wake(&node_id, &method);
                 self.apply(effects);
+            }
+            ActorMsg::Restart => {
+                self.guard.reset();
+                if self.halted {
+                    log::info!("[actor] restart requested; leaving the crash-loop halt");
+                    self.respawn();
+                }
             }
             ActorMsg::Shutdown => return false,
         }
@@ -410,11 +646,13 @@ impl Actor {
     }
 
     /// Read available serial bytes into the codec and apply the resulting turn.
+    /// Halted, the bytes are read (so a dead port is still noticed) and dropped.
     fn pump_port(&mut self) {
         let mut buf = [0u8; 256];
         let Some(session) = self.session.as_mut() else { return };
         match session.read(&mut buf) {
             Ok(0) => {}
+            Ok(_) if self.halted => {}
             Ok(n) => {
                 self.set_now();
                 let effects = self.rt.feed_bytes(&buf[..n]);
@@ -435,7 +673,7 @@ impl Actor {
 /// The desktop platform primitives behind the ADR-0008 [`EffectsSink`] hooks:
 /// serial write + flush, Tauri `emit`, and Tokio timer arm/abort. The canonical
 /// *order* these fire in is owned by `Effects::apply`, not here.
-impl EffectsSink for Actor {
+impl<E: HostEvents> EffectsSink for Actor<E> {
     fn write_bytes(&mut self, bytes: &[u8]) {
         if let Some(session) = self.session.as_mut() {
             if session.write(bytes).is_err() {
@@ -454,12 +692,13 @@ impl EffectsSink for Actor {
     fn arm_wakeup(&mut self, wakeup: &Wakeup) {
         let tx = self.self_tx.clone();
         let id = wakeup.id;
+        let epoch = self.epoch;
         let node_id = wakeup.node_id.clone();
         let method = wakeup.method.clone();
         let delay_ms = wakeup.delay_ms;
         let join = self.rt_handle.spawn(async move {
             tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-            let _ = tx.send(ActorMsg::Wake { id, node_id, method });
+            let _ = tx.send(ActorMsg::Wake { id, epoch, node_id, method });
         });
         self.timers.insert(id, join.abort_handle());
     }
@@ -480,7 +719,7 @@ impl EffectsSink for Actor {
         // instead of linking an audio backend here. The webview resolves the
         // node's `src` (see `use-audio-requests.ts`).
         if matches!(request.kind, CloudRequestKind::AudioPlay { .. } | CloudRequestKind::AudioStop) {
-            let _ = self.app.emit("audio-request", request);
+            self.events.emit("audio-request", request);
             return;
         }
         // LLM generation runs in the webview too, for the same reason and with
@@ -494,7 +733,7 @@ impl EffectsSink for Actor {
         // on CORS; the frontend performs it over `@tauri-apps/plugin-http`,
         // which requests from Rust exactly as this host used to.
         if matches!(request.kind, CloudRequestKind::LlmGenerate { .. }) {
-            let _ = self.app.emit("llm-request", request);
+            self.events.emit("llm-request", request);
             return;
         }
         self.cloud.perform(request);
@@ -508,11 +747,11 @@ impl EffectsSink for Actor {
     /// `ComponentEvent[]` in emission order. Every event of a turn costs one
     /// serialize + one IPC hop + one webview `JSON.parse` together, not each.
     fn dispatch_events(&mut self, events: &[ComponentEvent]) {
-        let _ = self.app.emit("component-events", events);
+        self.events.emit("component-events", events);
     }
 
     fn report_diagnostic(&mut self, diagnostic: &NodeDiagnostic) {
-        let _ = self.app.emit("node-diagnostic", diagnostic);
+        self.events.emit("node-diagnostic", diagnostic);
     }
 }
 
@@ -818,5 +1057,284 @@ mod tests {
         let handles: Vec<&str> =
             effects.component_events.iter().map(|e| e.source_handle.as_ref()).collect();
         assert_eq!(handles, vec!["note", "velocity", "on"]);
+    }
+
+    // --- Supervision: a panicking turn respawns the runtime -----------------
+
+    use microflow_core::runtime::{Component, ComponentBase, RuntimeContext, RuntimeError};
+    use std::cell::{Cell, RefCell};
+    use std::sync::Mutex;
+
+    /// The actor's webview events, recorded as JSON.
+    #[derive(Clone, Default)]
+    struct RecordingEvents(Rc<RefCell<Vec<(String, serde_json::Value)>>>);
+
+    impl HostEvents for RecordingEvents {
+        fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
+            self.0.borrow_mut().push((event.to_string(), serde_json::to_value(payload).unwrap()));
+        }
+    }
+
+    impl RecordingEvents {
+        fn crashes(&self) -> Vec<serde_json::Value> {
+            self.0.borrow().iter().filter(|(e, _)| e == "runtime-crashed").map(|(_, p)| p.clone()).collect()
+        }
+    }
+
+    /// A port that never has input and records every byte written to it.
+    struct RecordingPort(Arc<Mutex<Vec<u8>>>);
+
+    impl Read for RecordingPort {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
+            Err(ErrorKind::TimedOut.into())
+        }
+    }
+
+    impl Write for RecordingPort {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    /// A node that panics: in dispatch on `boom`, on a `_boom` wakeup (core
+    /// strips the `_`), and on start when `data.panicOnStart`. Counts its
+    /// starts — one per flow apply.
+    struct Panicker {
+        base: ComponentBase,
+        panic_on_start: bool,
+        starts: Rc<Cell<u32>>,
+    }
+
+    impl Component for Panicker {
+        fn base(&self) -> &ComponentBase {
+            &self.base
+        }
+        fn base_mut(&mut self) -> &mut ComponentBase {
+            &mut self.base
+        }
+        fn component_type(&self) -> &'static str {
+            "Panicker"
+        }
+        fn dispatch(&mut self, method: &str, _a: ComponentValue, _c: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            assert!(method != "boom", "node panicked in dispatch");
+            Ok(())
+        }
+        fn dispatch_internal(&mut self, method: &str, _v: ComponentValue, _c: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            assert!(method != "boom", "node panicked in a wakeup");
+            Ok(())
+        }
+        fn on_start(&mut self, _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            self.starts.set(self.starts.get() + 1);
+            assert!(!self.panic_on_start, "node panicked on start");
+            Ok(())
+        }
+    }
+
+    struct Rig {
+        actor: Actor<RecordingEvents>,
+        events: RecordingEvents,
+        written: Arc<Mutex<Vec<u8>>>,
+        starts: Rc<Cell<u32>>,
+        _tokio: tokio::runtime::Runtime,
+    }
+
+    impl Rig {
+        /// An actor whose runtimes know `Panicker`, connected as session 7 to a
+        /// 20-pin board whose pins 14–19 are analog (A0 = pin 14).
+        fn connected() -> Self {
+            supervisor::install_panic_hook();
+            let tokio = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
+            let starts = Rc::new(Cell::new(0));
+            let factory_starts = Rc::clone(&starts);
+            let make_runtime: RuntimeFactory = Box::new(move || {
+                let mut rt = FlowRuntime::new();
+                let starts = Rc::clone(&factory_starts);
+                rt.register_test_factory(
+                    "Panicker",
+                    Box::new(move |id, data| {
+                        Ok(Box::new(Panicker {
+                            base: ComponentBase::new(id, ComponentValue::default()),
+                            panic_on_start: data
+                                .get("panicOnStart")
+                                .and_then(serde_json::Value::as_bool)
+                                .unwrap_or(false),
+                            starts: Rc::clone(&starts),
+                        }))
+                    }),
+                );
+                rt
+            });
+            let events = RecordingEvents::default();
+            let (self_tx, _self_rx) = tokio::sync::mpsc::unbounded_channel();
+            let (ended_tx, _ended_rx) = std::sync::mpsc::channel();
+            let mut actor = Actor::new(
+                events.clone(),
+                tokio.handle().clone(),
+                Arc::new(RecordingMqttPublisher::new()),
+                self_tx,
+                ended_tx,
+                make_runtime,
+            );
+            let written = Arc::new(Mutex::new(Vec::new()));
+            actor.connect(Box::new(RecordingPort(Arc::clone(&written))), pins_json(), 7);
+            Self { actor, events, written, starts, _tokio: tokio }
+        }
+
+        fn flow(
+            &mut self,
+            panic_on_start: bool,
+        ) -> Result<Vec<(String, SubscriberWiring)>, oneshot::error::TryRecvError> {
+            let (reply, mut rx) = oneshot::channel();
+            let flow = FlowUpdate {
+                nodes: vec![node("p", "Panicker", serde_json::json!({ "panicOnStart": panic_on_start })), sensor_a0()],
+                edges: vec![],
+            };
+            assert!(self.actor.step(ActorMsg::FlowUpdate { flow, reply }));
+            rx.try_recv()
+        }
+
+        fn call(&mut self, method: &str) {
+            let msg = ActorMsg::Call { id: "p".into(), method: method.into(), value: ComponentValue::default() };
+            assert!(self.actor.step(msg), "a panic never stops the actor");
+        }
+
+        fn take_written(&self) -> Vec<u8> {
+            std::mem::take(&mut *self.written.lock().unwrap())
+        }
+    }
+
+    fn sensor_a0() -> FlowNode {
+        node(
+            "pot",
+            "Sensor",
+            serde_json::json!({ "instance": "Sensor", "pin": "A0", "type": "analog", "threshold": 1 }),
+        )
+    }
+
+    fn pins_json() -> String {
+        let pins: Vec<serde_json::Value> = (0..20)
+            .map(|p| {
+                let channel = if p >= 14 { p - 14 } else { -1 };
+                serde_json::json!({ "pin": p, "supportedModes": [], "analogChannel": channel })
+            })
+            .collect();
+        serde_json::to_string(&pins).unwrap()
+    }
+
+    /// `REPORT_ANALOG` on channel 0: only a runtime whose pin table says pin 14
+    /// is analog sends it for the Sensor on A0.
+    const REPORT_A0: [u8; 2] = [0xC0, 1];
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack.windows(needle.len()).any(|w| w == needle)
+    }
+
+    #[test]
+    fn report_a0_needs_the_seeded_pin_table() {
+        // The control for the re-seed assertions below: an unseeded runtime
+        // does not enable analog reporting for A0.
+        let mut rt = FlowRuntime::new();
+        let effects = rt.update_flow(FlowUpdate { nodes: vec![sensor_a0()], edges: vec![] });
+        assert!(!contains(&effects.outbound_bytes, &REPORT_A0), "{:02X?}", effects.outbound_bytes);
+    }
+
+    #[test]
+    fn a_panicking_turn_respawns_a_seeded_runtime_and_reapplies_the_flow() {
+        let mut rig = Rig::connected();
+        rig.flow(false).expect("the flow applied");
+        assert_eq!(rig.starts.get(), 1);
+        assert!(contains(&rig.take_written(), &REPORT_A0), "the connect seeded the pins");
+        let epoch = rig.actor.epoch;
+
+        rig.call("boom");
+
+        // Reported, once, without the panic message.
+        let crashes = rig.events.crashes();
+        assert_eq!(crashes.len(), 1);
+        let crash = &crashes[0];
+        assert_eq!(crash["op"], "dispatch");
+        assert_eq!(crash["recovered"], true);
+        assert_eq!(crash["crashes"], 1);
+        assert_eq!(crash["fingerprint"].as_str().unwrap().len(), 8);
+        assert!(crash["location"].as_str().unwrap().starts_with("src-tauri/src/runtime/host.rs:"), "{crash}");
+        assert!(!crash.to_string().contains("panicked in dispatch"), "the message stays local: {crash}");
+
+        // A fresh runtime, seeded from the live session, running the flow again.
+        assert!(!rig.actor.halted);
+        assert!(rig.actor.epoch > epoch, "the runtime was rebuilt");
+        assert_eq!(rig.starts.get(), 2, "the flow was re-applied");
+        assert!(rig.actor.session.is_some(), "the board session survives");
+        assert!(contains(&rig.take_written(), &REPORT_A0), "the pin table was re-seeded");
+        assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings(), "subscriptions unchanged");
+
+        // And it keeps working.
+        rig.call("fine");
+        assert_eq!(rig.events.crashes().len(), 1);
+    }
+
+    #[test]
+    fn a_crash_loop_halts_until_restart() {
+        let mut rig = Rig::connected();
+        rig.flow(false).expect("the flow applied");
+
+        rig.call("boom");
+        rig.call("boom");
+        assert!(!rig.actor.halted, "two panics in the window still respawn");
+        rig.call("boom");
+
+        let recovered: Vec<_> = rig.events.crashes().iter().map(|c| c["recovered"].clone()).collect();
+        assert_eq!(recovered, vec![true, true, false]);
+        assert!(rig.actor.halted, "the third panic in the window halts");
+        let starts = rig.starts.get();
+        assert_eq!(starts, 3, "halting does not re-apply the flow");
+        rig.take_written();
+
+        // Halted: flow turns are dropped, and a flow update is kept for the
+        // restart while the subscriptions stay as they were.
+        rig.call("boom");
+        assert_eq!(rig.events.crashes().len(), 3, "nothing ran, nothing panicked");
+        let wirings = rig.flow(false).expect("a halted actor still replies");
+        assert_eq!(wirings, rig.actor.wirings);
+        assert_eq!(rig.starts.get(), starts);
+        assert!(rig.take_written().is_empty(), "a halted runtime drives nothing");
+
+        // The user restarts: fresh runtime, seeded, flow re-applied.
+        assert!(rig.actor.step(ActorMsg::Restart));
+        assert!(!rig.actor.halted);
+        assert_eq!(rig.starts.get(), starts + 1);
+        assert!(contains(&rig.take_written(), &REPORT_A0));
+        rig.call("boom");
+        assert_eq!(rig.events.crashes().last().unwrap()["recovered"], true, "the restart reset the guard");
+    }
+
+    #[test]
+    fn a_flow_that_panics_on_apply_halts_instead_of_looping() {
+        // The respawn re-applies the very flow that panicked: each re-apply is
+        // one more crash, so the guard ends it rather than spinning forever.
+        let mut rig = Rig::connected();
+        assert!(rig.flow(true).is_err(), "the panicked turn dropped its reply");
+
+        let crashes = rig.events.crashes();
+        let ops: Vec<&str> = crashes.iter().map(|c| c["op"].as_str().unwrap()).collect();
+        assert_eq!(ops, vec!["flowUpdate", "respawn", "respawn"]);
+        assert_eq!(crashes.last().unwrap()["recovered"], false);
+        assert!(rig.actor.halted);
+    }
+
+    #[test]
+    fn a_timer_from_a_thrown_away_runtime_does_not_wake_the_new_one() {
+        let mut rig = Rig::connected();
+        rig.flow(false).expect("the flow applied");
+        let wake = |epoch| ActorMsg::Wake { id: 1, epoch, node_id: "p".into(), method: "_boom".into() };
+
+        rig.actor.step(wake(rig.actor.epoch - 1));
+        assert!(rig.events.crashes().is_empty(), "a stale wakeup is dropped");
+
+        rig.actor.step(wake(rig.actor.epoch));
+        assert_eq!(rig.events.crashes().len(), 1, "a current one is delivered");
     }
 }

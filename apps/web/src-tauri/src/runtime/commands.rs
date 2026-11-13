@@ -181,6 +181,15 @@ pub async fn llm_result(
         .map_err(|_| "runtime actor is gone".to_string())
 }
 
+/// Leave a crash-loop halt: the actor forgets its recorded panics and respawns
+/// the runtime with the live board's pins and the last flow. The webview's
+/// "runtime halted" error offers this (then reloads, so the flow and its MQTT
+/// subscriptions are re-sent from the document).
+#[tauri::command]
+pub async fn runtime_restart(state: tauri::State<'_, AppState>) -> Result<(), String> {
+    state.actor.send(ActorMsg::Restart).map_err(|_| "runtime actor is gone".to_string())
+}
+
 /// Apply `flow` to the runtime and reconcile its MQTT/Figma subscriptions. Hands
 /// the flow to the runtime actor (which owns the "pending flow" and re-applies it
 /// on every (re)connect), then diffs the desired subscriber set against the live
