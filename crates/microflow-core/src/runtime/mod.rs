@@ -627,7 +627,9 @@ impl FlowRuntime {
             let Some(pin) = self.client.pins.get(index) else { continue };
             let pin_num = index as u8;
             let current = pin.value as u16;
-            let is_analog = self.client.profile.analog_channel(pin_num).is_some();
+            // What the pin is doing now, not what it could do: A0 used as a
+            // Button is a digital input and reports a Bool.
+            let is_analog = pin.mode == crate::firmata::MODE_ANALOG;
 
             let last = self.pin_values.get(&pin_num).copied();
             if last == Some(current) {
@@ -1308,6 +1310,30 @@ mod tests {
         assert_eq!(effects.outbound_bytes, expected, "pin-2 high should light the led");
     }
 
+    /// A pin's change is a Bool or a Number by what the pin is doing now, not
+    /// by what it could do: A0 (pin 14) as a digital input reports a Bool, the
+    /// same pin in ANALOG mode a Number.
+    #[test]
+    fn pin_changes_are_typed_by_the_pins_current_mode() {
+        let mut rt = FlowRuntime::new();
+        rt.seed_digital_pins(20);
+        rt.mark_pin_analog(14);
+        rt.add_component("sw", Box::new(TestSwitch { base: base("sw") }));
+        rt.register_pin_listener(14, "sw");
+        rt.set_sequence(1);
+        rt.client.encode_set_pin_mode(14, crate::firmata::MODE_INPUT);
+
+        // Digital port 1, bit 6 = pin 14 high.
+        let effects = rt.feed_bytes(&[0x91, 0x40, 0x00]);
+        let values: Vec<_> = effects.component_events.iter().map(|e| e.value.clone()).collect();
+        assert_eq!(values, vec![ComponentValue::Bool(true)], "a digital input reports a Bool");
+
+        rt.client.encode_set_pin_mode(14, crate::firmata::MODE_ANALOG);
+        let effects = rt.feed_bytes(&[0xE0, 0x10, 0x02]);
+        let values: Vec<_> = effects.component_events.iter().map(|e| e.value.clone()).collect();
+        assert_eq!(values, vec![ComponentValue::Number(f64::from(0x10 | (2 << 7)))], "an analog input reports a Number");
+    }
+
     #[test]
     fn stale_pin_event_is_dropped() {
         let mut rt = FlowRuntime::new();
@@ -1543,7 +1569,7 @@ mod tests {
 
     /// The full hardware-faithful analog loop on an Uno-shaped board: seed the
     /// exact pin-table JSON the desktop detection / web session hand over
-    /// (`analogChannel >= 0` marks A0..A5 = pins 14..19), apply a flow holding a
+    /// (`analogChannel` 0..5 on A0..A5 = pins 14..19), apply a flow holding a
     /// Sensor on `"A0"`, and assert both wire directions — `REPORT_ANALOG` must
     /// target channel 0 (not pin/channel 14), and a raw `0xE0` frame must
     /// surface as the sensor's value event.
@@ -1557,7 +1583,7 @@ mod tests {
                 json!({
                     "pin": p,
                     "supportedModes": [],
-                    "analogChannel": if p >= 14 { p } else { -1 },
+                    "analogChannel": if p >= 14 { p - 14 } else { -1 },
                 })
             })
             .collect();

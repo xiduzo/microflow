@@ -212,24 +212,32 @@ mod sim_tests {
         rig.last_value("sw").cloned()
     }
 
-    /// NO (johnny-five's default, and the emitted sketch): the contact pulls
-    /// the line HIGH when actuated, so HIGH is closed. Live and sketch used to
-    /// disagree — the runtime read NO as closed-on-LOW.
+    /// NC, the editor's default (and the Switch docs): HIGH is active.
     #[test]
-    fn normally_open_closes_when_the_line_goes_high() {
-        let mut rig = switch("NO");
+    fn normally_closed_closes_when_the_line_goes_high() {
+        let mut rig = switch("NC");
         assert_eq!(rig.board.pin(2).mode(), Some(MODE_INPUT));
-        assert_eq!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "{:?}", rig.events());
+        assert_eq!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "the HIGH line reads closed: {:?}", rig.events());
         assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(false)));
         assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(true)));
     }
 
+    /// NO is the inverse: LOW is closed.
     #[test]
-    fn normally_closed_closes_when_the_line_goes_low() {
-        let mut rig = switch("NC");
-        assert_ne!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "{:?}", rig.events());
+    fn normally_open_closes_when_the_line_goes_low() {
+        let mut rig = switch("NO");
         assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(true)));
         assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(false)));
+        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(true)));
+    }
+
+    /// A node stored without a `type` is NC, as the editor shows it.
+    #[test]
+    fn a_switch_without_a_type_is_normally_closed() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("sw", "Switch", json!({ "pin": 2 }))], vec![]);
+        assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(true)));
+        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(false)));
     }
 }
 
@@ -269,7 +277,8 @@ mod tests {
     /// The regression behind "the switch flips once, then stops responding":
     /// a digital report only arrives on change, so an edge dropped inside the
     /// debounce window desyncs `is_closed` from the pin forever unless the
-    /// deferred level is settled by the wakeup. (NO wiring: pin HIGH = closed.)
+    /// deferred level is settled by the wakeup. (NC, the default: pin HIGH =
+    /// closed.)
     #[test]
     fn edge_inside_the_window_settles_instead_of_desyncing() {
         let mut sw = Switch::new("sw".into(), SwitchConfig::default());

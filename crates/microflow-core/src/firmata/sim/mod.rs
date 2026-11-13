@@ -34,6 +34,7 @@
 //! [`FlowRuntime::feed_bytes`]: crate::runtime::FlowRuntime::feed_bytes
 
 mod layout;
+pub mod noise;
 mod peripherals;
 #[cfg(feature = "runtime")]
 pub mod rig;

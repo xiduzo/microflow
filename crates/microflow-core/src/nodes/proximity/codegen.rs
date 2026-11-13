@@ -1,28 +1,20 @@
 //! Proximity emitter — mirrors `nodes/proximity/runtime.rs`.
 //!
 //! The live Proximity sensor (e.g. a Sharp GP2Y0A21YK IR rangefinder) sets the
-//! ANALOG pin mode and reports `analogRead` values. Its pin is stored as a
-//! string (`"A0"` or a numeric pin) and resolved to an analog *index* via
-//! `analog_pin()`. Like the Sensor emitter, the generated sketch resolves that
-//! index against the board's real analog pin map — the `A{n}` macros are not
-//! defined for every index on every core (the ESP32 core lacks `A1`/`A2`), so
-//! emitting the resolved pin number is the only form that compiles everywhere.
+//! ANALOG pin mode and reports `analogRead` values. Its pin is an analog label
+//! (`"A0"`) or a pin number, resolved against the board's real pin map exactly
+//! as the runtime resolves it against the connected board
+//! ([`analog_pin_declaration`], shared with the Sensor emitter); the resolved
+//! pin number is emitted, since the `A{n}` macros are not defined for every
+//! index on every core (the ESP32 core lacks `A1`/`A2`).
 //! Each loop, `analogRead(pin)` is stored into an `int` state variable which
 //! downstream Nodes read — the same reading the runtime forwards.
 
 use super::config::ProximityConfig;
 use crate::codegen::board::BoardTarget;
-use crate::codegen::emit::{NodeEmission, NodeToken};
+use crate::codegen::emit::{analog_pin_declaration, NodeEmission, NodeToken};
+use crate::firmata::PinLabel;
 use crate::flow::FlowNode;
-
-/// The analog index (`A0` => 0) this Proximity sensor is emitted on — the same
-/// resolution `emit` uses, exposed so validation can never drift from emission.
-#[must_use]
-pub(crate) fn analog_index(node: &FlowNode) -> u8 {
-    serde_json::from_value::<ProximityConfig>(node.data.clone())
-        .unwrap_or_default()
-        .analog_pin()
-}
 
 /// The C++ `int` variable name holding this Proximity sensor's latest reading.
 #[must_use]
@@ -33,23 +25,11 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
 /// Emit C++ for a Proximity Node.
 #[must_use]
 pub(crate) fn emit(node: &FlowNode, target: &BoardTarget) -> NodeEmission {
-    let index = analog_index(node);
     let pin_var = format!("proximity_{}_pin", node.id_token());
     let value = value_var(node);
-
-    // Resolve the analog index to the board's real pin number. An index the
-    // board lacks is already surfaced as a validation warning; fall back to
-    // the board's first analog input so the Sketch still compiles.
-    let analog = target.analog_input_pins();
-    let pin_decl = match (analog.get(index as usize), analog.first()) {
-        (Some(pin), _) => format!("const uint8_t {pin_var} = {pin}; // A{index}"),
-        (None, Some(first)) => format!(
-            "const uint8_t {pin_var} = {first}; // note: A{index} is not available on this board — using its first analog input"
-        ),
-        // A board without analog inputs (none supported today): keep the
-        // requested name so the mismatch is visible in the Sketch.
-        (None, None) => format!("const uint8_t {pin_var} = A{index};"),
-    };
+    let config: ProximityConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let label = PinLabel::parse(&config.pin).unwrap_or(PinLabel::Analog(0));
+    let pin_decl = analog_pin_declaration(label, target, &pin_var);
 
     NodeEmission {
         declarations: vec![pin_decl, format!("int {value} = 0;")],
@@ -88,10 +68,11 @@ mod tests {
         assert!(e.declarations.iter().any(|d| d.contains("= 14; // A0")));
     }
 
+    /// A number is a pin (17 = the Uno's A3), as the runtime reads it.
     #[test]
-    fn proximity_resolves_numeric_pin() {
-        let e = emit(&proximity("p-1", json!({ "pin": "3" })), &uno());
-        assert!(e.declarations.iter().any(|d| d.contains("// A3")));
+    fn proximity_resolves_numeric_pin_as_a_pin() {
+        let e = emit(&proximity("p-1", json!({ "pin": "17" })), &uno());
+        assert!(e.declarations.iter().any(|d| d.contains("= 17; // A3")), "{:?}", e.declarations);
     }
 
     /// On the ESP32 the `A1`/`A2` macros do not exist; the emitted pin is the

@@ -507,4 +507,24 @@ mod through_the_runtime {
         assert!(rig.diagnostics().is_empty(), "{:?}", rig.diagnostics());
         assert!(rig.board.pixel_strip().is_some() && rig.board.stepper(0).is_some());
     }
+
+    /// The live runtime's inbound path (decode, change detection, I2C
+    /// routing) survives the same hostile corpus as the codec, with input
+    /// nodes listening on digital, analog and I2C.
+    #[test]
+    fn no_byte_stream_panics_the_runtime() {
+        use super::super::noise::hostile_streams;
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![
+                node("btn", "Button", json!({ "pin": 2 })),
+                node("pot", "Sensor", json!({ "pin": "A0" })),
+                node("dev", "I2cDevice", json!({ "address": 0x29, "register": 0x14, "readLength": 2 })),
+            ],
+            vec![],
+        );
+        for stream in hostile_streams(0xB0A2_D5EE, 1500) {
+            let _ = rig.runtime.feed_bytes(&stream);
+        }
+    }
 }
