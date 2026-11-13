@@ -226,6 +226,10 @@ impl BoardConfig {
 
     /// Detect board type from USB product ID. Returns the most likely board
     /// type based on PID.
+    ///
+    /// PID alone proves nothing (several of these are generic bridge-chip PIDs),
+    /// so this must never decide whether to flash: use
+    /// [`detect_from_usb`](Self::detect_from_usb) for that.
     #[must_use]
     pub fn detect_from_pid(pid: u16) -> Option<BoardType> {
         let pid_str = format!("{pid:04x}");
@@ -264,38 +268,122 @@ impl BoardConfig {
         None
     }
 
-    /// Detect board type from USB VID and PID combination.
+    /// The board a USB VID/PID **positively identifies** — the only board a
+    /// host may flash without asking. `None` for a generic USB-serial bridge
+    /// chip (CH340, `CP210x`, FTDI) and for an unknown VID, even when the PID is
+    /// one that clone boards commonly use: those chips are also on ESP32 dev
+    /// boards, GPS modules and plain USB-serial adapters, and flashing them would
+    /// overwrite someone else's firmware. Use [`identify_usb`](Self::identify_usb)
+    /// for the full answer, including the board a bridge chip suggests.
     #[must_use]
     pub fn detect_from_usb(vid: u16, pid: u16) -> Option<BoardType> {
-        let pid_str = format!("{pid:04x}");
+        Self::identify_usb(vid, pid).and_then(UsbMatch::auto_flash_board)
+    }
 
-        // CH340 chips (VID 0x1A86) are typically used on Nano clones
-        // FTDI chips (VID 0x0403) can be Nano or Uno clones
-        let is_ch340 = vid == 0x1a86;
-        let is_ftdi = vid == 0x0403;
-
-        // Arduino official VID
-        let is_arduino = vid == 0x2341 || vid == 0x2a03;
-
-        // For shared PIDs like 7523, use VID to disambiguate
-        if pid_str == "7523" {
-            if is_ch340 {
-                log::info!("CH340 chip detected with PID 7523 - assuming Nano (old bootloader)");
-                return Some(BoardType::Nano);
-            }
-            if is_ftdi {
-                log::info!("FTDI chip detected with PID 7523 - assuming Nano");
-                return Some(BoardType::Nano);
-            }
+    /// What a USB VID/PID says about the device behind a serial port: a
+    /// positively identified board, a bridge chip that only *suggests* a board,
+    /// or (`None`) nothing we recognise.
+    #[must_use]
+    pub fn identify_usb(vid: u16, pid: u16) -> Option<UsbMatch> {
+        if vid == ARDUINO_VID || vid == ARDUINO_ORG_VID {
+            return official_board(pid).map(UsbMatch::Identified);
         }
+        let chip = BridgeChip::from_vid(vid)?;
+        // The PIDs Arduino clones ship with; the chip itself proves nothing.
+        let board = match (chip, pid) {
+            (BridgeChip::Ch340, 0x7523) | (BridgeChip::Ftdi, 0x6001) => BoardType::Nano,
+            (BridgeChip::Ftdi, 0x6015) | (BridgeChip::Cp210x, 0xea60) => BoardType::Uno,
+            _ => return None,
+        };
+        Some(UsbMatch::BridgeChip { board, chip })
+    }
+}
 
-        // For official Arduino boards, use PID detection
-        if is_arduino {
-            return Self::detect_from_pid(pid);
+// Positively identified vendors: only the official Arduino VIDs below. A vendor
+// that ships boards under its own USB VID (e.g. SparkFun 0x1B4F) is a candidate
+// for future positive identification; a generic bridge-chip VID never is.
+
+/// Arduino LLC's USB vendor id.
+const ARDUINO_VID: u16 = 0x2341;
+/// Arduino SRL's (arduino.org) USB vendor id.
+const ARDUINO_ORG_VID: u16 = 0x2a03;
+
+/// The board an official Arduino PID names. Only native-USB and Arduino-made
+/// USB-serial PIDs: a bridge-chip PID under an Arduino VID is not a real device.
+fn official_board(pid: u16) -> Option<BoardType> {
+    match pid {
+        0x0043 | 0x0001 => Some(BoardType::Uno),
+        0x0010 | 0x0042 => Some(BoardType::Mega),
+        0x0036 | 0x8036 | 0x800c => Some(BoardType::Leonardo),
+        0x0037 | 0x8037 | 0x0237 => Some(BoardType::Micro),
+        _ => None,
+    }
+}
+
+/// A generic USB-to-serial bridge chip. Its VID/PID names the chip, not the
+/// board it is soldered onto.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BridgeChip {
+    /// WCH CH340/CH341 (VID 0x1A86).
+    Ch340,
+    /// Silicon Labs `CP210x` (VID 0x10C4).
+    Cp210x,
+    /// FTDI FT232/FT231X (VID 0x0403).
+    Ftdi,
+}
+
+impl BridgeChip {
+    /// The bridge chip a USB vendor id belongs to, if any.
+    #[must_use]
+    pub fn from_vid(vid: u16) -> Option<Self> {
+        match vid {
+            0x1a86 => Some(Self::Ch340),
+            0x10c4 => Some(Self::Cp210x),
+            0x0403 => Some(Self::Ftdi),
+            _ => None,
         }
+    }
 
-        // Fall back to PID-only detection for other VIDs
-        Self::detect_from_pid(pid)
+    /// Human-readable chip name, for UI text.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Ch340 => "CH340",
+            Self::Cp210x => "CP210x",
+            Self::Ftdi => "FTDI",
+        }
+    }
+}
+
+/// What a USB VID/PID says about a serial device (see
+/// [`BoardConfig::identify_usb`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsbMatch {
+    /// An official Arduino VID + PID: the board is positively identified and
+    /// may be flashed automatically when it has no Firmata.
+    Identified(BoardType),
+    /// A generic bridge chip whose PID clones of `board` commonly use. It may be
+    /// probed for an existing Firmata, but is flashed only after the user
+    /// confirms the board.
+    BridgeChip { board: BoardType, chip: BridgeChip },
+}
+
+impl UsbMatch {
+    /// The board this match names or suggests.
+    #[must_use]
+    pub fn board(self) -> BoardType {
+        match self {
+            Self::Identified(board) | Self::BridgeChip { board, .. } => board,
+        }
+    }
+
+    /// The board to flash without asking — only a positively identified one.
+    #[must_use]
+    pub fn auto_flash_board(self) -> Option<BoardType> {
+        match self {
+            Self::Identified(board) => Some(board),
+            Self::BridgeChip { .. } => None,
+        }
     }
 }
 

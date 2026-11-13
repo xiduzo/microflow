@@ -78,6 +78,7 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
       listGrantedPorts: (async () => state.grantedPorts) as never,
       requestBoardPort: (async () => fakePort()) as never,
       detectBoard: (async () => "Arduino Uno") as never,
+      guessBoard: (async () => "Arduino Uno") as never,
       probeFirmata: (async () => state.probeResult()) as never,
       probeAfterFlash: (async () => state.probeResult()) as never,
       flashPort: (async () => "ok") as never,

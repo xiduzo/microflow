@@ -32,6 +32,7 @@
 use super::port_monitor::{PortMonitor, SerialPortInfo};
 use super::types::BoardState;
 use crate::flasher::{BoardConfig, BoardType};
+use microflow_core::flasher::UsbMatch;
 use microflow_core::bringup::{Action, BringUp, Event, Phase};
 use std::collections::BTreeMap;
 use std::sync::mpsc::Receiver;
@@ -40,6 +41,15 @@ use std::time::{Duration, Instant};
 /// Identifies one live board connection, minted by the link per probe. The
 /// runtime actor holds the port under it and reports failures by it.
 pub type SessionId = u64;
+
+/// The user's answer to a `confirmFlash` board state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FlashAnswer {
+    /// Flash `StandardFirmata` as the offered board.
+    Confirm,
+    /// Leave the device alone.
+    Decline,
+}
 
 /// Fast reconnect attempts after the live connection drops with the port still
 /// present (board reset, serial I/O error). The first is immediate.
@@ -229,6 +239,25 @@ impl<Io: LinkIo> BoardLink<Io> {
         }
     }
 
+    /// Fact: the user answered the "flash as <board>?" offer. Ignored by the
+    /// machine unless an offer is open, so a late answer is harmless.
+    pub fn answer_flash(&mut self, answer: FlashAnswer) {
+        log::info!("Flash offer answered: {answer:?}");
+        self.drive(match answer {
+            FlashAnswer::Confirm => Event::FlashConfirmed,
+            FlashAnswer::Decline => Event::FlashDeclined,
+        });
+    }
+
+    /// Feed every flash-offer answer the UI sent since the last call — part of
+    /// the monitor tick, so a confirmed flash runs on the monitor thread like
+    /// any other bring-up step.
+    pub fn drain_flash_answers(&mut self, answers: &Receiver<FlashAnswer>) {
+        for answer in answers.try_iter() {
+            self.answer_flash(answer);
+        }
+    }
+
     fn is_board(&self, id: &str) -> bool {
         self.is_connected() && self.board.as_deref() == Some(id)
     }
@@ -305,24 +334,24 @@ impl<Io: LinkIo> BoardLink<Io> {
     fn attempt(&mut self, id: &str, reconnect: bool) {
         let Some(known) = self.ports.get_mut(id) else { return };
         known.probed = true;
-        let board_type = known
-            .info
-            .usb_ids()
-            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid));
+        let found = known.info.usb_ids().and_then(|(vid, pid)| BoardConfig::identify_usb(vid, pid));
+        let board_type = found.map(UsbMatch::board);
         log::info!(
-            "Bring-up {} on {} (board: {board_type:?})",
+            "Bring-up {} on {} (usb: {found:?})",
             if reconnect { "reconnect" } else { "candidate" },
             known.info.port_name
         );
         self.board = Some(id.to_string());
         self.attempt_board = board_type;
-        // A recognised board is flashed when it has no Firmata, and its failures
-        // surface (a recognised board that won't connect is worth an error; a
-        // random serial device is not).
+        // A recognised board's failures surface (a recognised board that won't
+        // connect is worth an error; a random serial device is not). Only a
+        // positively identified one (official Arduino VID) is flashed unasked; a
+        // board guessed from a generic USB-serial chip is offered instead
+        // (`ConfirmFlash`), since the chip is on plenty of other devices too.
         let recognised = board_type.is_some() && !reconnect;
         self.drive(Event::PortReady {
             board: board_type.map(|b| b.as_str().to_string()),
-            auto_flash: recognised,
+            auto_flash: recognised && found.and_then(UsbMatch::auto_flash_board).is_some(),
             explicit: recognised,
         });
     }
@@ -402,6 +431,9 @@ impl<Io: LinkIo> BoardLink<Io> {
                 error: Some("probe succeeded but produced no board state".to_string()),
             }),
             Phase::Disconnected => BoardState::Disconnected {},
+            Phase::ConfirmFlash { board } => {
+                BoardState::ConfirmFlash { port: self.attempt_port_name(), board: board.clone() }
+            }
             Phase::Error { detail } => BoardState::Error { error: Some(detail.clone()) },
         };
         self.io.board_state(&state);
@@ -446,6 +478,8 @@ mod tests {
         /// a DTR reset.
         probes: Vec<(String, Instant)>,
         flashes: Vec<String>,
+        /// Whether a flash succeeds (and leaves Firmata on the port).
+        flash_ok: bool,
         closes: u32,
         states: Vec<BoardState>,
         appeared: Vec<String>,
@@ -464,7 +498,11 @@ mod tests {
         }
         fn flash(&mut self, port: &str, _board: BoardType) -> Result<(), String> {
             self.flashes.push(port.to_string());
-            Err("no bootloader".to_string())
+            if !self.flash_ok {
+                return Err("no bootloader".to_string());
+            }
+            self.firmata.insert(port.to_string());
+            Ok(())
         }
         fn close(&mut self) {
             self.closes += 1;
@@ -524,6 +562,7 @@ mod tests {
             fail_next: HashMap::new(),
             probes: Vec::new(),
             flashes: Vec::new(),
+            flash_ok: false,
             closes: 0,
             states: Vec::new(),
             appeared: Vec::new(),
@@ -834,6 +873,109 @@ mod tests {
 
         link.drain_session_ends(&ended_rx);
         assert!(!link.is_connected());
+        assert!(link.io().states.last().is_some_and(is_disconnected));
+    }
+
+    const NANO: &str = "/dev/cu.wchusbserial1410";
+
+    /// A CH340 Nano clone: the chip's VID/PID only suggests a Nano.
+    fn ch340(name: &str) -> SerialPortInfo {
+        usb(name, 0x1a86, 0x7523)
+    }
+
+    fn is_offer(state: &BoardState) -> bool {
+        matches!(state, BoardState::ConfirmFlash { board, .. } if board == "nano")
+    }
+
+    #[test]
+    fn official_board_without_firmata_is_flashed_unasked() {
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        link.scan(vec![uno(UNO)]);
+        assert_eq!(link.io().flashes, vec![UNO]);
+        assert_eq!(link.board_port(), Some(UNO));
+        assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
+    }
+
+    #[test]
+    fn bridge_chip_is_offered_then_flashed_only_once_confirmed() {
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        link.scan(vec![ch340(NANO)]);
+        assert!(link.io().flashes.is_empty(), "never flashed unasked");
+        assert!(link.io().states.last().is_some_and(is_offer));
+        assert!(matches!(
+            link.io().states.last(),
+            Some(BoardState::ConfirmFlash { port, .. }) if port == NANO
+        ));
+
+        // Scans while the offer is open neither re-probe nor flash.
+        scan_after(&mut link, 250, vec![ch340(NANO)]);
+        assert_eq!(probes(&link), vec![NANO]);
+        assert!(link.io().flashes.is_empty());
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(FlashAnswer::Confirm).expect("send");
+        link.drain_flash_answers(&rx);
+        assert_eq!(link.io().flashes, vec![NANO]);
+        assert_eq!(probes(&link), vec![NANO, NANO], "re-probed after the flash");
+        assert_eq!(link.board_port(), Some(NANO));
+        assert!(matches!(link.io().states.last(), Some(BoardState::Connected { .. })));
+    }
+
+    #[test]
+    fn declining_the_offer_leaves_the_device_alone() {
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        link.scan(vec![ch340(NANO)]);
+        link.answer_flash(FlashAnswer::Decline);
+        assert!(link.io().states.last().is_some_and(is_disconnected));
+        // A late yes after the no does nothing.
+        link.answer_flash(FlashAnswer::Confirm);
+        scan_after(&mut link, 250, vec![ch340(NANO)]);
+        assert!(link.io().flashes.is_empty());
+        assert_eq!(probes(&link), vec![NANO], "a declined device is not re-probed");
+        assert_eq!(link.io().closes, 0, "the probe already closed the port");
+    }
+
+    #[test]
+    fn unplug_while_offering_withdraws_the_offer() {
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        link.scan(vec![ch340(NANO)]);
+        scan_after(&mut link, 250, vec![]);
+        assert!(link.io().states.last().is_some_and(is_disconnected));
+        link.answer_flash(FlashAnswer::Confirm);
+        assert!(link.io().flashes.is_empty(), "a yes after the unplug flashes nothing");
+    }
+
+    #[test]
+    fn bridge_chip_with_firmata_connects_without_an_offer() {
+        let mut link = link_with_firmata(&[NANO]);
+        link.scan(vec![ch340(NANO)]);
+        assert_eq!(link.board_port(), Some(NANO));
+        assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
+    }
+
+    #[test]
+    fn late_answer_never_touches_a_live_board() {
+        let mut link = link_with_firmata(&[UNO]);
+        link.scan(vec![uno(UNO)]);
+        link.answer_flash(FlashAnswer::Decline);
+        link.answer_flash(FlashAnswer::Confirm);
+        assert_eq!(link.board_port(), Some(UNO));
+        assert_eq!(link.io().closes, 0);
+        assert!(link.io().flashes.is_empty());
+    }
+
+    #[test]
+    fn unknown_vid_is_never_flashed_or_offered() {
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().flash_ok = true;
+        // An unknown VID with the Uno's PID: PID-only matching once called it an Uno.
+        link.scan(vec![usb("/dev/cu.usbserial-x", 0x1234, 0x0043)]);
+        assert!(link.io().flashes.is_empty());
+        assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
         assert!(link.io().states.last().is_some_and(is_disconnected));
     }
 

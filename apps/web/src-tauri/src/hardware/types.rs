@@ -30,6 +30,11 @@ pub enum BoardState {
     Connecting {},
     #[serde(rename = "flashing")]
     Flashing { port: String, board: String },
+    /// No Firmata answered, and `board` is only guessed from a generic
+    /// USB-serial chip: the UI asks before flashing (`confirm_board_flash` /
+    /// `decline_board_flash`).
+    #[serde(rename = "confirmFlash")]
+    ConfirmFlash { port: String, board: String },
     #[serde(rename = "disconnected")]
     Disconnected {},
     #[serde(rename = "error")]

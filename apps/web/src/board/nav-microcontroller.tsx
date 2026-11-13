@@ -59,6 +59,9 @@ export function NavMicrocontroller() {
         return { message: "Connecting", Icon: LoaderPinwheelIcon };
       case "flashing":
         return { message: "Flashing firmware", Icon: FileCodeIcon };
+      case "confirmFlash":
+        // The shared "Flash as <board>?" prompt (flash-offer.ts) holds the answer.
+        return { message: "Flash Firmata?", Icon: FileCodeIcon };
       case "disconnected":
         return desktop
           ? { message: "No microcontroller connected", Icon: UsbIcon }
@@ -146,6 +149,7 @@ const buttonVariants = cva("", {
       connecting: "bg-blue-900 animate-pulse text-blue-200 stroke-blue-200 [&_svg]:animate-spin",
       flashing:
         "bg-yellow-900 animate-pulse text-yellow-200 stroke-yellow-200 [&_svg]:animate-pulse",
+      confirmFlash: "bg-yellow-900 text-yellow-200 stroke-yellow-200",
       disconnected: "bg-muted-foreground/10 text-muted-foreground/90 stroke-muted-foreground/90",
       error: "bg-red-900 text-red-200 stroke-red-200",
     },

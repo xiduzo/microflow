@@ -44,7 +44,11 @@ type FakeReactor = ReactorHandle & {
   fault: (message: string) => void;
 };
 
-function linked() {
+/** What the port's USB id says: `identified` is an official Arduino board,
+ *  `guessed` includes a generic USB-serial chip's suggestion. */
+type UsbIdentity = { identified?: string; guessed?: string };
+
+function linked(usb: UsbIdentity = { identified: "uno", guessed: "uno" }) {
   const clock = new FakeClock();
   const port = new FakeSerialPort();
   const serial = new FakeSerial([port]);
@@ -64,6 +68,7 @@ function linked() {
     listGrantedPorts: () => serial.getPorts(),
   };
   let flashes = 0;
+  const flashedBoards: Array<string | undefined> = [];
 
   const deps: BoardControllerDeps = {
     serial: {
@@ -76,12 +81,14 @@ function linked() {
         pickerOpened += 1;
         return serial.requestPort();
       },
-      detectBoard: async () => "uno",
+      detectBoard: async () => usb.identified,
+      guessBoard: async () => usb.guessed,
       probeFirmata: (p, hooks) => probeBoard(env, p, hooks, { afterFlash: false }),
       probeAfterFlash: (p, hooks) => probeBoard(env, p, hooks, { afterFlash: true }),
-      flashPort: async () => {
+      flashPort: async (_port, opts) => {
         flashes += 1;
-        return "uno";
+        flashedBoards.push(opts?.board);
+        return opts?.board ?? "uno";
       },
       onConnectivity: (handlers) => watchConnectivity(serial, handlers),
       portLabel: () => "USB 2341:0043",
@@ -150,6 +157,7 @@ function linked() {
     get flashes() {
       return flashes;
     },
+    flashedBoards,
     get attachRequested() {
       return attachRequested;
     },
@@ -409,5 +417,70 @@ describe("an explicit connect overtaken by pagehide or an engine fault", () => {
     expect(h.port.isOpen).toBe(false);
     expect(h.states.at(-1)).toEqual({ state: "error", error: fault });
     expect(h.toasts).toEqual([fault]);
+  });
+});
+
+describe("auto-flash needs a positively identified board", () => {
+  /** A gesture connect to a device with no Firmata, identified as `usb` says. */
+  async function gestureToSilent(usb: UsbIdentity) {
+    const h = linked(usb);
+    h.port.device = silentDevice();
+    h.serial.granted = [];
+    h.serial.picked = h.port;
+    h.controller.start();
+    await h.clock.run(h.controller.connect());
+    await h.settle();
+    return h;
+  }
+
+  test("an official Arduino without Firmata is flashed unasked", async () => {
+    const h = await gestureToSilent({ identified: "uno", guessed: "uno" });
+
+    expect(h.flashedBoards).toEqual(["uno"]);
+    expect(h.states.some((s) => s.state === "confirmFlash")).toBe(false);
+  });
+
+  test("a CH340 device is offered, and flashed only once the user confirms", async () => {
+    const h = await gestureToSilent({ guessed: "nano" });
+
+    expect(h.flashes).toBe(0);
+    expect(h.states.at(-1)).toEqual({ state: "confirmFlash", port: "USB 2341:0043", board: "nano" });
+    expect(h.port.isOpen).toBe(false);
+
+    // The flash puts Firmata on the board.
+    h.port.device = firmataDevice();
+    await h.clock.run(h.controller.confirmFlash());
+    await h.settle();
+
+    expect(h.flashedBoards).toEqual(["nano"]);
+    expect(h.last()).toBe("connected");
+  });
+
+  test("declining the offer flashes nothing, and a late yes is ignored", async () => {
+    const h = await gestureToSilent({ guessed: "nano" });
+
+    await h.clock.run(h.controller.declineFlash());
+    await h.settle();
+    expect(h.last()).toBe("disconnected");
+
+    await h.clock.run(h.controller.confirmFlash());
+    await h.settle();
+    expect(h.flashes).toBe(0);
+  });
+
+  test("an unknown device is never flashed or offered", async () => {
+    const h = await gestureToSilent({});
+
+    expect(h.flashes).toBe(0);
+    expect(h.states.some((s) => s.state === "confirmFlash")).toBe(false);
+    expect(h.last()).toBe("error");
+  });
+
+  test("a granted CH340 with Firmata reconnects on load without any offer", async () => {
+    const h = linked({ guessed: "nano" });
+    await h.connected();
+
+    expect(h.flashes).toBe(0);
+    expect(h.states.some((s) => s.state === "confirmFlash")).toBe(false);
   });
 });

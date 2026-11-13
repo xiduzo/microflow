@@ -56,14 +56,64 @@ fn board_config_maps_protocol_and_signature() {
 
 #[test]
 fn ch340_with_shared_pid_resolves_to_nano() {
-    // PID 0x7523 is shared; CH340 VID (0x1a86) disambiguates to a Nano clone.
-    assert_eq!(BoardConfig::detect_from_usb(0x1a86, 0x7523), Some(BoardType::Nano));
+    // PID 0x7523 is shared; CH340 VID (0x1a86) suggests a Nano clone, but the
+    // chip proves nothing: it is a guess, never an auto-flash target.
+    assert_eq!(
+        BoardConfig::identify_usb(0x1a86, 0x7523),
+        Some(UsbMatch::BridgeChip { board: BoardType::Nano, chip: BridgeChip::Ch340 })
+    );
+    assert_eq!(BoardConfig::detect_from_usb(0x1a86, 0x7523), None);
 }
 
 #[test]
 fn official_arduino_uno_pid_detected() {
-    // Arduino VID + Uno's unique PID 0x0043.
+    // Arduino VID + Uno's unique PID 0x0043: positively identified, auto-flashable.
+    assert_eq!(BoardConfig::identify_usb(0x2341, 0x0043), Some(UsbMatch::Identified(BoardType::Uno)));
     assert_eq!(BoardConfig::detect_from_usb(0x2341, 0x0043), Some(BoardType::Uno));
+    assert_eq!(BoardConfig::detect_from_usb(0x2a03, 0x0043), Some(BoardType::Uno));
+}
+
+#[test]
+fn bridge_chips_are_never_auto_flash_targets() {
+    for (vid, pid, board, chip) in [
+        (0x1a86, 0x7523, BoardType::Nano, BridgeChip::Ch340),
+        (0x0403, 0x6001, BoardType::Nano, BridgeChip::Ftdi),
+        (0x0403, 0x6015, BoardType::Uno, BridgeChip::Ftdi),
+        (0x10c4, 0xea60, BoardType::Uno, BridgeChip::Cp210x),
+    ] {
+        let found = BoardConfig::identify_usb(vid, pid).expect("bridge chip recognised");
+        assert_eq!(found, UsbMatch::BridgeChip { board, chip }, "{vid:04x}:{pid:04x}");
+        assert_eq!(found.board(), board);
+        assert_eq!(found.auto_flash_board(), None, "{vid:04x}:{pid:04x}");
+        assert_eq!(BoardConfig::detect_from_usb(vid, pid), None, "{vid:04x}:{pid:04x}");
+    }
+}
+
+#[test]
+fn unknown_vid_is_never_detected_even_with_a_board_pid() {
+    // PID-only matching used to call these an Uno and a Nano.
+    assert_eq!(BoardConfig::identify_usb(0x1234, 0x0043), None);
+    assert_eq!(BoardConfig::identify_usb(0x303a, 0x7523), None);
+    assert_eq!(BoardConfig::detect_from_usb(0x1234, 0x0043), None);
+}
+
+#[test]
+fn bridge_pid_under_arduino_vid_is_not_identified() {
+    assert_eq!(BoardConfig::detect_from_usb(0x2341, 0x7523), None);
+    assert_eq!(BoardConfig::detect_from_usb(0x2341, 0xea60), None);
+}
+
+#[test]
+fn official_pids_identify_every_native_usb_board() {
+    assert_eq!(BoardConfig::detect_from_usb(0x2341, 0x0042), Some(BoardType::Mega));
+    assert_eq!(BoardConfig::detect_from_usb(0x2341, 0x8036), Some(BoardType::Leonardo));
+    assert_eq!(BoardConfig::detect_from_usb(0x2341, 0x8037), Some(BoardType::Micro));
+}
+
+#[test]
+fn unknown_bridge_pid_suggests_no_board() {
+    // A CH340 variant no supported clone board ships with.
+    assert_eq!(BoardConfig::identify_usb(0x1a86, 0x55d4), None);
 }
 
 #[test]

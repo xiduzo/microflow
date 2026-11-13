@@ -79,6 +79,7 @@ export interface BoardControllerDeps {
     listGrantedPorts: typeof WebSerial.listGrantedPorts;
     requestBoardPort: typeof WebSerial.requestBoardPort;
     detectBoard: typeof WebSerial.detectBoard;
+    guessBoard: typeof WebSerial.guessBoard;
     probeFirmata: typeof WebSerial.probeFirmata;
     probeAfterFlash: typeof WebSerial.probeAfterFlash;
     flashPort: typeof WebSerial.flashPort;
@@ -348,6 +349,8 @@ export class BoardController {
         }
         try {
           await this.deps.serial.flashPort(a.port, {
+            // The machine's board: identified, or confirmed by the user.
+            board: action.board,
             onProgress: (done, total) => void this.dispatch({ type: "flashProgress", done, total }),
           });
           await this.dispatch({ type: "flashOk" });
@@ -478,6 +481,17 @@ export class BoardController {
         }
         this.publish({ state: "disconnected" });
         break;
+      case "confirmFlash":
+        // No Firmata, and the board is only guessed from a generic USB-serial
+        // chip: the store's `confirmFlash` puts up the shared "Flash as …?"
+        // prompt (flash-offer.ts), answered via confirmFlash()/declineFlash().
+        // The attempt stays: a yes flashes its port.
+        this.publish({
+          state: "confirmFlash",
+          port: a ? this.deps.serial.portLabel(a.port.getInfo()) : "Serial port",
+          board: phase.board,
+        });
+        break;
       case "error":
         if (a?.flashToast !== undefined) {
           this.deps.notify.dismiss(a.flashToast);
@@ -532,7 +546,12 @@ export class BoardController {
     port: WebSerialPort,
     flags: { autoFlash: boolean; explicit: boolean },
   ): Promise<void> {
-    const board = await this.deps.serial.detectBoard(port).catch(() => undefined);
+    // `board` may be a guess (a generic USB-serial chip); only a positively
+    // identified board may be flashed unasked — a guess becomes an offer.
+    const [identified, board] = await Promise.all([
+      this.deps.serial.detectBoard(port).catch(() => undefined),
+      this.deps.serial.guessBoard(port).catch(() => undefined),
+    ]);
     this.attempt = {
       port,
       explicit: flags.explicit,
@@ -543,15 +562,16 @@ export class BoardController {
     await this.dispatch({
       type: "portReady",
       board: board ?? null,
-      autoFlash: flags.autoFlash,
+      autoFlash: flags.autoFlash && identified !== undefined,
       explicit: flags.explicit,
     });
   }
 
-  /** Cheap pre-check so auto paths don't handshake unrelated granted serial devices. */
+  /** Cheap pre-check so auto paths don't handshake unrelated granted serial devices.
+   *  A guessed board counts: probing for an existing Firmata never writes firmware. */
   private async looksLikeBoard(port: WebSerialPort): Promise<boolean> {
     try {
-      return Boolean(await this.deps.serial.detectBoard(port));
+      return Boolean(await this.deps.serial.guessBoard(port));
     } catch {
       return false;
     }
@@ -615,6 +635,17 @@ export class BoardController {
       this.cancelRetry();
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
+  }
+
+  /** The user said yes to the "Flash as <board>?" offer. The machine ignores
+   *  it unless an offer is open, so a stale click is harmless. */
+  confirmFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashConfirmed" }));
+  }
+
+  /** The user said no to the offer: leave the device alone. */
+  declineFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashDeclined" }));
   }
 
   disconnect(): Promise<void> {
