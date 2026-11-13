@@ -64,8 +64,8 @@ impl ComponentRegistry {
 
     /// Register a hand-written factory — for runtime tests that need a node
     /// with a behaviour no catalog node has (e.g. one whose start fails).
-    #[cfg(test)]
-    pub(crate) fn register_test_factory(&mut self, name: &str, factory: Factory) {
+    #[cfg(any(test, feature = "test-nodes"))]
+    pub fn register_test_factory(&mut self, name: &str, factory: Factory) {
         self.entries.insert(name.to_string(), factory);
     }
 

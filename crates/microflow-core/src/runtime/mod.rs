@@ -218,6 +218,14 @@ impl FlowRuntime {
         }
     }
 
+    /// Register a hand-written node factory on this runtime — for host tests
+    /// that need a node no catalog entry has (one that fails to start, or one
+    /// that panics in dispatch to exercise a host's supervision).
+    #[cfg(any(test, feature = "test-nodes"))]
+    pub fn register_test_factory(&mut self, name: &str, factory: registry::Factory) {
+        self.registry.register_test_factory(name, factory);
+    }
+
     /// Advance the host clock. Timer nodes read this via `RuntimeContext::now_ms`.
     pub fn set_now(&mut self, ms: f64) {
         self.now_ms = ms;
