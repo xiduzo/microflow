@@ -13,8 +13,15 @@
 //! The plan is split into two phases because per-node `HardwareComponent::initialize`
 //! (device power-on writes) must run *between* them: a device is configured before
 //! its continuous read is armed.
-//! - **setup** (before init): reporting reconcile, I2C bus config, sampling interval.
-//! - **arm** (after init): drain existing continuous reads, then start the desired set.
+//! - **setup** (before init): analog reporting, digital reporting *off*, I2C bus
+//!   config, sampling interval.
+//! - **arm** (after init): digital reporting *on*, then drain existing continuous
+//!   reads and start the desired set.
+//!
+//! Digital reporting is switched on only after the pins are in their input mode.
+//! `StandardFirmata` answers `REPORT_DIGITAL` at once with the port masked to its
+//! *input* pins, so a port enabled before `initialize` reports every new input as
+//! LOW — a pull-up button reads that as a press at every flow start.
 
 use crate::runtime::board::BoardWriter;
 use crate::runtime::wiring::{BoardWiring, I2cContinuousRead, ListenerWiring};
@@ -49,8 +56,6 @@ pub struct BoardPlan {
     pub analog_enable: Vec<u8>,
     /// Analog channels to stop reporting.
     pub analog_disable: Vec<u8>,
-    /// Digital ports to start reporting, as pin selectors (`port * 8`).
-    pub digital_enable: Vec<u8>,
     /// Digital ports to stop reporting, as pin selectors (`port * 8`).
     pub digital_disable: Vec<u8>,
     /// I2C bus config with the reconciled read-delay (µs), if any I2C listener.
@@ -58,6 +63,9 @@ pub struct BoardPlan {
     /// The global sampling interval (ms) to set, if any component voted.
     pub sampling_interval_ms: Option<i32>,
     // --- arm phase (after per-node initialize) ---
+    /// Digital ports to start reporting, as pin selectors (`port * 8`). After
+    /// initialize, so the board's immediate answer reads the inputs' real level.
+    pub digital_enable: Vec<u8>,
     /// I2C addresses to `stop_reading`, one entry per previously-armed query.
     pub i2c_stops: Vec<i32>,
     /// I2C continuous reads to arm.
@@ -151,11 +159,6 @@ impl BoardPlan {
         for &pin in &self.analog_disable {
             let _ = writer.disable_analog_reporting(pin);
         }
-        for &sel in &self.digital_enable {
-            if let Err(e) = writer.enable_digital_reporting(sel) {
-                log::warn!("enable digital reporting failed for selector {sel}: {e}");
-            }
-        }
         for &sel in &self.digital_disable {
             let _ = writer.disable_digital_reporting(sel);
         }
@@ -171,10 +174,16 @@ impl BoardPlan {
         }
     }
 
-    /// Emit the **arm** phase: drain every previously-armed continuous read,
-    /// then start the desired set. Runs *after* per-node initialize, so each
-    /// device is configured before its stream starts.
+    /// Emit the **arm** phase: switch digital reporting on, then drain every
+    /// previously-armed continuous read and start the desired set. Runs *after*
+    /// per-node initialize, so each input pin is in its mode before its port
+    /// reports and each device is configured before its stream starts.
     pub fn encode_arm(&self, writer: &mut impl BoardWriter) {
+        for &sel in &self.digital_enable {
+            if let Err(e) = writer.enable_digital_reporting(sel) {
+                log::warn!("enable digital reporting failed for selector {sel}: {e}");
+            }
+        }
         for &addr in &self.i2c_stops {
             if let Err(e) = writer.i2c_stop_reading(addr) {
                 log::warn!("i2c_stop_reading 0x{addr:02X} failed: {e}");
@@ -275,10 +284,10 @@ pub fn plan_board(
     BoardPlan {
         analog_enable,
         analog_disable,
-        digital_enable,
         digital_disable,
         i2c_config_delay,
         sampling_interval_ms,
+        digital_enable,
         i2c_stops,
         i2c_reads,
     }
@@ -464,16 +473,16 @@ mod tests {
         // is configured is a rate the bus never honours.
         let plan = BoardPlan {
             analog_enable: vec![14],
-            digital_enable: vec![0],
+            digital_disable: vec![8],
             i2c_config_delay: Some(100),
             sampling_interval_ms: Some(40),
             ..Default::default()
         };
         let bytes = setup_bytes(&plan, &[14]);
 
-        // REPORT_ANALOG(channel 0) | REPORT_DIGITAL(port 0) | then two sysex.
+        // REPORT_ANALOG(channel 0) | REPORT_DIGITAL(port 1) off | then two sysex.
         assert_eq!(&bytes[0..2], &[0xC0, 0x01], "analog reporting first");
-        assert_eq!(&bytes[2..4], &[0xD0, 0x01], "digital reporting second");
+        assert_eq!(&bytes[2..4], &[0xD1, 0x00], "digital reporting off second");
         let sysex_start = bytes.iter().position(|&b| b == 0xF0).expect("a sysex follows");
         assert_eq!(sysex_start, 4, "reporting toggles precede every sysex");
         // I2C_CONFIG (0x78) before SAMPLING_INTERVAL (0x7A).
@@ -488,11 +497,26 @@ mod tests {
         // One unusable pin must not stop the rest of the phase.
         let plan = BoardPlan {
             analog_enable: vec![14],
-            digital_enable: vec![0],
+            digital_disable: vec![0],
             ..Default::default()
         };
         let bytes = setup_bytes(&plan, &[]);
-        assert_eq!(bytes, vec![0xD0, 0x01], "digital reporting still emitted");
+        assert_eq!(bytes, vec![0xD0, 0x00], "digital reporting still emitted");
+    }
+
+    #[test]
+    fn digital_reporting_is_switched_on_in_the_arm_phase_before_any_stream() {
+        // `StandardFirmata` answers REPORT_DIGITAL with the port masked to its
+        // input pins, so it must follow `initialize`'s pin modes — and it goes
+        // first in the arm phase, ahead of the I2C drain and arm.
+        let plan = BoardPlan {
+            digital_enable: vec![0],
+            i2c_stops: vec![0x68],
+            ..Default::default()
+        };
+        assert!(setup_bytes(&plan, &[]).is_empty(), "no enable before initialize");
+        let arm = arm_bytes(&plan);
+        assert_eq!(&arm[0..2], &[0xD0, 0x01], "digital reporting opens the arm phase");
     }
 
     /// `[addr, mode << 3]` — the two bytes that identify an I2C request's target
