@@ -204,10 +204,9 @@ mod through_the_runtime {
 
     /// An AVR reset over a USB-serial chip keeps the port open: the board
     /// reboots, forgets the button's INPUT mode and the port's reporting, and
-    /// re-announces. Nothing in the runtime reacts to the re-announce, so the
-    /// flow goes quiet (ADR-0018 § "What would make merging worth it").
+    /// re-announces. The runtime reads the re-announce from its own decode and
+    /// re-applies the flow (ADR-0018 § "What would make merging worth it").
     #[test]
-    #[ignore = "track J: runtime does not re-apply the flow when a connected board re-announces (REPORT_FIRMWARE mid-session)"]
     fn flow_survives_a_board_reset_mid_session() {
         let mut rig = button_rig(BoardLayout::uno());
         press(&mut rig, true);
@@ -219,6 +218,81 @@ mod through_the_runtime {
         assert_eq!(rig.board.boots(), 2);
         press(&mut rig, true);
         assert!(rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
+    }
+
+    /// After a reset the outputs the flow drove come back, through the node's
+    /// own state (the LED knows its pin left PWM mode with the reboot).
+    #[test]
+    fn a_reset_restores_plain_outputs_without_emitting() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![
+                node("led", "Led", json!({ "pin": 13 })),
+                node("dim", "Led", json!({ "pin": 9 })),
+                node("relay", "Relay", json!({ "pin": 7 })),
+            ],
+            vec![],
+        );
+        rig.dispatch("led", "true", true);
+        rig.dispatch("dim", "value", 128.0);
+        rig.dispatch("relay", "true", true);
+        rig.take_events();
+
+        rig.board.reset();
+        assert!(!rig.board.pin(13).is_high(), "the reboot lowered it");
+        rig.pump();
+        assert_eq!(rig.board.boots(), 2);
+        assert!(rig.board.pin(13).is_high(), "LED on again");
+        assert_eq!(rig.board.pin(9).pwm(), Some(128), "PWM duty restored");
+        assert!(rig.board.pin(7).is_high(), "relay open again");
+        assert!(rig.events().is_empty(), "nothing changed as far as the flow knows: {:?}", rig.events());
+
+        // The rebuilt LED still drives its pin: a later PWM value lands.
+        rig.dispatch("dim", "value", 64.0);
+        assert_eq!(rig.board.pin(9).pwm(), Some(64));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    /// The reboot forgot the I2C bus and its continuous reads; the re-apply
+    /// configures the bus and re-arms the read, and the device streams again.
+    #[test]
+    fn a_reset_re_arms_i2c_streaming() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x11, 0x22]);
+        rig.apply_flow(
+            vec![node(
+                "dev",
+                "I2cDevice",
+                json!({ "address": 0x29, "register": 0x14, "readLength": 2, "output": "raw" }),
+            )],
+            vec![],
+        );
+        rig.board.reset();
+        rig.pump();
+        assert!(rig.board.i2c_enabled(), "bus configured again");
+        assert_eq!(rig.board.i2c_queries().len(), 1, "exactly one read re-armed");
+        rig.take_events();
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x33, 0x44]);
+        rig.sample();
+        assert!(
+            rig.events().iter().any(|e| e.source.as_ref() == "dev"),
+            "the device streams after the reset: {:?}",
+            rig.events()
+        );
+    }
+
+    /// A reset under a pull-up button: the re-apply sets the mode before it
+    /// switches reporting on, so the idle line does not read as a press.
+    #[test]
+    fn a_reset_does_not_flash_a_pullup_button_pressed() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("btn", "Button", json!({ "pin": 2, "isPullup": true }))], vec![]);
+        rig.advance(100);
+        rig.take_events();
+        rig.board.reset();
+        rig.pump();
+        rig.advance(100);
+        assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
     /// A reply cut short (its `F7` lost) must cost that one reply only. The
