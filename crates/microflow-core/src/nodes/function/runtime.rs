@@ -1,8 +1,8 @@
 //! Function Component — Transformation. Runs user JS via `boa_engine` inline.
 //!
-//! Gated behind the `js` feature (a full JS VM); excluded from the browser wasm
-//! build until its size is vetted. Handles: `trigger` (input → JS `input`),
-//! `{{var}}` template inputs, `value` (output).
+//! Gated behind the `js` feature (a full JS VM), which both the desktop app
+//! and the browser wasm runtime enable. Handles: `trigger` (input → JS
+//! `input`), `{{var}}` template inputs, `value` (output).
 
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
@@ -30,6 +30,9 @@ impl Default for FunctionConfig {
     }
 }
 
+/// Loop iterations one function call may run before boa throws.
+const LOOP_ITERATION_LIMIT: u64 = 10_000;
+
 pub(crate) struct Function {
     base: ComponentBase,
     config: FunctionConfig,
@@ -50,7 +53,10 @@ impl Function {
 
     fn make_context() -> Context {
         let mut ctx = Context::default();
-        ctx.runtime_limits_mut().set_loop_iteration_limit(10_000);
+        // boa counts loop iterations per call frame, across every loop in that
+        // frame, and throws a runtime-limit error past the limit. Recursion is
+        // capped by boa's default (512 nested calls).
+        ctx.runtime_limits_mut().set_loop_iteration_limit(LOOP_ITERATION_LIMIT);
         Self::inject_builtins(&mut ctx);
         ctx
     }
@@ -112,6 +118,19 @@ function isValid(value) {
         }
         code
     }
+}
+
+/// The script one `trigger` evaluates: the user's body as one function call.
+///
+/// That call is one boa call frame, so the context's loop iteration limit
+/// applies to it as a whole (see `make_context`).
+fn wrap_user_code(code: &str, input_literal: &str) -> String {
+    format!(
+        "var __res__ = (function(input) {{ {code} }})({input_literal});\
+         (typeof __res__ === 'object' && __res__ !== null) \
+           ? JSON.stringify(__res__) \
+           : __res__"
+    )
 }
 
 /// Serialize a `ComponentValue` as a JS literal for template substitution.
@@ -199,12 +218,7 @@ impl Component for Function {
             "trigger" => {
                 let code = self.build_code();
                 let input_literal = value_to_js_literal(&args);
-                let wrapped = format!(
-                    "var __res__ = (function(input) {{ {code} }})({input_literal});\
-                     (typeof __res__ === 'object' && __res__ !== null) \
-                       ? JSON.stringify(__res__) \
-                       : __res__"
-                );
+                let wrapped = wrap_user_code(&code, &input_literal);
 
                 let mut context = Self::make_context();
                 match context.eval(Source::from_bytes(wrapped.as_bytes())) {
@@ -231,5 +245,56 @@ impl ComponentBuilder for Function {
     type Config = FunctionConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn run(body: &str) -> Result<JsValue, String> {
+        Function::make_context()
+            .eval(Source::from_bytes(wrap_user_code(body, "0").as_bytes()))
+            .map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn a_loop_within_the_limit_runs() {
+        let n = LOOP_ITERATION_LIMIT;
+        assert_eq!(
+            run(&format!("var s = 0; for (var i = 0; i < {n}; i++) s++; return s;")).unwrap(),
+            JsValue::from(10_000)
+        );
+    }
+
+    #[test]
+    fn an_endless_loop_throws_instead_of_hanging() {
+        let err = run("while (true) {} return 1;").unwrap_err();
+        assert!(err.contains("loop iteration limit"), "{err}");
+    }
+
+    #[test]
+    fn the_limit_counts_every_loop_in_one_call_together() {
+        let err = run(
+            "var s = 0; for (var i = 0; i < 6000; i++) s++; \
+             for (var j = 0; j < 6000; j++) s++; return s;",
+        )
+        .unwrap_err();
+        assert!(err.contains("loop iteration limit"), "{err}");
+    }
+
+    #[test]
+    fn each_function_call_has_its_own_count() {
+        let out = run(
+            "function count() { var s = 0; for (var i = 0; i < 6000; i++) s++; return s; } \
+             return count() + count();",
+        )
+        .unwrap();
+        assert_eq!(out, JsValue::from(12_000));
+    }
+
+    #[test]
+    fn endless_recursion_throws() {
+        assert!(run("function f() { return f(); } return f();").is_err());
     }
 }

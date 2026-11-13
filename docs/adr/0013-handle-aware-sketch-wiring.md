@@ -93,6 +93,12 @@ Which pins a Node uses, and what it needs from each, is written once:
 can depend on the wiring (a Led's `value` port demands PWM only when an edge
 feeds it), which is why `edges` is an argument.
 
+An analog-reading Node's pin label resolves the way the live runtime reads it
+(`firmata::PinLabel`, through `codegen::emit::analog_label` /
+`resolve_analog`): `A<n>` is the board's `n`-th analog input, and a number is
+that pin — `15` is the Uno's `A1`, never `A15`. A number that is not an analog
+input is a demand on that pin, and both readers flag it as such.
+
 Two readers judge the same demands:
 
 - **Sketch validation** (`codegen/validate.rs`) reads the pins each Node emits
@@ -101,10 +107,12 @@ Two readers judge the same demands:
 - **The live pin check** (`runtime/pin_check.rs`) judges them against the
   connected board's `PinProfile` and puts the verdict on the Node's badge
   through the runtime's node-health ledger: an error when the Node cannot work
-  (a servo on a pin without servo support, an analog read on a digital-only pin,
-  a pin the board does not have), a warning when it works degraded (brightness
+  (a servo on a pin that is not even digital, an analog read on a digital-only
+  pin, a pin the board does not have), a warning when it works degraded (brightness
   on a pin without PWM is rounded to on/off at 128, as Arduino's `analogWrite`
-  does).
+  does). A servo is allowed on any digital pin, `A0` included: Microflow's
+  bundled StandardFirmata attaches a servo to any pin its `IS_PIN_DIGITAL`
+  accepts, so the limit is how many servos are attached at once, not which pin.
 
 A second table in the runtime was the alternative. It would have been the same
 list of Node types and pin fields, kept in step by hand, and the first place the

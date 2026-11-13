@@ -194,7 +194,6 @@ export class ReactFlowBridge {
   private readonly listeners = new Set<() => void>();
   private readonly unobserveNodes: () => void;
   private readonly unobserveEdges: () => void;
-  private readonly stopEdgePruning: () => void;
 
   private pendingFrame: number | null = null;
 
@@ -222,10 +221,8 @@ export class ReactFlowBridge {
   constructor(doc: FlowDocument, options: { readOnly?: boolean } = {}) {
     this.readOnly = options.readOnly ?? false;
     this.doc = doc;
-    // While an Editor's canvas is open, the doc repairs edges left dangling by
-    // concurrent peers (a delete racing a new edge). Through a Viewer's
-    // read-only document this is a no-op that returns nothing.
-    this.stopEdgePruning = (this.readOnly ? undefined : doc.startEdgePruning()) ?? (() => {});
+    // Dangling-edge pruning is not started here: the editor session runs it
+    // for the session's whole life, canvas or no canvas (`makeSession`).
     this.currentSnapshot = { nodes: doc.getNodes(), edges: doc.getEdges() };
     this.unobserveNodes = doc.onNodesChange(this.handleYjsNodesChange);
     this.unobserveEdges = doc.onEdgesChange(this.handleYjsEdgesChange);
@@ -398,7 +395,6 @@ export class ReactFlowBridge {
     this.flush();
 
     this.destroyed = true;
-    this.stopEdgePruning();
     this.unobserveNodes();
     this.unobserveEdges();
     if (this.pendingFrame !== null) {

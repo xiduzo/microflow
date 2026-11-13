@@ -126,6 +126,7 @@ export function makeSession(
   onDestroy: () => void = () => {},
 ): FlowSession {
   let destroyed = false;
+  const stopEdgePruning = pruneWhileWritable(doc, status);
   const session: FlowSession = {
     flowId,
     mode,
@@ -138,6 +139,7 @@ export function makeSession(
     destroy(): void {
       if (destroyed) return;
       destroyed = true;
+      stopEdgePruning();
       onDestroy();
       sync.destroy();
       doc.destroy();
@@ -145,6 +147,36 @@ export function makeSession(
   };
   writableDocs.set(session, doc);
   return session;
+}
+
+/**
+ * Keep `doc` free of dangling edges (a node delete racing a peer's new edge,
+ * see `FlowDocument.startEdgePruning`) for as long as this client may write.
+ *
+ * Pruning belongs to the session, not the canvas: an Editor's document must
+ * repair itself whether or not a canvas is mounted. It follows the live
+ * `readOnly` of the session status, so a Viewer never prunes, a demotion or a
+ * lost access stops it, and a promotion starts it. Previews are constant
+ * read-only and never prune. Returns the stop function for `destroy`.
+ */
+function pruneWhileWritable(doc: FlowDocument, status: SessionStatusStore): () => void {
+  let stop: (() => void) | null = null;
+  const follow = () => {
+    const writable = !status.getSnapshot().readOnly;
+    if (writable && stop === null) {
+      stop = doc.startEdgePruning();
+    } else if (!writable && stop !== null) {
+      stop();
+      stop = null;
+    }
+  };
+  follow();
+  const unsubscribe = status.subscribe(follow);
+  return () => {
+    unsubscribe();
+    stop?.();
+    stop = null;
+  };
 }
 
 /**

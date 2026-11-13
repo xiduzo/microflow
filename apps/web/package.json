@@ -92,7 +92,7 @@
     "vaul": "^1.1.2",
     "y-indexeddb": "^9.0.12",
     "y-protocols": "^1.0.6",
-    "yjs": "^13.6.30",
+    "yjs": "13.6.30",
     "zod3": "npm:zod@3",
     "zustand": "^5.0.11"
   },

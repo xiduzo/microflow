@@ -246,14 +246,21 @@ the policy, `Actor::recover` in `host.rs` for the actor half). A panic:
    turn, so it never drives the board again, and neither do its timers;
 3. writes the safe state through the live board session;
 4. **respawns**: a fresh runtime seeded from the session's pin table, the last
-   flow re-applied, MIDI listeners re-reconciled. It does not restore outputs: a
-   panicked runtime's last values are not trusted.
+   flow re-applied, then the subscriptions reconciled against the respawned
+   runtime's wirings — MQTT/Figma through `reconcile_subscriptions` (a diff, so
+   an unchanged set touches nothing), MIDI listeners on the actor. It does not
+   restore outputs: a panicked runtime's last values are not trusted.
 
 A `CrashGuard` halts the actor instead after 3 panics within 60 s, including a
 respawn that itself panics, so a deterministic fault does not loop. The board is
 then left in the safe state until the user restarts (`runtime_restart`, behind
-the toast's Reload action). The desktop release profile must never use
-`panic = "abort"`, or none of this can catch anything.
+the error's Reload action). While halted, the actor drops every turn that would
+drive the flow and answers a `flow_update` with an error (`HALTED`); it keeps
+that flow for the restart. The `runtime_status` command reports the halt and
+the crash that caused it. The webview asks for it on start, so a reloaded
+webview shows the halt again; a reload alone never restarts the runtime. The
+desktop release profile must never use `panic = "abort"`, or none of this can
+catch anything.
 
 The browser keeps D3 unchanged. A trapped wasm module would need a fresh
 instance behind the live board, and the reload that provides one is cheap there.
