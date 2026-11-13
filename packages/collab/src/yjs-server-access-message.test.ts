@@ -261,6 +261,44 @@ describe("YjsServer.writeMeta", () => {
     expect(mirroredName(received)).toBe("Renamed");
   });
 
+  test("a room whose load read the row before the rename's save still gets the rename", async () => {
+    // A store that snapshots on load (like a DB read) and lets the test hold
+    // the join's load and the rename's save to force the interleaving.
+    const inner = new MemoryRoomStore();
+    const seed = new Y.Doc();
+    seed.getMap("meta").set("name", "Old");
+    await inner.save("flow-1", Y.encodeStateAsUpdate(seed));
+
+    let releaseSave!: () => void;
+    let releaseJoinLoad!: () => void;
+    let loads = 0;
+    const store: RoomStore = {
+      load: async (flowId) => {
+        const snapshot = await inner.load(flowId); // read now…
+        if (++loads === 2) await new Promise<void>((r) => (releaseJoinLoad = r)); // …return later
+        return snapshot;
+      },
+      save: async (flowId, state) => {
+        await new Promise<void>((r) => (releaseSave = r));
+        await inner.save(flowId, state);
+      },
+    };
+    const server = new YjsServer({ store, persistDebounce: 10_000, persistMaxWait: 10_000 });
+
+    const rename = server.writeMeta("flow-1", { name: "Renamed" }); // load #1, save held
+    await tick();
+    const join = server.join("flow-1", { send: () => {}, close: () => {} }, "ada", true); // load #2 reads "Old"
+    await tick();
+    releaseSave();
+    await tick(); // the rename is now waiting on the room still loading
+    releaseJoinLoad();
+    await Promise.all([rename, join]);
+
+    const live = new Y.Doc();
+    Y.applyUpdate(live, server.currentState("flow-1")!);
+    expect(live.getMap("meta").get("name")).toBe("Renamed");
+  });
+
   test("a deleted flow is left alone", async () => {
     const store = new MemoryRoomStore();
     const server = new YjsServer({ store });
