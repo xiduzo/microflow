@@ -28,6 +28,7 @@ import {
 import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 import { applyAutoLayout } from "@/editor/auto-layout";
 import { resolveNodeData } from "@/nodes/node-data-resolver";
+import { removeNodesWithEdges } from "@/session";
 import { uid } from "@/lib/uid";
 
 /** How a write tool's effect is delivered. */
@@ -323,7 +324,9 @@ export function createFlowTools(doc: FlowDocument, options: FlowToolsOptions) {
     const nodeId = found.id;
     const type = doc.getNode(nodeId)?.type;
     if (!type) return fail(`no node '${nodeId}' in this flow`);
-    return write(`deleted ${type} ${nodeId}`, () => doc.deleteNode(nodeId), true);
+    // Through the shared edit, not `doc.deleteNode`: that removes the node only
+    // and left its edges pointing at nothing in the document.
+    return write(`deleted ${type} ${nodeId}`, () => removeNodesWithEdges(doc, [nodeId]), true);
   });
 
   const deleteEdge = toolDefinition({
