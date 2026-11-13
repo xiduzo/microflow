@@ -829,7 +829,12 @@ export class YjsServer {
       apply(doc);
       const change = Y.encodeStateAsUpdate(doc, before);
       await this.store.save(flowId, Y.encodeStateAsUpdate(doc));
-      const raced = this.rooms.get(flowId);
+      // A room may have started loading during the round trip, its
+      // `store.load` reading the row before our save committed. Whether it
+      // has registered yet or is still loading, give it the change too
+      // (idempotent: Yjs ignores an update it already has).
+      const raced =
+        this.rooms.get(flowId) ?? (await this.roomsLoading.get(flowId)?.catch(() => null));
       if (raced && !raced.destroyed) Y.applyUpdate(raced.doc, change);
     } finally {
       doc.destroy();
