@@ -111,6 +111,17 @@ pub struct RuntimeCrash {
     pub crashes: usize,
 }
 
+/// The `runtime_status` answer: whether the crash-loop guard has halted the
+/// runtime, and the crash that tripped it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export)]
+pub struct RuntimeStatus {
+    pub halted: bool,
+    /// The crash that halted the runtime; `null` while it runs.
+    pub crash: Option<RuntimeCrash>,
+}
+
 /// One caught panic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Fault {

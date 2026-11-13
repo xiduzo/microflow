@@ -8,7 +8,7 @@ import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 import { isDesktop } from "@/platform/platform";
 import { AudioPerformer } from "@/runtime/audio/audio-performer";
 import { dispatchPort } from "@/runtime/dispatch-port";
-import { DesktopRuntimeHost, type HostDocument } from "@/runtime/desktop-runtime-host";
+import { claimHost, DesktopRuntimeHost, type HostDocument, type HostScope } from "@/runtime/desktop-runtime-host";
 import { applyComponentEvent } from "@/runtime/event-ingest";
 import { surfaceRuntimeCrash } from "@/runtime/runtime-crash";
 
@@ -16,7 +16,12 @@ let host: DesktopRuntimeHost | null = null;
 
 /** The app's one desktop host, wired to Tauri, the stores and the toaster. */
 function desktopRuntimeHost(): DesktopRuntimeHost {
-  host ??= new DesktopRuntimeHost({
+  host ??= claimHost(globalThis as HostScope, createHost);
+  return host;
+}
+
+function createHost(): DesktopRuntimeHost {
+  return new DesktopRuntimeHost({
     listen: (event, handler) => listen(event, (e) => handler(e.payload as never)),
     invoke: (command, args) => invoke(command, args),
     ingest: applyComponentEvent,
@@ -25,20 +30,16 @@ function desktopRuntimeHost(): DesktopRuntimeHost {
     resolveLlmProvider: resolveStoredLlmProvider,
     createAudio: (resolveSrc, onEnded) => new AudioPerformer(resolveSrc, onEnded),
     dispatchPort,
-    onCrash: (crash, restart) =>
-      surfaceRuntimeCrash(crash, restart, {
-        error: (title, options) => toast.error(title, options),
-        reload: () => window.location.reload(),
-      }),
-  });
-  return host;
-}
-
-// A hot-reloaded module would start a second host beside the first.
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    host?.stop();
-    host = null;
+    onCrash: (crash, restart, replayed) =>
+      surfaceRuntimeCrash(
+        crash,
+        restart,
+        {
+          error: (title, options) => toast.error(title, options),
+          reload: () => window.location.reload(),
+        },
+        { replayed },
+      ),
   });
 }
 

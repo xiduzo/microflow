@@ -7,11 +7,14 @@ import type { ComponentEvent } from "@/lib/bindings/ComponentEvent";
 import type { RuntimeCrash } from "@/lib/bindings/RuntimeCrash";
 import type { LlmGenerate } from "@/ai/llm-performer";
 import type { EdgeLike } from "@/runtime/ingest/edge-index";
+import type { RuntimeStatus } from "@/lib/bindings/RuntimeStatus";
 import {
+  claimHost,
   DesktopRuntimeHost,
   type DesktopRuntimeHostDeps,
   type HostAudio,
   type HostDocument,
+  type HostScope,
 } from "./desktop-runtime-host";
 
 /** A Tauri event bus: `emit` reaches whoever is listening right now. */
@@ -59,11 +62,11 @@ function doc(edges: EdgeLike[], nodeIds: string[] = []): HostDocument {
   return fake as unknown as HostDocument;
 }
 
-function rig() {
+function rig(status: RuntimeStatus = { halted: false, crash: null }) {
   const bus = new FakeBus();
   const invoked: Array<{ command: string; args?: Record<string, unknown> }> = [];
   const ingested: Array<{ event: ComponentEvent; edges: ReadonlyArray<EdgeLike> }> = [];
-  const crashes: Array<{ crash: RuntimeCrash; restart: () => Promise<void> }> = [];
+  const crashes: Array<{ crash: RuntimeCrash; restart: () => Promise<void>; replayed: boolean }> = [];
   const retained: string[][] = [];
   let cleared = 0;
   const llm = deferredGenerate();
@@ -76,6 +79,7 @@ function rig() {
   const deps: DesktopRuntimeHostDeps = {
     listen: bus.listen,
     invoke: async (command, args) => {
+      if (command === "runtime_status") return status;
       invoked.push({ command, args });
     },
     ingest: (event, edges) => ingested.push({ event, edges }),
@@ -87,10 +91,10 @@ function rig() {
     generateLlm: llm.generate,
     createAudio: () => audio,
     dispatchPort: () => {},
-    onCrash: (crash, restart) => crashes.push({ crash, restart }),
+    onCrash: (crash, restart, replayed) => crashes.push({ crash, restart, replayed }),
   };
   const host = new DesktopRuntimeHost(deps);
-  return { bus, host, invoked, ingested, crashes, retained, cleared: () => cleared, llm };
+  return { bus, host, deps, invoked, ingested, crashes, retained, cleared: () => cleared, llm };
 }
 
 const event = (source: string): ComponentEvent =>
@@ -196,8 +200,62 @@ describe("DesktopRuntimeHost", () => {
     bus.emit("runtime-crashed", crash);
     expect(cleared()).toBe(1);
     expect(crashes.map((c) => c.crash)).toEqual([crash]);
+    expect(crashes[0]!.replayed).toBe(false);
 
     await crashes[0]!.restart();
     expect(invoked.at(-1)?.command).toBe("runtime_restart");
+  });
+
+  test("a halt found on start is shown again, not restarted", async () => {
+    // The webview reloaded (or the error was dismissed) while the actor stayed
+    // halted: the host asks, and surfaces the halt as a replay.
+    const crash: RuntimeCrash = {
+      fingerprint: "0badf00d",
+      op: "dispatch",
+      location: "microflow-core/src/nodes/x.rs:1",
+      recovered: false,
+      crashes: 3,
+    };
+    const { host, crashes, invoked } = rig({ halted: true, crash });
+    host.start();
+    await tick();
+
+    expect(crashes.map((c) => [c.crash, c.replayed])).toEqual([[crash, true]]);
+    expect(invoked.map((c) => c.command)).not.toContain("runtime_restart");
+  });
+
+  test("a running runtime found on start shows nothing", async () => {
+    const { host, crashes } = rig();
+    host.start();
+    await tick();
+    expect(crashes).toEqual([]);
+  });
+
+  test("claimHost keeps one host: a re-evaluated module retires the last one", async () => {
+    // Two module evaluations (a hot reload) each create a host; the scope is
+    // what they share. Every `llm-request` must still run once.
+    const first = rig();
+    const scope: HostScope = {};
+    const edges: EdgeLike[] = [{ id: "e", source: "a", sourceHandle: "value", target: "b", targetHandle: "x" }];
+    const one = claimHost(scope, () => first.host);
+    one.start();
+    one.attach(doc(edges));
+
+    const second = new DesktopRuntimeHost({ ...first.deps });
+    const two = claimHost(scope, () => second);
+    await tick(); // the retired host's unlisten resolves
+    expect(two).toBe(second);
+    expect(first.bus.listeners("llm-request")).toBe(1);
+
+    first.bus.emit("llm-request", llmRequest);
+    await tick();
+    first.llm.finish("once");
+    await tick();
+    const done = first.invoked.filter((call) => call.args?.handle === "done");
+    expect(done).toHaveLength(1);
+
+    // The running state carried over: started, and the open flow's edges.
+    first.bus.emit("component-event", event("a"));
+    expect(first.ingested.at(-1)?.edges).toBe(edges);
   });
 });
