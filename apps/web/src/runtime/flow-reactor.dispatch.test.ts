@@ -9,7 +9,7 @@ import type { BoardConnection } from "@/board/web-serial";
 
 function fakeConnection(): BoardConnection {
   return {
-    session: { pinsJson: () => "[]" },
+    pinSeed: "[]",
     write: () => Promise.resolve(),
   } as unknown as BoardConnection;
 }

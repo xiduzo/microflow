@@ -1,12 +1,13 @@
 // Web Serial transport for the browser Firmata client.
 //
-// WASM can't block on the Web Serial Promises, so the async transport lives
-// here in JS: we open the port, run a persistent read loop that feeds incoming
-// bytes to the wasm `FirmataSession` (the codec), and write the session's
-// encoder output back. The handshake (firmware + capability + analog-mapping
-// queries) mirrors the desktop `hardware::firmata` detection exactly — same
-// reset, same patience for the board to boot, same queries — because both sides
-// drive the identical protocol codec.
+// WASM can't block on the Web Serial Promises, so the async transport lives in
+// JS. The port lifecycle — open → handshake → ready/attached → lost → closed —
+// is `board-link.ts`; this module binds it to the real browser
+// (`navigator.serial`, the wasm detection codec, the wall clock) and keeps the
+// flashing driver, which owns the port outright for its duration. The
+// handshake mirrors the desktop `hardware::firmata` detection — same reset,
+// same patience for the board to boot, same queries — because both sides drive
+// the identical protocol codec.
 //
 // Web Serial is Chromium-only (Chrome/Edge/Opera) and never auto-lists ports:
 // a port is only obtained after a user gesture calls `requestPort()`, which
@@ -26,85 +27,41 @@ import {
   type FirmataSession,
   type FlashSession,
 } from "./wasm";
+import { realClock } from "./clock";
 import {
-  advance,
-  startHandshake,
-  BAUD_RATES,
-  RESET_PULSE_MS,
-  RESET_SETTLE_MS,
-} from "./probe-handshake";
+  browserSerial,
+  watchConnectivity,
+  type ConnectivityHandlers,
+  type WebSerial,
+  type WebSerialPort,
+  type WebSerialPortInfo,
+} from "./serial-port";
+import { probeBoard, type BoardConnection, type ProbeEnv, type ProbeHooks } from "./board-link";
 
-// --- Minimal Web Serial typings (the TS DOM lib does not ship them) ---------
+// The board link's interface, re-exported so other verticals keep importing it
+// from this module (the board vertical's public surface).
+export type { BoardConnection, LinkLoss, ProbeHooks } from "./board-link";
+export { pumpReader } from "./board-link";
+export type { WebSerialPort } from "./serial-port";
 
-interface WebSerialPortInfo {
-  usbVendorId?: number;
-  usbProductId?: number;
-}
-interface WebSerialOptions {
-  baudRate: number;
-  bufferSize?: number;
-}
-interface WebSerialSignals {
-  dataTerminalReady?: boolean;
-  requestToSend?: boolean;
-}
-export interface WebSerialPort {
-  readonly readable: ReadableStream<Uint8Array> | null;
-  readonly writable: WritableStream<Uint8Array> | null;
-  open(options: WebSerialOptions): Promise<void>;
-  close(): Promise<void>;
-  getInfo(): WebSerialPortInfo;
-  setSignals(signals: WebSerialSignals): Promise<void>;
-}
-interface WebSerial {
-  requestPort(): Promise<WebSerialPort>;
-  getPorts(): Promise<WebSerialPort[]>;
-}
-
-/** The Web Serial entry point, or undefined outside Chromium browsers. */
-function getSerial(): WebSerial | undefined {
-  if (typeof navigator === "undefined") return undefined;
-  return (navigator as unknown as { serial?: WebSerial }).serial;
-}
+const sleep = (ms: number) => realClock.sleep(ms);
 
 // --- Connection -------------------------------------------------------------
 
-/** Wait for the board to reboot into a freshly-flashed sketch before reconnect. */
-const POST_FLASH_RESET_MS = 2500;
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const browserProbeEnv: ProbeEnv = {
+  clock: realClock,
+  createSession,
+  listGrantedPorts: () => listGrantedPorts(),
+};
 
 /** True only in browsers that implement the Web Serial API (Chromium-based). */
 export function isWebSerialSupported(): boolean {
-  return getSerial() !== undefined;
+  return browserSerial() !== undefined;
 }
-
-export type BoardConnection = {
-  /** Write raw Firmata bytes to the board (from a session encoder). */
-  write: (bytes: Uint8Array) => Promise<void>;
-  /** The protocol session — use its `encode*` methods to build command bytes. */
-  session: FirmataSession;
-  /** Tear down the read loop and close the port. */
-  disconnect: () => Promise<void>;
-  /** The granted port backing this connection (identity-compared on unplug). */
-  port: WebSerialPort;
-};
-
-export type ProbeHooks = {
-  /** The board's read loop ended unexpectedly (reset / unplug mid-session). */
-  onClosed?: () => void;
-  /**
-   * Raw inbound bytes, handed straight to the flow runtime once a board is
-   * connected. The runtime owns its own codec — the same `microflow-core`
-   * decoder the desktop runs — so it decodes the chunk itself rather than
-   * reusing the detection session's `feed` (ADR-0018).
-   */
-  onBytes?: (bytes: Uint8Array) => void;
-};
 
 /** Obtain a port via the browser picker. Must run inside a user gesture. */
 export async function requestBoardPort(): Promise<WebSerialPort> {
-  const serial = getSerial();
+  const serial = browserSerial();
   if (!serial) throw new Error("Web Serial is not supported in this browser");
   // Throws if the user dismisses the picker — let it propagate.
   return serial.requestPort();
@@ -112,50 +69,24 @@ export async function requestBoardPort(): Promise<WebSerialPort> {
 
 /** Ports the origin was already granted — no picker, no gesture. */
 export async function listGrantedPorts(): Promise<WebSerialPort[]> {
-  const serial = getSerial();
+  const serial = browserSerial();
   if (!serial) return [];
   return serial.getPorts();
 }
 
-/**
- * Firmata probe: run the firmware/capability handshake at each supported baud
- * (fresh session). Returns the live connection, or null if no Firmata answered
- * (the probe tears its own I/O down). The bring-up *policy* — when to probe,
- * flash, retry, or give up — lives in the shared `microflow_core::bringup`
- * machine; this is just the transport primitive its `probe` action runs.
- */
-export async function probeFirmata(
-  port: WebSerialPort,
-  hooks: ProbeHooks,
-): Promise<BoardConnection | null> {
-  const session = await createSession();
-  for (const baud of BAUD_RATES) {
-    const connection = await tryConnectAtBaud(port, baud, session, hooks);
-    if (connection) return connection;
-  }
-  return null;
+/** The Firmata probe on `port` (see `probeBoard`): a `ready` link, or null with
+ *  the port closed again. */
+export function probeFirmata(port: WebSerialPort, hooks: ProbeHooks): Promise<BoardConnection | null> {
+  return probeBoard(browserProbeEnv, port, hooks, { afterFlash: false });
 }
 
-/**
- * Post-flash probe (`probe { afterFlash: true }`): wait for the board to reboot
- * into the freshly-flashed sketch, then handshake. The original handle returns
- * in application mode; if the board re-enumerated (AVR109 boards come back as a
- * new USB device, which Web Serial models as a different granted port), fall
- * back to scanning granted ports newest-first — a platform serial quirk, so it
- * stays host-side.
- */
-export async function probeAfterFlash(
+/** Post-flash probe (`probe { afterFlash: true }`): wait for the reboot, then
+ *  probe, tolerating USB re-enumeration (see `probeBoard`). */
+export function probeAfterFlash(
   port: WebSerialPort,
   hooks: ProbeHooks,
 ): Promise<BoardConnection | null> {
-  await sleep(POST_FLASH_RESET_MS);
-  const direct = await probeFirmata(port, hooks).catch(() => null);
-  if (direct) return direct;
-  for (const granted of (await listGrantedPorts()).slice().reverse()) {
-    const connection = await probeFirmata(granted, hooks).catch(() => null);
-    if (connection) return connection;
-  }
-  return null;
+  return probeBoard(browserProbeEnv, port, hooks, { afterFlash: true });
 }
 
 /**
@@ -164,170 +95,8 @@ export async function probeAfterFlash(
  * equivalent to the desktop port poll. Returns an unsubscribe; no-op outside
  * Chromium.
  */
-export function onSerialConnectivity(handlers: {
-  onConnect?: (port: WebSerialPort) => void;
-  onDisconnect?: (port: WebSerialPort) => void;
-}): () => void {
-  const serial = getSerial();
-  if (!serial) return () => {};
-  const target = serial as unknown as EventTarget;
-  const portOf = (event: Event): WebSerialPort =>
-    (event.target as unknown as WebSerialPort) ??
-    (event as unknown as { port: WebSerialPort }).port;
-  const onConnect = (event: Event) => handlers.onConnect?.(portOf(event));
-  const onDisconnect = (event: Event) => handlers.onDisconnect?.(portOf(event));
-  target.addEventListener("connect", onConnect);
-  target.addEventListener("disconnect", onDisconnect);
-  return () => {
-    target.removeEventListener("connect", onConnect);
-    target.removeEventListener("disconnect", onDisconnect);
-  };
-}
-
-/** Attempt the full open → reset → handshake at one baud rate. */
-async function tryConnectAtBaud(
-  port: WebSerialPort,
-  baud: number,
-  session: FirmataSession,
-  options: ProbeHooks,
-): Promise<BoardConnection | null> {
-  await port.open({ baudRate: baud, bufferSize: 1024 });
-
-  // Reset the board (DTR/RTS toggle), mirroring desktop `reset_board`. Not all
-  // platforms honour signals; ignore failures.
-  try {
-    await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-    await sleep(RESET_PULSE_MS);
-    await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-    await sleep(RESET_SETTLE_MS);
-  } catch {
-    // Signals unsupported — the board may already be in a good state.
-  }
-
-  const reader = port.readable!.getReader();
-  const writer = port.writable!.getWriter();
-  const write = (bytes: Uint8Array) => writer.write(bytes);
-  // Distinguishes a deliberate teardown from the board dropping mid-session.
-  let tornDown = false;
-
-  // Persistent read loop. Ends when the reader is cancelled (on disconnect /
-  // teardown) — see `pumpReader` for why only that counts as the port going away.
-  const readLoop = pumpReader(reader, session, {
-    ...options,
-    onClosed: () => {
-      // Board reset or was unplugged while connected — let the caller recover.
-      if (!tornDown) options.onClosed?.();
-    },
-  });
-
-  const teardown = async () => {
-    tornDown = true;
-    try {
-      await reader.cancel();
-    } catch {
-      /* already cancelled */
-    }
-    await readLoop;
-    try {
-      reader.releaseLock();
-    } catch {
-      /* not locked */
-    }
-    try {
-      await writer.close();
-    } catch {
-      /* already closed */
-    }
-    try {
-      await port.close();
-    } catch {
-      /* already closed */
-    }
-  };
-
-  // Handshake: the policy (requery cadence, deadlines, what a timeout means in
-  // each phase) lives in `probe-handshake.ts`; this loop only performs actions.
-  let handshake = startHandshake(Date.now());
-  for (;;) {
-    const step = advance(handshake, Date.now(), {
-      firmwareName: session.firmwareName(),
-      pinCount: pinCount(session),
-    });
-    handshake = step.state;
-
-    switch (step.action.kind) {
-      case "sendFirmwareQuery":
-        await write(session.encodeQueryFirmware());
-        break;
-      case "sendCapabilityQueries":
-        // Sizes the pin table.
-        await write(session.encodeQueryCapabilities());
-        await write(session.encodeQueryAnalogMapping());
-        break;
-      case "poll":
-        await sleep(step.action.delayMs);
-        break;
-      case "noFirmata":
-        // No Firmata at this baud — tear down and let the caller try the next one.
-        await teardown();
-        return null;
-      case "connected":
-        return { write, session, disconnect: teardown, port };
-    }
-  }
-}
-
-/**
- * Drain one reader into the detection codec and the probe hooks until it ends,
- * then fire `onClosed` exactly once. Every chunk goes to both, in that order and
- * without filtering — that identical stream is what keeps the detection codec's
- * pin table and the flow runtime's from drifting apart (ADR-0018).
- *
- * The only thing here that can mean *the port is gone* is `reader.read()`
- * rejecting. Everything else in the loop is computation over a chunk that
- * already arrived: the codec is wasm (`session.feed`), and `onBytes` crosses
- * into the wasm flow runtime. Those faults are contained per chunk so the loop
- * keeps reading — a broken engine must never be reported as an unplugged board
- * (ADR-0017). `onClosed` therefore stays reachable only from genuine transport
- * loss, which is what the caller's auto-reconnect is allowed to act on.
- */
-export async function pumpReader(
-  reader: { read(): Promise<{ value?: Uint8Array; done: boolean }> },
-  session: Pick<FirmataSession, "feed">,
-  hooks: ProbeHooks,
-): Promise<void> {
-  try {
-    for (;;) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      if (!value || value.length === 0) continue;
-      try {
-        // Advance the detection codec's own state — this is what makes
-        // `firmwareName()` and `pinsJson()` answer during the handshake, and
-        // keeps them truthful afterwards for `connectedState`. Its per-chunk
-        // `FeedResult` report has no consumer in the browser: pin observations
-        // reach the UI as the flow runtime's component events (ADR-0018).
-        session.feed(value);
-      } catch (error) {
-        console.warn("[web-serial] detection codec rejected a chunk:", error);
-      }
-      try {
-        // The same chunk, undecoded, to the flow runtime — it owns the pin table
-        // the flow runs on and decodes with its own copy of the core codec.
-        hooks.onBytes?.(value);
-      } catch (error) {
-        console.error("[web-serial] inbound-bytes handler threw:", error);
-      }
-    }
-  } catch {
-    // `reader.read()` rejected: the port closed or the device went away.
-  }
-  hooks.onClosed?.();
-}
-
-/** Number of pins the session currently knows about. */
-function pinCount(session: FirmataSession): number {
-  return sessionPins(session).length;
+export function onSerialConnectivity(handlers: ConnectivityHandlers): () => void {
+  return watchConnectivity(browserSerial(), handlers);
 }
 
 /** Build the `connected` BoardState from the session + the port's USB ids. */
@@ -385,7 +154,7 @@ export async function flashPort(
   port: WebSerialPort,
   opts: { onProgress?: FlashProgress } = {},
 ): Promise<string> {
-  const serial = getSerial();
+  const serial = browserSerial();
   if (!serial) {
     throw new Error("Web Serial is not supported in this browser");
   }

@@ -87,6 +87,7 @@ export class FlowReactor implements EffectsSink {
    *  the wires the runtime fired them across. */
   private edges: FlowEdge[] = [];
   private disposed = false;
+  private writeFailed = false;
 
   private constructor(
     /** The board this flow drives, or `null` when there is none: the software
@@ -144,7 +145,10 @@ export class FlowReactor implements EffectsSink {
     // reports it and the reactor still attaches.
     // No board means no pin table: the runtime keeps its empty one, inbound
     // decode has nothing to decode, and the software nodes run as usual.
-    reactor.bridge.setPins(connection?.session.pinsJson() ?? "[]");
+    // The seed is the link's snapshot from the instant the handshake completed;
+    // every byte after it is replayed by the link once this reactor attaches,
+    // so seed + replay is exactly what the detection codec saw (ADR-0018).
+    reactor.bridge.setPins(connection?.pinSeed ?? "[]");
     return reactor;
   }
 
@@ -248,7 +252,13 @@ export class FlowReactor implements EffectsSink {
     // "Connect board"), so this stays quiet rather than logging per turn.
     if (this.connection === null) return;
     void this.connection.write(Uint8Array.from(bytes)).catch((error: unknown) => {
-      console.warn("[flow-reactor] write failed:", error);
+      // The link already turned `lost` and told the board controller, which
+      // closes the port, reports `disconnected` and retries. All that is left
+      // here is not to raise an unhandled rejection — and not to log once per
+      // turn until this reactor is disposed.
+      if (this.writeFailed) return;
+      this.writeFailed = true;
+      console.warn("[flow-reactor] write failed; the board link is down:", error);
     });
   }
 
