@@ -120,8 +120,8 @@ impl SimRig {
         }
     }
 
-    /// The `[{ pin, analogChannel }]` pin seed both hosts build from their
-    /// detection codec (`microflow-firmata-wasm` `pinsJson`, desktop
+    /// The `[{ pin, supportedModes, analogChannel }]` pin seed both hosts build
+    /// from their detection codec (`microflow-firmata-wasm` `pinsJson`, desktop
     /// `hardware/firmata.rs`).
     #[must_use]
     pub fn pin_seed_json(probe: &FirmataClient) -> String {
@@ -132,6 +132,7 @@ impl SimRig {
             .map(|(index, pin)| {
                 serde_json::json!({
                     "pin": index,
+                    "supportedModes": pin.modes.iter().map(|m| m.mode).collect::<Vec<_>>(),
                     "analogChannel": if pin.analog { index as i64 } else { -1 },
                 })
             })

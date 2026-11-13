@@ -91,6 +91,22 @@ impl HardwareComponent for Relay {
         ctx.board().set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
         self.close(ctx)
     }
+
+    /// A relay is a plain output: switch it back to open if it was. Mirrors
+    /// `open` without its `set_value` emit.
+    fn restore_output(
+        &mut self,
+        last: &ComponentValue,
+        ctx: &mut RuntimeContext,
+    ) -> Result<(), RuntimeError> {
+        if last.as_bool() == Some(true) {
+            let signal = matches!(self.config.r#type, RelayType::NO);
+            ctx.board().digital_write(self.config.pin, signal)?;
+            self.is_open = true;
+            self.set_value(last.clone());
+        }
+        Ok(())
+    }
 }
 
 impl ComponentBuilder for Relay {

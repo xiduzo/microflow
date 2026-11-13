@@ -64,3 +64,5 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 [dev-dependencies]
 proptest = "1"
+# The simulated board, to test what the desktop writes against a firmware model.
+microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js", "cloud", "sim-board"] }

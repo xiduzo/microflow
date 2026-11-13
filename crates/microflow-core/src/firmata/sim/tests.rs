@@ -117,6 +117,50 @@ fn reports_survive_any_chunking() {
     assert_eq!(codec.pending_bytes(), 0);
 }
 
+/// Drive one of everything HIGH: an OUTPUT, a PWM duty, a servo and a pull-up
+/// input (whose latch the reset would turn into a driven-high output).
+fn drive_everything(board: &mut SimBoard) {
+    let mut codec = FirmataClient::new();
+    board.receive(&codec.encode_set_pin_mode(13, MODE_OUTPUT));
+    board.receive(&codec.encode_digital_write(13, true));
+    board.receive(&codec.encode_set_pin_mode(9, MODE_PWM));
+    board.receive(&codec.encode_analog_write(9, 200));
+    board.receive(&codec.encode_set_pin_mode(3, crate::firmata::MODE_SERVO));
+    board.receive(&codec.encode_analog_write(3, 90));
+    board.receive(&codec.encode_set_pin_mode(6, crate::firmata::MODE_PULLUP));
+    assert!(board.pin(13).is_high() && board.pin(9).pwm() == Some(200) && board.pin(6).level());
+}
+
+/// `StandardFirmata`'s reset re-asserts OUTPUT without touching the latch
+/// (StandardFirmata.ino `setPinModeCallback` / `systemResetCallback`): a pin
+/// left HIGH stays HIGH, and a pull-up becomes an output driven HIGH.
+#[test]
+fn system_reset_alone_leaves_latched_pins_high() {
+    let mut board = SimBoard::new(BoardLayout::uno());
+    drive_everything(&mut board);
+    board.receive(&[crate::firmata::SYSTEM_RESET]);
+    assert!(board.pin(13).is_high(), "the OUTPUT latch survives the reset");
+    assert!(board.pin(6).is_high(), "the pull-up latch becomes a HIGH output");
+    assert!(!board.pin(9).is_high(), "PWM is driven low by the reset");
+}
+
+#[test]
+fn safe_state_leaves_every_pin_low_on_every_layout() {
+    for layout in [BoardLayout::uno(), BoardLayout::mega2560(), BoardLayout::leonardo()] {
+        let mut board = SimBoard::new(layout.clone());
+        let pins = probe(&mut board).pins.len();
+        drive_everything(&mut board);
+        board.receive(&crate::firmata::encode_safe_state(pins));
+        for pin in 0..layout.pin_count() as u8 {
+            let p = board.pin(pin);
+            assert!(!p.level(), "{} pin {pin} still HIGH in mode {:?}", layout.name(), p.mode());
+            assert_eq!(p.servo(), None, "{} pin {pin} still a servo", layout.name());
+            assert_eq!(p.pwm(), None, "{} pin {pin} still PWM", layout.name());
+        }
+        assert!(!board.is_reporting_digital(0) && !board.is_reporting_analog(0));
+    }
+}
+
 #[cfg(feature = "runtime")]
 mod through_the_runtime {
     use super::super::rig::{node, SimRig};
@@ -160,10 +204,9 @@ mod through_the_runtime {
 
     /// An AVR reset over a USB-serial chip keeps the port open: the board
     /// reboots, forgets the button's INPUT mode and the port's reporting, and
-    /// re-announces. Nothing in the runtime reacts to the re-announce, so the
-    /// flow goes quiet (ADR-0018 § "What would make merging worth it").
+    /// re-announces. The runtime reads the re-announce from its own decode and
+    /// re-applies the flow (ADR-0018 § "What would make merging worth it").
     #[test]
-    #[ignore = "track J: runtime does not re-apply the flow when a connected board re-announces (REPORT_FIRMWARE mid-session)"]
     fn flow_survives_a_board_reset_mid_session() {
         let mut rig = button_rig(BoardLayout::uno());
         press(&mut rig, true);
@@ -175,6 +218,81 @@ mod through_the_runtime {
         assert_eq!(rig.board.boots(), 2);
         press(&mut rig, true);
         assert!(rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
+    }
+
+    /// After a reset the outputs the flow drove come back, through the node's
+    /// own state (the LED knows its pin left PWM mode with the reboot).
+    #[test]
+    fn a_reset_restores_plain_outputs_without_emitting() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![
+                node("led", "Led", json!({ "pin": 13 })),
+                node("dim", "Led", json!({ "pin": 9 })),
+                node("relay", "Relay", json!({ "pin": 7 })),
+            ],
+            vec![],
+        );
+        rig.dispatch("led", "true", true);
+        rig.dispatch("dim", "value", 128.0);
+        rig.dispatch("relay", "true", true);
+        rig.take_events();
+
+        rig.board.reset();
+        assert!(!rig.board.pin(13).is_high(), "the reboot lowered it");
+        rig.pump();
+        assert_eq!(rig.board.boots(), 2);
+        assert!(rig.board.pin(13).is_high(), "LED on again");
+        assert_eq!(rig.board.pin(9).pwm(), Some(128), "PWM duty restored");
+        assert!(rig.board.pin(7).is_high(), "relay open again");
+        assert!(rig.events().is_empty(), "nothing changed as far as the flow knows: {:?}", rig.events());
+
+        // The rebuilt LED still drives its pin: a later PWM value lands.
+        rig.dispatch("dim", "value", 64.0);
+        assert_eq!(rig.board.pin(9).pwm(), Some(64));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    /// The reboot forgot the I2C bus and its continuous reads; the re-apply
+    /// configures the bus and re-arms the read, and the device streams again.
+    #[test]
+    fn a_reset_re_arms_i2c_streaming() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x11, 0x22]);
+        rig.apply_flow(
+            vec![node(
+                "dev",
+                "I2cDevice",
+                json!({ "address": 0x29, "register": 0x14, "readLength": 2, "output": "raw" }),
+            )],
+            vec![],
+        );
+        rig.board.reset();
+        rig.pump();
+        assert!(rig.board.i2c_enabled(), "bus configured again");
+        assert_eq!(rig.board.i2c_queries().len(), 1, "exactly one read re-armed");
+        rig.take_events();
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x33, 0x44]);
+        rig.sample();
+        assert!(
+            rig.events().iter().any(|e| e.source.as_ref() == "dev"),
+            "the device streams after the reset: {:?}",
+            rig.events()
+        );
+    }
+
+    /// A reset under a pull-up button: the re-apply sets the mode before it
+    /// switches reporting on, so the idle line does not read as a press.
+    #[test]
+    fn a_reset_does_not_flash_a_pullup_button_pressed() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("btn", "Button", json!({ "pin": 2, "isPullup": true }))], vec![]);
+        rig.advance(100);
+        rig.take_events();
+        rig.board.reset();
+        rig.pump();
+        rig.advance(100);
+        assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
     /// A reply cut short (its `F7` lost) must cost that one reply only. The
@@ -219,10 +337,11 @@ mod through_the_runtime {
         assert!(rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
-    /// Stock firmware ignores the Pixel and `AccelStepper` sysex; the flow gets
-    /// no signal that the strip or motor will never move.
+    /// Stock firmware ignores the Pixel and `AccelStepper` sysex. Its capability
+    /// response advertises neither mode, so each node says so on its badge
+    /// (origin: runtime) and sends nothing the board would drop.
     #[test]
-    fn stock_firmware_refuses_extension_sysex_silently() {
+    fn stock_firmware_missing_an_extension_raises_a_diagnostic() {
         let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
         rig.apply_flow(
             vec![
@@ -231,10 +350,35 @@ mod through_the_runtime {
             ],
             vec![],
         );
-        let refused = rig.board.refused_sysex();
-        assert!(refused.contains(&PIXEL_COMMAND), "{refused:02X?}");
-        assert!(refused.contains(&ACCELSTEPPER_DATA), "{refused:02X?}");
-        assert!(rig.board.pixel_strip().is_none());
-        assert!(rig.diagnostics().is_empty(), "no diagnostic today: {:?}", rig.diagnostics());
+        assert!(rig.board.refused_sysex().is_empty(), "{:02X?}", rig.board.refused_sysex());
+        let badges: Vec<_> = rig
+            .diagnostics()
+            .iter()
+            .map(|d| (d.node.as_str(), d.origin, d.message.clone().unwrap_or_default()))
+            .collect();
+        assert_eq!(badges.len(), 2, "{badges:?}");
+        for (node, origin, message) in &badges {
+            assert_eq!(*origin, crate::runtime::DiagnosticOrigin::Runtime, "{node}");
+            let flash = if *node == "strip" { "StandardFirmata" } else { "ConfigurableFirmata" };
+            assert!(message.contains("firmware does not support") && message.contains(flash), "{node}: {message}");
+        }
+    }
+
+    /// Firmware with the extension advertises it, and the node runs quietly.
+    #[test]
+    fn firmware_with_the_extension_raises_nothing() {
+        let board = SimBoard::new(BoardLayout::uno())
+            .with_extension(Extension::Pixel)
+            .with_extension(Extension::AccelStepper);
+        let mut rig = SimRig::connect(board);
+        rig.apply_flow(
+            vec![
+                node("strip", "Pixel", json!({ "pin": 6, "length": 4 })),
+                node("motor", "Stepper", json!({})),
+            ],
+            vec![],
+        );
+        assert!(rig.diagnostics().is_empty(), "{:?}", rig.diagnostics());
+        assert!(rig.board.pixel_strip().is_some() && rig.board.stepper(0).is_some());
     }
 }
