@@ -28,7 +28,7 @@
 )]
 
 use microflow_core::bringup::{Action as BringUpAction, BringUp, Event as BringUpEvent};
-use microflow_core::firmata::{FirmataClient, Message};
+use microflow_core::firmata::{encode_safe_state, FirmataClient, Message};
 use microflow_core::flasher::firmware::standard_firmata_hex;
 use microflow_core::flasher::{hex, new_driver, BoardConfig, BoardType, FlashDriver, FlashStep};
 use serde::Serialize;
@@ -123,6 +123,17 @@ impl FirmataSession {
     #[wasm_bindgen(js_name = encodeDigitalWrite)]
     pub fn encode_digital_write(&mut self, pin: u8, value: bool) -> Vec<u8> {
         self.client.encode_digital_write(pin, value)
+    }
+
+    /// The board's safe state, written before a healthy link closes: every
+    /// digital port to 0, `SYSTEM_RESET`, every port to 0 again — sized to this
+    /// session's pin table. One encoder for both hosts
+    /// (`microflow_core::firmata::encode_safe_state`, whose docs say why the
+    /// reset alone leaves pins HIGH).
+    #[wasm_bindgen(js_name = encodeSafeState)]
+    #[must_use]
+    pub fn encode_safe_state(&self) -> Vec<u8> {
+        encode_safe_state(self.client.pins.len())
     }
 
     #[wasm_bindgen(js_name = encodeAnalogWrite)]
@@ -537,6 +548,21 @@ mod tests {
         assert_eq!(bytes, vec![0xC0, 1]);
         // A non-analog pin yields no bytes.
         assert!(s.encode_analog_reporting(0, true).is_empty());
+    }
+
+    #[test]
+    fn safe_state_is_sized_to_the_session_pin_table() {
+        let mut s = FirmataSession::new();
+        assert_eq!(s.encode_safe_state(), vec![0xFF], "no pin table: the reset alone");
+        // Nine pins (the codec counts the trailing 127 as one more): two ports.
+        let mut cap = vec![START_SYSEX, CAPABILITY_RESPONSE];
+        for _ in 0..8 {
+            cap.extend([MODE_OUTPUT, 1, 127]);
+        }
+        cap.push(END_SYSEX);
+        s.feed(&cap).expect("feed ok");
+        assert_eq!(s.encode_safe_state(), encode_safe_state(s.client.pins.len()));
+        assert_eq!(s.encode_safe_state().len(), 2 * 6 + 1);
     }
 
     #[test]

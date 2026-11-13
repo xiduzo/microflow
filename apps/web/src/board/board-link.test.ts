@@ -4,7 +4,6 @@
 import { describe, expect, test } from "bun:test";
 import {
   probeBoard,
-  safeStateBytes,
   FIRMATA_SYSTEM_RESET,
   type BoardConnection,
   type LinkLoss,
@@ -146,8 +145,9 @@ describe("close", () => {
     await clock.run(closing);
 
     const tail = Array.from(port.written.slice(before).at(-1) ?? []);
-    // 20 pins = 3 digital ports, each written to 0, then SYSTEM_RESET.
-    expect(tail).toEqual([0x90, 0, 0, 0x91, 0, 0, 0x92, 0, 0, FIRMATA_SYSTEM_RESET]);
+    // The session's safe state (20 pins = 3 ports): ports to 0, reset, ports to 0.
+    const ports = [0x90, 0, 0, 0x91, 0, 0, 0x92, 0, 0];
+    expect(tail).toEqual([...ports, FIRMATA_SYSTEM_RESET, ...ports]);
     expect(port.isOpen).toBe(false);
     expect(port.closes).toBe(1);
     expect(link.phase).toBe("closed");
@@ -173,19 +173,5 @@ describe("close", () => {
     await clock.run(link.disconnect());
     expect(link.phase).toBe("closed");
     expect(port.isOpen).toBe(false);
-  });
-});
-
-describe("safeStateBytes", () => {
-  test("zeroes each digital port, then resets", () => {
-    const session = new FakeSession();
-    session.feed(bytes(0x6c)); // size the table: 20 pins
-    expect(Array.from(safeStateBytes(session.asSession()))).toEqual([
-      0x90, 0, 0, 0x91, 0, 0, 0x92, 0, 0, FIRMATA_SYSTEM_RESET,
-    ]);
-  });
-
-  test("with no pin table, only the reset", () => {
-    expect(Array.from(safeStateBytes(new FakeSession().asSession()))).toEqual([FIRMATA_SYSTEM_RESET]);
   });
 });

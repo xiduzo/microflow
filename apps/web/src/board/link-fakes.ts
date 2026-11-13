@@ -143,6 +143,12 @@ export class FakeSession {
   encodeDigitalWrite(pin: number, _value: boolean): Uint8Array {
     return Uint8Array.of(0x90 | (pin >> 3), 0, 0);
   }
+  /** Mirrors core's `encode_safe_state`: ports to 0, `SYSTEM_RESET`, ports to 0. */
+  encodeSafeState(): Uint8Array {
+    const ports: number[] = [];
+    for (let port = 0; port * 8 < this.pins; port += 1) ports.push(0x90 | port, 0, 0);
+    return Uint8Array.from([...ports, 0xff, ...ports]);
+  }
 
   /** Typed as the wasm class the link takes. */
   asSession(): FirmataSession {
