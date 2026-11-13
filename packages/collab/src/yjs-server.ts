@@ -4,7 +4,7 @@ import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
 import type { RoomStore } from "./room-store";
-import { RoomPersistence, type PersistPolicy } from "./room-persistence";
+import { RoomPersistence, type PersistClock, type PersistPolicy } from "./room-persistence";
 import { upgradeLegacyNodes } from "./schema";
 // Shared with the client provider — the numbering is constrained by
 // y-websocket's reserved range. See `protocol.ts`.
@@ -43,6 +43,8 @@ export type YjsServerOptions = {
   persistRetryBase?: number;
   /** Cap on the backoff delay between persist retries. */
   persistRetryMax?: number;
+  /** Time source for the persist policy. Tests pass a manual clock. */
+  persistClock?: PersistClock;
   /** Inbound frames allowed per connection per second before dropping. */
   messageRateLimit?: number;
   /** Largest inbound frame accepted, in bytes. */
@@ -248,6 +250,7 @@ export class YjsServer {
       maxWaitMs: options.persistMaxWait ?? 10_000,
       retryBaseMs: options.persistRetryBase ?? 1000,
       retryMaxMs: options.persistRetryMax ?? 30_000,
+      clock: options.persistClock,
     };
     this.messageRateLimit = options.messageRateLimit ?? 240;
     this.maxMessageBytes = options.maxMessageBytes ?? 8 * 1024 * 1024;

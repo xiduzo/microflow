@@ -17,6 +17,27 @@ export type PersistPolicy = {
   maxWaitMs: number;
   retryBaseMs: number;
   retryMaxMs: number;
+  /** Where time comes from. Defaults to `systemClock`; tests pass a manual one. */
+  clock?: PersistClock;
+};
+
+/**
+ * The time seam `RoomPersistence` schedules through. Every debounce, ceiling
+ * and backoff decision reads `now()` and arms `setTimeout` here, so a test can
+ * drive the whole policy step by step and assert exact delays instead of
+ * racing the wall clock.
+ */
+export type PersistClock = {
+  now(): number;
+  setTimeout(run: () => void, ms: number): unknown;
+  clearTimeout(handle: unknown): void;
+};
+
+/** The production clock: `Date.now` and the global timers. */
+export const systemClock: PersistClock = {
+  now: () => Date.now(),
+  setTimeout: (run, ms) => setTimeout(run, ms),
+  clearTimeout: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
 /**
@@ -42,11 +63,12 @@ export class RoomPersistence {
   private dirty = false;
   /** When the oldest unsaved change happened, or `null` when clean. */
   private firstDirtyAt: number | null = null;
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: unknown = null;
   private inFlight: Promise<void> | null = null;
   /** Consecutive failed saves; non-zero means a backoff retry is pending. */
   private failures = 0;
   private stopped = false;
+  private readonly clock: PersistClock;
 
   constructor(
     private readonly flowId: string,
@@ -58,6 +80,7 @@ export class RoomPersistence {
     /** Called after every failed save (a backoff retry is already scheduled). */
     private readonly onFailed: (error: unknown) => void = () => {},
   ) {
+    this.clock = policy.clock ?? systemClock;
     doc.on("update", this.onUpdate);
   }
 
@@ -97,7 +120,7 @@ export class RoomPersistence {
   private readonly onUpdate = (): void => {
     if (this.stopped) return;
     this.dirty = true;
-    this.firstDirtyAt ??= Date.now();
+    this.firstDirtyAt ??= this.clock.now();
     // A backoff retry is already pending and will carry this change; re-arming
     // the debounce would retry a failing store at edit rate.
     if (this.failures > 0) return;
@@ -111,9 +134,9 @@ export class RoomPersistence {
    */
   private schedule(): void {
     this.clearTimer();
-    const waited = Date.now() - (this.firstDirtyAt ?? Date.now());
+    const waited = this.clock.now() - (this.firstDirtyAt ?? this.clock.now());
     const delay = Math.max(0, Math.min(this.policy.debounceMs, this.policy.maxWaitMs - waited));
-    this.timer = setTimeout(() => {
+    this.timer = this.clock.setTimeout(() => {
       this.timer = null;
       // A save in flight reschedules on completion if the room is still dirty.
       if (this.inFlight) return;
@@ -138,12 +161,13 @@ export class RoomPersistence {
         this.failures = 0;
         if (this.stopped) return;
         if (this.dirty) this.schedule();
-        this.onPersisted(Date.now());
+        this.onPersisted(this.clock.now());
       },
       (error: unknown) => {
         this.inFlight = null;
         this.dirty = true;
-        this.firstDirtyAt = Math.min(firstDirtyAt ?? Date.now(), this.firstDirtyAt ?? Date.now());
+        const now = this.clock.now();
+        this.firstDirtyAt = Math.min(firstDirtyAt ?? now, this.firstDirtyAt ?? now);
         this.failures++;
         if (!this.stopped) {
           this.scheduleRetry(error);
@@ -161,14 +185,14 @@ export class RoomPersistence {
       this.policy.retryMaxMs,
       this.policy.retryBaseMs * 2 ** (this.failures - 1),
     );
-    const unsavedForMs = Date.now() - (this.firstDirtyAt ?? Date.now());
+    const unsavedForMs = this.clock.now() - (this.firstDirtyAt ?? this.clock.now());
     console.error(
       `[YJS] Room ${this.flowId}: persist failed (attempt ${this.failures}, ` +
         `unsaved for ${unsavedForMs}ms); keeping the document in memory and retrying in ${delay}ms`,
       error,
     );
     this.clearTimer();
-    this.timer = setTimeout(() => {
+    this.timer = this.clock.setTimeout(() => {
       this.timer = null;
       if (this.inFlight) return;
       this.save().catch(() => {});
@@ -176,8 +200,8 @@ export class RoomPersistence {
   }
 
   private clearTimer(): void {
-    if (this.timer) {
-      clearTimeout(this.timer);
+    if (this.timer !== null) {
+      this.clock.clearTimeout(this.timer);
       this.timer = null;
     }
   }
