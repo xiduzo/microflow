@@ -3,16 +3,16 @@ title: Flash firmware manually
 description: Upload StandardFirmata to a board yourself with the Arduino IDE, when automatic flashing is not an option.
 ---
 
-Microflow Studio flashes StandardFirmata automatically when you connect a supported board that does not run it yet. This guide covers the cases where you need to do it yourself.
+Microflow Studio flashes StandardFirmata automatically when you connect an official Arduino board that does not run it yet, and offers to flash clone boards. This guide covers the cases where you need to do it yourself.
 
 ## When you need it
 
-- Your board is not one that Studio flashes automatically (Uno, Nano, Mega, Leonardo, Micro).
-- Automatic flashing keeps failing, and the board status ends in **Error**.
+- Your board is not one that Studio flashes or offers to flash (Uno, Nano, Mega, Leonardo, Micro, and clones of them).
+- Flashing keeps failing, and the board status ends in **Error**.
 - The board already runs Firmata but behaves strangely. Studio does not re-flash a board that answers as Firmata, so you have to replace the firmware yourself.
 
 <Callout title="Board runs another sketch?">
-  You do not need this guide. Connect the board to Studio: it sees that Firmata is missing and flashes it for you.
+  You do not need this guide. Connect the board to Studio: it sees that Firmata is missing and flashes it for you. On a clone board, Studio asks first — click **Flash as nano on COM3** (with your board and port) in the prompt.
 </Callout>
 
 ## Steps

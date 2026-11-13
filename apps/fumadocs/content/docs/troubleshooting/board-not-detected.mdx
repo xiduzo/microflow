@@ -42,24 +42,29 @@ Only one program can hold a serial port at a time. The most common conflict is t
 
 If a different program has uploaded a custom sketch to the board, StandardFirmata is gone and Studio's probe while **Connecting** gets no useful response.
 
-- On a supported board (Uno, Nano, Mega, Leonardo, Micro), Studio flashes StandardFirmata again when you connect it. Look for **Flashing firmware** in the board status.
-- On any other board, or if automatic flashing fails, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
+- On an official Arduino Uno, Mega, Leonardo or Micro, Studio flashes StandardFirmata again when you connect it. Look for **Flashing firmware** in the board status.
+- On a clone or a classic Nano (CH340, CP210x or FTDI USB chip), Studio asks first. The board status shows **Flash nano on COM3?** (with your board and port) and a prompt appears. Click **Flash as nano on COM3** to flash it. If you clicked **Not now**, get the prompt back by clicking **Connect board** again (browser) or replugging the board (desktop app). See [Clone boards](/docs/how-to/connect-a-microcontroller#clone-boards).
+- On any other board, or if flashing fails, see [Flash firmware manually](/docs/how-to/flash-firmware-manually).
 
-## 6. The board itself
+## 6. The board stopped responding
+
+In the desktop app, the status can end in **Error** with "The board on COM3 is not responding. Replug it or press its reset button." Studio lost the connection and the board did not answer five reconnect attempts. It keeps trying every 30 seconds while the board is plugged in. Replug the board or press its reset button to reconnect at once.
+
+## 7. The board itself
 
 If everything else is ruled out, the board may be physically faulty.
 
 - Open the Arduino IDE. Try the **Bare Minimum** example: *File → Examples → 01.Basics → BareMinimum*. Upload it. If even that fails with errors like "avrdude: stk500_recv()", the board has a bootloader issue and needs hardware-level recovery.
 - Try a known-working board on the same computer. If it works, the original board is the problem.
 
-## 7. You are running Microflow in a browser (Web Serial)
+## 8. You are running Microflow in a browser (Web Serial)
 
 Microflow Studio can talk to your board in two ways: through **Web Serial** when you open the app in a Chromium-based browser, or through native USB when you use the **desktop app**. They behave differently, and a lot of "the board just won't connect" reports in the browser are actually Web Serial limitations rather than hardware faults.
 
 ### What Web Serial cannot do
 
 - **Firefox and Safari** do not implement Web Serial at all. The sidebar will tell you to switch browsers or install the desktop app — there is no workaround inside those browsers.
-- **The browser does not find a new board on its own.** The first time, you have to click *Connect board* and pick the port from the browser's chooser. After that, Studio reconnects the board when the page loads or when you plug it back in, as long as it already runs StandardFirmata.
+- **The browser does not find a new board on its own.** The first time, you have to click *Connect board* and pick the port from the browser's chooser. After that, Studio reconnects the board when the page loads or when you plug it back in, as long as it already runs StandardFirmata. Studio only flashes a board in the browser after you pick it with *Connect board*.
 - **The browser cannot install USB drivers.** If your OS does not see the board as a serial device (see [USB drivers](#3-usb-drivers)), no browser can fix that.
 - **Permission is per-origin, per-device.** If you previously granted access on `localhost` and are now on `microflow.tech` (or vice versa), you will be asked to authorise the board again.
 - **Only one tab can hold the port.** If you have Microflow open in two tabs, the second one will fail to connect. Close the other tab first.
@@ -79,9 +84,9 @@ The desktop app cannot fix a bad cable, a broken bootloader, or a missing OS-lev
 
 Download the desktop app from the [Microflow releases page](https://github.com/xiduzo/microflow/releases/latest). Your flows are stored in the cloud (or locally, depending on your setup), so switching between browser and desktop does not lose any work.
 
-## 8. Unsupported board
+## 9. Unsupported board
 
-Studio flashes StandardFirmata automatically on the Arduino Uno, Nano, Mega, Leonardo, and Micro. Other Arduino boards may work if you [flash the firmware yourself](/docs/how-to/flash-firmware-manually), but they are not tested. Boards based on ESP32, RP2040, Teensy, and similar cannot run a live flow. An ESP32 can run a flow that you export as an Arduino sketch (**Show code** in the sidebar).
+Studio flashes StandardFirmata automatically on the official Arduino Uno, Mega, Leonardo, and Micro, and offers to flash clones and the classic Nano (see [Clone boards](/docs/how-to/connect-a-microcontroller#clone-boards)). Other Arduino boards may work if you [flash the firmware yourself](/docs/how-to/flash-firmware-manually), but they are not tested. Boards based on ESP32, RP2040, Teensy, and similar cannot run a live flow. An ESP32 can run a flow that you export as an Arduino sketch (**Show code** in the sidebar).
 
 ## When to ask for help
 

@@ -83,3 +83,31 @@ emitted action — the "single-driver limitation" classifications are gone.
 - Emitters take `&NodeInputs` instead of `Option<&str>`; new node emitters
   declare their ports by binding them, and `codegen/parity.rs` +
   `catalog_parity.rs` fail CI when the two sides drift.
+
+## Amendment (2026-11-13): one pin table for the sketch and the live runtime
+
+Which pins a Node uses, and what it needs from each, is written once:
+`codegen::validate::pin_demands(node, edges) -> Vec<PinDemand>`, a
+`PinDemand { field, pin, uses }` with `uses` one of `Digital`, `Pwm`, `Servo`,
+`AnalogIn`. Pins are resolved by the Node's own emitter helpers, and the demand
+can depend on the wiring (a Led's `value` port demands PWM only when an edge
+feeds it), which is why `edges` is an argument.
+
+Two readers judge the same demands:
+
+- **Sketch validation** (`codegen/validate.rs`) reads the pins each Node emits
+  onto from it, and warns when the selected board target lacks a pin, a PWM pin
+  or an analog input. Board-fit problems are warnings and never block emission.
+- **The live pin check** (`runtime/pin_check.rs`) judges them against the
+  connected board's `PinProfile` and puts the verdict on the Node's badge
+  through the runtime's node-health ledger: an error when the Node cannot work
+  (a servo on a pin without servo support, an analog read on a digital-only pin,
+  a pin the board does not have), a warning when it works degraded (brightness
+  on a pin without PWM is rounded to on/off at 128, as Arduino's `analogWrite`
+  does).
+
+A second table in the runtime was the alternative. It would have been the same
+list of Node types and pin fields, kept in step by hand, and the first place the
+live behaviour and the exported sketch disagreed would have been a pin. The
+runtime depends on the ungated `codegen` module for this, and the dependency runs
+one way: codegen knows nothing of the runtime.

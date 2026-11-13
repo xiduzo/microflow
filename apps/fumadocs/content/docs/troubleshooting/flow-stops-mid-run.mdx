@@ -18,10 +18,30 @@ Look at the board status in the sidebar.
 
 - **Green, with the port name** — the connection is still live.
 - **No microcontroller connected**, **Connect board** or **Error** — the USB connection dropped. Re-plug the board and Studio reconnects on its own. If the browser does not, click **Connect board**.
+- **Error** with *"The flow engine stopped: …"* (browser) — the flow engine itself crashed. Studio switched the board's outputs off and closed the connection. Reload the page to start again. If it happens again with the same flow, please [report it](https://github.com/xiduzo/microflow/issues).
 
 USB drops happen with marginal cables, USB hubs, or when something on your computer aggressively suspends devices.
 
-## Step 3 — A specific node hung
+A board that resets while the cable stays in (a power dip, the reset button) does not drop the connection. Studio sets the board up again and the flow carries on. If it keeps resetting, see [The board keeps resetting](/docs/troubleshooting/node-badges#the-board-keeps-resetting).
+
+## Step 3 — Look for a badge on a node
+
+A node that cannot run shows a red or amber icon in its header. Hover it to read why.
+
+- **"Paused: this node is in a loop that never settles …"** — nodes wired in a circle kept triggering each other. Studio paused them so the rest of the flow keeps running. Change one edge in the loop and they resume.
+- **"The board keeps resetting, so this output is held off …"** — a motor, relay or LED strip on the board's 5 V pin is resetting the board.
+
+See [Node badges](/docs/troubleshooting/node-badges) for every message.
+
+## Step 4 — The desktop app restarted the flow
+
+If the desktop app shows *"The flow runtime crashed and was restarted"*, the flow engine hit a bug. Studio switched the board's outputs off, started a fresh engine and loaded your flow into it again. The flow keeps running; outputs come back as the flow drives them.
+
+If the engine crashes three times within a minute, Studio stops it and shows *"The flow runtime keeps crashing, so it was stopped"*. The board is not driven until you click **Reload**. Something in the flow keeps triggering the bug: undo your last change, then [report it](https://github.com/xiduzo/microflow/issues).
+
+The browser has no automatic restart. When the flow engine stops there, reload the page.
+
+## Step 5 — A specific node hung
 
 The most common cause of a flow that stops in the middle is a [Function](/docs/microflow-studio/nodes/shape/function) node whose user code has an issue. The runtime guards against infinite loops (10,000 iteration cap), but slow code can still stall a chain.
 
@@ -30,11 +50,11 @@ The most common cause of a flow that stops in the middle is a [Function](/docs/m
 
 If a Function node throws an error, the runtime emits the *last successfully computed value* — so a node may appear to be working when it is actually emitting stale data. Check the Studio console for error messages.
 
-## Step 4 — A Stepper or Servo blocking
+## Step 6 — A Stepper or Servo blocking
 
 Stepper motors with high acceleration or large step counts take real time. While they are moving, the flow does not stop, but a *new* command sent to the same Stepper while it is already moving may be queued or dropped depending on the driver. If a Stepper appears to ignore commands, wait for the previous motion to finish.
 
-## Step 5 — Restart the connection
+## Step 7 — Restart the connection
 
 If nothing else explains it:
 
@@ -44,7 +64,7 @@ If nothing else explains it:
 
 This rebuilds the entire runtime graph and clears any stale state.
 
-## Step 6 — Restart Studio
+## Step 8 — Restart Studio
 
 If the connection won't recover:
 
@@ -57,4 +77,5 @@ This is the nuclear option but always works for a wedged runtime. If you have to
 ## Related
 
 - [Pin conflicts](/docs/troubleshooting/pin-conflicts) — also a cause of "this node does nothing".
+- [Node badges](/docs/troubleshooting/node-badges) — what a node's red or amber icon means.
 - [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — the bisection method.

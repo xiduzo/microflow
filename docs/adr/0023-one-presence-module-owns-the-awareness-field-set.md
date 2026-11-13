@@ -49,7 +49,7 @@ instead of per consumer.
 - Render granularity is per slice: cursors no longer redraw on selection-
   or drag-only changes, and the collaborator panel stops re-rendering at
   pointer rate. The render/dispatch budgets hold.
-- `useFlowSync` keeps only the connection-state surface; presence is no
-  longer read through it.
+- Connection state is read through the session's Flow Session Status
+  (`useFlowSessionStatus()`); presence is never read through it.
 - No slice reads remote *selection* yet, because nothing renders it; the
   first consumer declares that slice.

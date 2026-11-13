@@ -18,11 +18,16 @@ Most projects start the same way: plug in the board, let Microflow Studio connec
    - **Browser** (Chrome, Edge or Opera): click **Connect board** in the sidebar, pick your board in the browser's port list, and click **Connect**.
 4. **Watch the board status in the sidebar.** It moves through these states:
    - **Connecting** — Studio is checking which firmware the board runs.
+   - **Flash nano on COM3?** (with your board and port) — the board has no Firmata and Studio cannot be sure what it is. Answer the prompt that appears. See [Clone boards](#clone-boards).
    - **Flashing firmware** — Studio is putting [StandardFirmata](#what-is-standardfirmata) on the board. This happens only when the board does not run it yet.
    - **The port name** (for example `COM3` or `/dev/cu.usbmodem1101`), in green — the board is connected and your flow is live on it.
 5. **Confirm the green status.** The board now reads inputs and drives outputs as your flow describes.
 
-If the USB connection drops, Studio reconnects when the board comes back. In the browser, click the green status to disconnect the board.
+If the USB connection drops, Studio reconnects when the board comes back. In the desktop app, a board that stops answering is retried five times over 15 seconds or more. After that the status shows **Error** ("The board on COM3 is not responding. Replug it or press its reset button."), and Studio keeps trying quietly every 30 seconds while the board stays plugged in. Plugging or unplugging other USB devices does not affect the connected board.
+
+In the browser, click the green status to disconnect the board.
+
+When Studio lets go of a working board (you disconnect, close the app or the tab, or the flow engine stops), it first switches every digital output off and resets the board's pins. A motor or relay does not stay on after the flow has stopped driving it.
 
 ## What is StandardFirmata
 
@@ -32,13 +37,23 @@ You only see **Flashing firmware** the first time you connect a board, or after 
 
 ## Supported boards
 
-Studio flashes StandardFirmata automatically on these boards:
+Studio flashes StandardFirmata automatically on official Arduino boards it can identify from their USB ID:
 
 - Arduino Uno
-- Arduino Nano (old and new bootloader)
 - Arduino Mega
 - Arduino Leonardo
 - Arduino Micro
+
+In the browser, automatic flashing happens only for a board you picked with **Connect board**.
+
+### Clone boards
+
+Most clone boards, and the classic Arduino Nano, connect over a generic USB-to-serial chip (CH340, CP210x or FTDI). The same chips are on many devices that are not Arduinos, so Studio never flashes them without asking:
+
+- If the board already runs Firmata, it connects without a prompt.
+- If it does not, a prompt appears: *"No Firmata answered on COM3. This device uses a generic USB-serial chip, so it may be an Arduino nano, or something else entirely."* Click **Flash as nano on COM3** to flash it, or **Not now** to leave it alone. The board name in the button is Studio's guess from the USB chip. If flashing fails, [flash the firmware yourself](/docs/how-to/flash-firmware-manually).
+
+A device Studio does not recognise at all is never flashed and never offered.
 
 Other boards work if you [flash StandardFirmata onto them yourself](/docs/how-to/flash-firmware-manually), but they are not tested.
 

@@ -1,6 +1,6 @@
 # ADR-0017 — One seam owns the wasm crossing; a runtime fault is never transport news
 
-- **Status:** implemented (2026-08-26)
+- **Status:** implemented (2026-08-26); amended (2026-11-13)
 - **Date:** 2026-08-26
 - **Deciders:** sander
 
@@ -9,8 +9,9 @@
 > classifies (`badInput` / `engineBroken` / `disposed`), latches closed on a
 > module trap, and returns `undefined` instead of throwing. A wasm fault reaches
 > a **runtime** surface — the node diagnostic badge or the board error state —
-> and never the **transport**: `onClosed`, and therefore the bring-up machine's
-> `connectionLost`, is reachable only from a failing `reader.read()`.
+> and never the **transport**: the bring-up machine's `connectionLost` is
+> reachable only from a failed transport — `reader.read()` ending, or a write
+> the port rejected.
 
 ## Context
 
@@ -58,7 +59,7 @@ what can go wrong at the crossing:
 | Class | Cause | Response | Surface |
 |---|---|---|---|
 | `badInput` | Rust returned `Err` | drop this turn, keep going | node badge if the op names a node, else console |
-| `engineBroken` | wasm trap (panic, stack exhaustion) | latch closed, stop | board error state |
+| `engineBroken` | wasm trap (panic, stack exhaustion) | latch closed, write the safe state, close the port | board error state |
 | `disposed` | bridge already closed | drop silently | console, once |
 
 The routing (`FlowReactor.handleFault`) is per class, not per call site:
@@ -90,19 +91,24 @@ So "poisoned" is a host-side judgement, not something wasm reports. `engineBroke
 latches the bridge closed *before* the fault is routed, so the handler already
 sees a dead bridge and nothing can call back into a runtime whose state is gone.
 A per-chunk or per-tick loop over a trapped module faults once, not thousands of
-times. The host's answer is **surface it and stop** — never retry, because a retry
-would drive an engine whose state cannot be trusted. The board
-controller deliberately does **not** feed the bring-up machine here: the port is
-open, `connectionLost` would be false, and the machine's retry would close a
-working port to reconnect into the same dead module.
+times. The host's answer is **surface it, make the board safe, and stop** —
+never retry, because a retry would drive an engine whose state cannot be
+trusted. The board controller feeds the bring-up machine `disconnectRequested`,
+its teardown with no retry: the link writes the [safe state](../../CONTEXT.md#safe-state)
+over the still-working port and closes it, so no output stays driven by the dead
+flow's last writes. It must not be `connectionLost`: the transport did not fail,
+and the machine's retry would reconnect into the same dead module. The error
+latches until the page reloads; every bring-up path refuses while it stands.
 
 **D4 — `onClosed` means the reader ended, and nothing else.** The read loop is
-`pumpReader` (`web-serial.ts`). The only statement inside it that can mean *the
+`pumpReader` (`board-link.ts`). The only statement inside it that can mean *the
 port is gone* is `await reader.read()`; everything else is computation over a
 chunk that already arrived — the detection codec (`session.feed`, also wasm) and
 `onBytes` (which crosses into the flow runtime). Those are contained per chunk so
-the loop keeps reading. `onClosed` fires when the reader ends, which is what the
-bring-up machine's auto-reconnect is allowed to act on.
+the loop keeps reading. `onClosed` fires when the reader ends. The board link
+reports a lost transport — the reader ended, or a write was rejected — once,
+through `onLost`, and that is the only path to the bring-up machine's
+`connectionLost` and its auto-reconnect.
 
 D1 and D4 are independent: the bridge means nothing throws at `onBytes`, and the
 pump means it would not matter if something did. Auto-reconnect keeps working
@@ -114,19 +120,20 @@ untouched.
 - **The `Effects` apply order.** Fixed by [ADR-0008](0008-effects-apply-policy.md).
   The bridge sits *before* `applyEffects`; a faulted turn produces no effects at
   all, so nothing is applied out of order or half-applied.
-- **Recovery from a trapped module.** There is none. Re-instantiating the wasm
-  module behind a live board is a larger change (pin table re-seed, flow re-apply,
-  subscription re-reconcile); the user reloads.
+- **Recovery from a trapped module, in the browser.** There is none.
+  Re-instantiating the wasm module behind a live board is a larger change (pin
+  table re-seed, flow re-apply, subscription re-reconcile); the user reloads. The
+  desktop host does recover; see the amendment below.
 - **The other two wasm modules.** `FirmataSession` (detection codec) and
   `BringUpMachine` (bring-up policy) are separate instances with their own
   boundaries. `session.feed` is contained by D4; `session.pinsJson`,
   `FlashSession`, and `machine.handle` are not behind this seam. They run inside
   probe/flash paths whose failure already means "this probe failed", which the
   bring-up machine handles.
-- **Faults with no node attribution.** `feedBytes` is the highest-traffic
-  crossing and names no node, so a recurring decode defect is console-only. Giving
-  it a UI surface needs the runtime to attribute decode faults to a node, which is
-  a Rust-side change.
+- **Decode faults.** `feedBytes` is the highest-traffic crossing and names no
+  node, so a recurring decode defect is console-only. The runtime attributes
+  build, start and rejected-input faults to their node itself (see the
+  amendment below); a decode fault has no node to attribute it to.
 
 ## Consequences
 
@@ -168,8 +175,10 @@ New terms recorded in `CONTEXT.md`:
 
 - `apps/web/src/runtime/runtime-bridge.ts` — the seam.
 - `apps/web/src/runtime/flow-reactor.ts` — `turn` / `handleFault`: every crossing and the routing.
-- `apps/web/src/board/web-serial.ts` — `pumpReader`: `onClosed` means the reader ended.
-- `apps/web/src/board/board-controller.ts` — `onEngineFault`: the board error state, without a bring-up event.
+- `apps/web/src/board/board-link.ts` — `pumpReader`: `onClosed` means the reader ended; `onLost`: a failed transport, reported once.
+- `apps/web/src/board/board-controller-core.ts` — `onEngineFault`: the board error state, then `disconnectRequested`.
+- `apps/web/src-tauri/src/runtime/supervisor.rs` — the desktop Runtime Supervisor (amendment below).
+- `crates/microflow-core/src/runtime/turn_budget.rs`, `runtime/health.rs` — the turn budget and the node health ledger (amendment below).
 - `apps/web/src/runtime/runtime-bridge.test.ts` — containment, poisoning, and that a throwing runtime does not close the board.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — the sans-IO runtime this hosts.
 - [ADR-0008](0008-effects-apply-policy.md) — the apply policy that runs after a successful crossing.
@@ -185,3 +194,66 @@ its reply into the ts-rs binding types; `call()` is the private core behind
 them, so call sites read as `bridge.updateFlow(flow, now)` rather than
 `bridge.call("op", node, fn)`. A reply the host cannot decode classifies as
 `badInput`. The seam and the fault taxonomy are unchanged.
+
+---
+
+## Amendment (2026-11-13): a runaway flow is a node fault, and the desktop recovers
+
+**Turn budget.** Core stops any turn after `TURN_BUDGET` (10 000) drained events
+and drops the rest of that turn's queue, so a flow that never settles — two
+Gates wired into each other — cannot hang the tab or the desktop actor, nor
+every collaborator who opens the persisted flow. The runtime stays alive. If the
+turn's last emitters sit on a cycle, every node of that cycle's strongly
+connected component is **paused**: it still runs, but its emits are not routed,
+until a flow update reshapes the loop. Without a cycle (an acyclic fan-out),
+nothing is paused and the node where the budget ran out gets a warning. A
+runaway loop is therefore never `engineBroken`; it is a badge on the nodes that
+cause it.
+
+**Node health attribution.** The runtime keeps its own ledger of what is wrong
+with each node (`NodeHealth`, `runtime/health.rs`): a node that could not be
+built, an `initialize`/`on_start` that failed (a missing firmware feature among
+them), a paused node, a pin the board cannot serve (`runtime/pin_check.rs`), an
+overloaded turn, an output held during a reset storm, a rejected input. It
+raises and clears on a change only and reports through the existing
+`Effects.node_diagnostics` channel. Each diagnostic carries an **origin** —
+`runtime` for the ledger, `node` for what a node says about itself — and an
+origin clears only its own, so the ledger never wipes a node's I2C NACK. The
+badge shows the more severe of the two. This closes the gap for every runtime
+fault except a `feedBytes` decode fault (see *does NOT cover*).
+
+**`connectionLost` on a rejected write.** D4's rule now covers the outbound
+direction. The browser board link turns `lost` when `writer.write` rejects, as
+it does when the reader ends, and reports it once through `onLost`; that becomes
+`connectionLost`. A wasm fault still never does.
+
+**`engineBroken` makes the board safe.** See D3: the controller feeds
+`disconnectRequested`, the link writes the safe state (every digital port 0,
+`SYSTEM_RESET`, every port 0 again; `microflow_core::firmata::encode_safe_state`)
+and closes the port. Both hosts use that one encoder whenever they let go of a
+working board.
+
+**The desktop respawns; the browser stays reload-only.** The desktop actor is an
+app-lifetime thread that owns the board's port, and the desktop release build
+unwinds on panic, so it can recover where the browser cannot. Every actor turn
+runs under `catch_unwind` (`apps/web/src-tauri/src/runtime/supervisor.rs` for
+the policy, `Actor::recover` in `host.rs` for the actor half). A panic:
+
+1. emits `runtime-crashed` with a non-PII fingerprint — the turn's op and the
+   panic's crate-relative code location, never the message — which the webview
+   toasts and passes to `reportError`;
+2. discards the runtime, applying D3's judgement: its invariants died with the
+   turn, so it never drives the board again, and neither do its timers;
+3. writes the safe state through the live board session;
+4. **respawns**: a fresh runtime seeded from the session's pin table, the last
+   flow re-applied, MIDI listeners re-reconciled. It does not restore outputs: a
+   panicked runtime's last values are not trusted.
+
+A `CrashGuard` halts the actor instead after 3 panics within 60 s, including a
+respawn that itself panics, so a deterministic fault does not loop. The board is
+then left in the safe state until the user restarts (`runtime_restart`, behind
+the toast's Reload action). The desktop release profile must never use
+`panic = "abort"`, or none of this can catch anything.
+
+The browser keeps D3 unchanged. A trapped wasm module would need a fresh
+instance behind the live board, and the reload that provides one is cheap there.

@@ -13,7 +13,7 @@ Both editors see the same flow document. Only Editor A's runtime drives the Ardu
 
 The collaboration layer is built on [Yjs](https://yjs.dev), a library for **Conflict-free Replicated Data Types** (CRDTs). Each editor holds a local copy of the flow document; changes propagate over WebSocket to every other editor and to a server that persists the document.
 
-The "conflict-free" part is the magic: any two operations, applied in any order, yield the same final state. There is no "save" button. There is no "the server overwrote my edit". You can edit offline; when you reconnect, your changes merge in.
+The "conflict-free" part is the magic: any two operations, applied in any order, yield the same final state. There is no "save" button. There is no "the server overwrote my edit". You can keep editing while the connection is down; when you reconnect, your changes merge in. Until then they live only in the open tab, and the session status in the top-left corner of the canvas counts them (see [Check the session status](/docs/how-to/collaborate-on-a-flow#check-the-session-status)).
 
 ## What's in the document
 
@@ -57,7 +57,7 @@ The official Microflow server stores Yjs documents in PostgreSQL. The collaborat
 
 - **No version history (yet).** Yjs gives you snapshot-free conflict-free editing, but Microflow does not currently expose a "go back to yesterday" feature.
 - **Documents grow over time.** As you edit, the Yjs document accumulates an operations log. Currently this is fine for typical flows; very long-lived heavily-edited documents may eventually need cleanup.
-- **No fine-grained permissions.** Anyone with the share link can edit. Treat shared flows as you would a Google Doc with link access.
+- **Two roles.** The owner invites people as editors or viewers. A viewer sees live changes but cannot edit; the session status shows **View only**. A change of role takes effect at once, also for someone who has the flow open.
 
 ## Related
 
