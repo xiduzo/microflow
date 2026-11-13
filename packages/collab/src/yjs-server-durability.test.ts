@@ -3,8 +3,8 @@ import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
 
-import { RoomServerShuttingDown, YjsServer, type Connection } from "./yjs-server";
-import { MemoryRoomStore, type RoomStore } from "./room-store";
+import { RoomGone, RoomServerShuttingDown, YjsServer, type Connection } from "./yjs-server";
+import { MemoryRoomStore, mergeDocumentStates, type RoomStore } from "./room-store";
 import { CLOSE_SERVICE_RESTART } from "./protocol";
 
 /**
@@ -72,10 +72,15 @@ describe("YjsServer durability: sync step 2", () => {
 class FailingRoomStore implements RoomStore {
   readonly inner: MemoryRoomStore;
   failing = true;
-  failedSaves = 0;
+  /** When each failed save happened, to measure the backoff between them. */
+  readonly failedAt: number[] = [];
 
   constructor(seed?: Record<string, Uint8Array>) {
     this.inner = new MemoryRoomStore(seed);
+  }
+
+  get failedSaves(): number {
+    return this.failedAt.length;
   }
 
   load(flowId: string): Promise<Uint8Array | null> {
@@ -84,11 +89,37 @@ class FailingRoomStore implements RoomStore {
 
   save(flowId: string, state: Uint8Array): Promise<void> {
     if (this.failing) {
-      this.failedSaves++;
+      this.failedAt.push(performance.now());
       return Promise.reject(new Error("store unavailable"));
     }
     return this.inner.save(flowId, state);
   }
+}
+
+/** A `RoomStore` whose loads block until the test opens the gate. */
+class GatedRoomStore extends MemoryRoomStore {
+  private release!: () => void;
+  private readonly gate = new Promise<void>((resolve) => {
+    this.release = resolve;
+  });
+
+  override async load(flowId: string): Promise<Uint8Array | null> {
+    await this.gate;
+    return super.load(flowId);
+  }
+
+  open(): void {
+    this.release();
+  }
+}
+
+/**
+ * Let a test's held rooms finish: recover the store and drain, so no backoff
+ * retry outlives the test and logs into the next one.
+ */
+async function settle(server: YjsServer, store?: FailingRoomStore): Promise<void> {
+  if (store) store.failing = false;
+  await server.shutdown(1_000);
 }
 
 function updateMessage(mutate: (doc: Y.Doc) => void): Uint8Array {
@@ -123,6 +154,31 @@ describe("YjsServer durability: failed saves", () => {
 
     expect(store.inner.saves.length).toBe(1);
     expect(nodesOf(store.inner.saves[0]!.state).get("n1")).toBe(1);
+    await settle(server);
+  });
+
+  test("the delay between retries doubles, up to the cap", async () => {
+    const store = new FailingRoomStore();
+    const server = new YjsServer({
+      store,
+      persistDebounce: 1,
+      persistRetryBase: 10,
+      persistRetryMax: 40,
+    });
+
+    const connection = await server.join("flow-backoff", socket(), "user-a", true);
+    connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
+
+    // Saves at ~1, 11, 31, 71, 111ms: gaps 10, 20, 40, then capped at 40.
+    await Bun.sleep(130);
+    const gaps = store.failedAt.slice(1).map((t, i) => t - store.failedAt[i]!);
+    expect(gaps.length).toBeGreaterThanOrEqual(4);
+    expect(gaps[1]!).toBeGreaterThan(gaps[0]! * 1.5);
+    expect(gaps[2]!).toBeGreaterThan(gaps[1]! * 1.5);
+    // Capped: the fourth wait is no longer than the third (timer slack aside).
+    expect(gaps[3]!).toBeLessThan(gaps[2]! * 1.5);
+
+    await settle(server, store);
   });
 
   test("an idle room whose final save fails is kept, not destroyed", async () => {
@@ -162,6 +218,7 @@ describe("YjsServer durability: failed saves", () => {
     const nodes = nodesOf(server.currentState("flow-rejoin"));
     expect(nodes.get("n0")).toBe("stored");
     expect(nodes.get("n1")).toBe("unsaved");
+    await settle(server, store);
   });
 });
 
@@ -177,6 +234,7 @@ describe("YjsServer durability: readers", () => {
 
     expect(store.saves.length).toBe(0);
     expect(nodesOf(server.currentState("flow-live")).get("n1")).toBe("live");
+    await settle(server);
   });
 });
 
@@ -235,5 +293,85 @@ describe("YjsServer durability: shutdown", () => {
 
     expect(result.unsaved).toEqual(["flow-exit-lost"]);
     expect(Date.now() - started).toBeLessThan(500);
+    await settle(server, store);
+  });
+
+  test("a join still loading when shutdown starts leaves no room behind", async () => {
+    const store = new GatedRoomStore();
+    const server = new YjsServer({ store, persistDebounce: 60_000 });
+
+    const joining = server.join("flow-late", socket(), "user-a", true);
+    const draining = server.shutdown(1_000);
+    store.open();
+
+    await expect(joining).rejects.toBeInstanceOf(RoomServerShuttingDown);
+    expect(await draining).toEqual({ unsaved: [] });
+    // Registered after the drain's snapshot, this room would never be drained.
+    expect(server.getRoomCount()).toBe(0);
+  });
+});
+
+describe("RoomStore durability: saves merge", () => {
+  test("an old instance's late save does not erase edits made on the new one", async () => {
+    const store = new MemoryRoomStore();
+    // An overlapping deploy: two instances each hold a room for one flow.
+    const oldInstance = new YjsServer({ store, persistDebounce: 60_000 });
+    const newInstance = new YjsServer({ store, persistDebounce: 60_000 });
+
+    const before = await oldInstance.join("flow-deploy", socket(), "user-a", true);
+    const after = await newInstance.join("flow-deploy", socket(), "user-b", true);
+    before.receive(updateMessage((doc) => doc.getMap("nodes").set("old", "before deploy")));
+    after.receive(updateMessage((doc) => doc.getMap("nodes").set("new", "after deploy")));
+
+    // The new instance saves first; the old one's drain lands afterwards.
+    await newInstance.shutdown(1_000);
+    await oldInstance.shutdown(1_000);
+
+    const nodes = nodesOf(await store.load("flow-deploy"));
+    expect(nodes.get("new")).toBe("after deploy");
+    expect(nodes.get("old")).toBe("before deploy");
+  });
+
+  test("a stale save cannot resurrect content deleted since", () => {
+    const shared = new Y.Doc();
+    shared.getMap("nodes").set("doomed", "x".repeat(1_000));
+    const stale = Y.encodeStateAsUpdate(shared);
+    shared.getMap("nodes").delete("doomed");
+    const fresh = Y.encodeStateAsUpdate(shared);
+
+    for (const merged of [mergeDocumentStates(fresh, stale), mergeDocumentStates(stale, fresh)]) {
+      expect(nodesOf(merged).has("doomed")).toBe(false);
+      // Deleted content is collected, not carried forward from the stale side.
+      expect(merged.byteLength).toBeLessThan(stale.byteLength);
+    }
+  });
+});
+
+describe("YjsServer durability: deleted flows", () => {
+  test("a join still loading when the flow is dropped does not recreate it", async () => {
+    const store = new GatedRoomStore();
+    const server = new YjsServer({ store, persistDebounce: 5 });
+
+    const joining = server.join("flow-deleted", socket(), "user-a", true);
+    server.dropRoom("flow-deleted");
+    store.open();
+
+    await expect(joining).rejects.toBeInstanceOf(RoomGone);
+    expect(server.getRoomCount()).toBe(0);
+    expect(store.saves.length).toBe(0);
+  });
+
+  test("a join racing the drop of a live room does not reload it", async () => {
+    const store = new MemoryRoomStore();
+    const server = new YjsServer({ store, persistDebounce: 60_000 });
+    await server.join("flow-deleted-live", socket(), "user-a", true);
+
+    // The join finds the live room, then the drop lands before it attaches.
+    const joining = server.join("flow-deleted-live", socket(), "user-b", true);
+    server.dropRoom("flow-deleted-live");
+
+    await expect(joining).rejects.toBeInstanceOf(RoomGone);
+    expect(server.getRoomCount()).toBe(0);
+    expect(store.saves.length).toBe(0);
   });
 });
