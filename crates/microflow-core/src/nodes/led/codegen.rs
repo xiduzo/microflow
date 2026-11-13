@@ -170,6 +170,6 @@ mod tests {
     #[test]
     fn unwired_led_does_no_loop_work() {
         let e = emit(&led("led-1", json!({})), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 }

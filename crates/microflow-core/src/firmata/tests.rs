@@ -231,7 +231,7 @@ fn a_cut_sysex_frame_ends_at_the_next_status_byte() {
     assert_eq!(c.pins[14].value, 5);
     // The same cut across reads: the partial waits, then yields to the next frame.
     let mut c = FirmataClient::new();
-    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 0x29]).is_empty());
+    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 0x29]).is_empty(), "{:?}", c.feed(&[START_SYSEX, I2C_REPLY, 0x29]));
     let msgs = c.feed(&[START_SYSEX, I2C_REPLY, 0x29, 0, 0x14, 0, 0x11, 0, END_SYSEX]);
     assert_eq!(msgs, vec![Message::I2cReply]);
     assert_eq!(c.i2c_data[0].data, vec![0x11]);
@@ -421,7 +421,7 @@ fn an_unterminated_sysex_is_given_up_past_the_bound() {
     c.feed(&[START_SYSEX, STRING_DATA]);
     // Data bytes only: nothing in them closes the frame or starts another.
     for _ in 0..(MAX_PENDING_BYTES / 64 + 2) {
-        assert!(c.feed(&[0x41; 64]).is_empty());
+        assert!(c.feed(&[0x41; 64]).is_empty(), "{:?}", c.feed(&[0x41; 64]));
         assert!(c.pending_bytes() <= MAX_PENDING_BYTES, "buffer stays bounded");
     }
     assert!(c.take_dropped_bytes() > 0);
@@ -436,9 +436,9 @@ fn an_unterminated_sysex_is_given_up_past_the_bound() {
 #[test]
 fn a_bare_extended_analog_frame_is_skipped_not_a_panic() {
     let mut c = FirmataClient::new();
-    assert!(c.feed(&[START_SYSEX, EXTENDED_ANALOG, END_SYSEX]).is_empty());
-    assert!(c.feed(&[START_SYSEX, REPORT_FIRMWARE, END_SYSEX]).is_empty());
-    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 1, END_SYSEX]).is_empty());
+    assert!(c.feed(&[START_SYSEX, EXTENDED_ANALOG, END_SYSEX]).is_empty(), "{:?}", c.feed(&[START_SYSEX, EXTENDED_ANALOG, END_SYSEX]));
+    assert!(c.feed(&[START_SYSEX, REPORT_FIRMWARE, END_SYSEX]).is_empty(), "{:?}", c.feed(&[START_SYSEX, REPORT_FIRMWARE, END_SYSEX]));
+    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 1, END_SYSEX]).is_empty(), "{:?}", c.feed(&[START_SYSEX, I2C_REPLY, 1, END_SYSEX]));
     assert_eq!(c.feed(&[PROTOCOL_VERSION, 2, 5]), vec![Message::ProtocolVersion]);
 }
 

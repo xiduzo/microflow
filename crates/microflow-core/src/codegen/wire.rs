@@ -351,7 +351,7 @@ mod tests {
         assert_eq!(inputs.on("value").len(), 2);
         assert_eq!(inputs.on("value")[0].value.code, "a");
         assert_eq!(inputs.first("toggle").unwrap().value.code, "c");
-        assert!(inputs.on("unwired").is_empty());
+        assert!(inputs.on("unwired").is_empty(), "{:?}", inputs.on("unwired"));
         assert_eq!(inputs.ports().collect::<Vec<_>>(), ["toggle", "value"]);
     }
 
@@ -401,7 +401,7 @@ mod tests {
         let sources = [SourceExpr::event(CppExpr::number("delay_d_value"), "delay_d_fired")];
         let b = bind_pulses("x", &sources);
         assert!(b.declarations.is_empty(), "event sources need no tracker");
-        assert!(b.loop_lines.is_empty());
+        assert!(b.loop_lines.is_empty(), "{:?}", b.loop_lines);
         assert_eq!(b.fired, ["delay_d_fired"]);
     }
 

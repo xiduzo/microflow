@@ -357,7 +357,7 @@ mod tests {
     #[test]
     fn complete_credentials_have_no_missing() {
         let f = flow(vec![node("mqtt-1", "Mqtt"), node("llm-1", "Llm")]);
-        assert!(full_creds().missing_for(&f).is_empty());
+        assert!(full_creds().missing_for(&f).is_empty(), "{:?}", full_creds().missing_for(&f));
     }
 
     /// Partial credentials: only the missing fields are named, not the supplied
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn no_cloud_node_has_no_missing_credentials() {
         let f = flow(vec![node("led-1", "Led")]);
-        assert!(Credentials::default().missing_for(&f).is_empty());
+        assert!(Credentials::default().missing_for(&f).is_empty(), "{:?}", Credentials::default().missing_for(&f));
     }
 
     /// Invariant: the `Debug` impl never reveals secret values.

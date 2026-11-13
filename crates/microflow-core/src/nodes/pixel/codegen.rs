@@ -229,7 +229,7 @@ mod tests {
     #[test]
     fn value_without_presets_is_noted() {
         let e = emit(&pixel("px-1", json!({})), &on("value", CppExpr::number("v")));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("no presets are configured")));
     }
 

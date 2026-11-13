@@ -530,8 +530,8 @@ mod apply_tests {
         let mut batched = BatchRecorder::default();
         effects.apply(&mut batched);
 
-        assert!(batched.batches.is_empty());
-        assert!(batched.singles.is_empty());
+        assert!(batched.batches.is_empty(), "{:?}", batched.batches);
+        assert!(batched.singles.is_empty(), "{:?}", batched.singles);
     }
 
     #[test]

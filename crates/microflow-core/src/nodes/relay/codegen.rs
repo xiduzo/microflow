@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn unwired_relay_does_no_loop_work() {
         let e = emit(&relay("r-1", json!({})), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]

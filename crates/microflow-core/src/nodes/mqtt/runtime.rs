@@ -258,6 +258,6 @@ mod tests {
             Mqtt::encode_payload(&ComponentValue::String("hi".into())),
             b"hi"
         );
-        assert!(Mqtt::encode_payload(&ComponentValue::Array(vec![])).is_empty());
+        assert!(Mqtt::encode_payload(&ComponentValue::Array(vec![])).is_empty(), "{:?}", Mqtt::encode_payload(&ComponentValue::Array(vec![])));
     }
 }

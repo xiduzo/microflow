@@ -1048,7 +1048,7 @@ mod tests {
         for name in names {
             match classify(name) {
                 Parity::Case(case) => case(),
-                Parity::Exempt(reason) => assert!(!reason.is_empty()),
+                Parity::Exempt(reason) => assert!(!reason.is_empty(), "{reason:?}"),
             }
         }
     }

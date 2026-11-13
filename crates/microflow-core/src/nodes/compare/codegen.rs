@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn no_input_leaves_false() {
         let e = emit(&cmp("c-1", json!({ "validator": "boolean" })), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("= false;")));
     }
 

@@ -170,7 +170,7 @@ mod tests {
     #[test]
     fn no_input_emits_no_loop_body() {
         let e = emit(&smooth("s-1", json!({})), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("= 0.0;")));
     }
 

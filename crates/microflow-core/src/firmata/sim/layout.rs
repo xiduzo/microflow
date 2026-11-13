@@ -174,7 +174,7 @@ mod tests {
     #[test]
     fn uno_serial_pins_advertise_nothing_and_pwm_pins_advertise_pwm() {
         let uno = BoardLayout::uno();
-        assert!(uno.caps(0).modes().is_empty());
+        assert!(uno.caps(0).modes().is_empty(), "{:?}", uno.caps(0).modes());
         assert!(uno.caps(9).supports(MODE_PWM));
         assert!(!uno.caps(13).supports(MODE_PWM));
         assert!(uno.caps(18).supports(MODE_I2C));

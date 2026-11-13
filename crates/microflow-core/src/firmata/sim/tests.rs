@@ -99,7 +99,7 @@ fn stop_reading_with_one_query_left_clears_it_whatever_the_address() {
     // A stop for an address that is not streaming still clears the lone query
     // — the StandardFirmata quirk the runtime's drain count is built around.
     board.receive(&codec.encode_i2c_stop_reading(0x29));
-    assert!(board.i2c_queries().is_empty());
+    assert!(board.i2c_queries().is_empty(), "{:?}", board.i2c_queries());
 }
 
 #[test]
@@ -113,7 +113,7 @@ fn nacking_device_gets_an_empty_reply_and_a_string() {
     codec.feed(&board.take_output());
     assert_eq!(codec.strings, vec!["I2C: Too few bytes received".to_string()]);
     assert_eq!(codec.i2c_data.len(), 1);
-    assert!(codec.i2c_data[0].data.is_empty());
+    assert!(codec.i2c_data[0].data.is_empty(), "{:?}", codec.i2c_data[0].data);
 }
 
 #[test]

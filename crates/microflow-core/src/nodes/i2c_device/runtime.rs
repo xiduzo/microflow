@@ -390,7 +390,7 @@ mod tests {
 
     #[test]
     fn custom_device_emits_no_init_writes() {
-        assert!(device("custom").device_init_writes().is_empty());
+        assert!(device("custom").device_init_writes().is_empty(), "{:?}", device("custom").device_init_writes());
     }
 
     #[test]

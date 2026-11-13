@@ -323,7 +323,7 @@ mod tests {
     #[test]
     fn unchanged_uid_set_announces_nothing() {
         let set = uids(&[("u1", "b"), ("u2", "b2")]);
-        assert!(figma_announce_actions(&set, &set).is_empty());
+        assert!(figma_announce_actions(&set, &set).is_empty(), "{:?}", figma_announce_actions(&set, &set));
     }
 
     #[test]

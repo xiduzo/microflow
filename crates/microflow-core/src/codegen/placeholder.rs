@@ -105,9 +105,9 @@ mod tests {
             "explains it needs a networked target, got: {comment}"
         );
         // No runnable code is contributed.
-        assert!(e.includes.is_empty());
-        assert!(e.setup.is_empty());
-        assert!(e.loop_body.is_empty());
+        assert!(e.includes.is_empty(), "{:?}", e.includes);
+        assert!(e.setup.is_empty(), "{:?}", e.setup);
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     /// All four Cloud Node types get the networked-target message.
@@ -137,8 +137,8 @@ mod tests {
             "explains it is browser-only, got: {comment}"
         );
         assert!(!comment.contains("networked target"), "not a Cloud message");
-        assert!(e.setup.is_empty());
-        assert!(e.loop_body.is_empty());
+        assert!(e.setup.is_empty(), "{:?}", e.setup);
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     /// Scenario: An unknown Node type does not break generation.

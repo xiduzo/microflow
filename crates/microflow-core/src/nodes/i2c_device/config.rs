@@ -298,9 +298,9 @@ mod tests {
 
     #[test]
     fn custom_and_unknown_devices_have_no_init() {
-        assert!(device_init_writes("custom").is_empty());
-        assert!(device_init_writes("").is_empty());
-        assert!(device_init_writes("totally-unknown").is_empty());
+        assert!(device_init_writes("custom").is_empty(), "{:?}", device_init_writes("custom"));
+        assert!(device_init_writes("").is_empty(), "{:?}", device_init_writes(""));
+        assert!(device_init_writes("totally-unknown").is_empty(), "{:?}", device_init_writes("totally-unknown"));
     }
 
     #[test]
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn vl53l0x_ships_no_static_init() {
         // Can't be expressed as a static write list — none by design.
-        assert!(device_init_writes("vl53l0x").is_empty());
+        assert!(device_init_writes("vl53l0x").is_empty(), "{:?}", device_init_writes("vl53l0x"));
     }
 
     #[test]

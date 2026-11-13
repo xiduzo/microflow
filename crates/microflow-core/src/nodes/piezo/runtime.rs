@@ -271,7 +271,7 @@ mod sim_tests {
         rig.advance(1);
         assert!(!rig.board.pin(11).is_high(), "silent once the duration is up");
         assert_eq!(rig.last_value("bz"), Some(&ComponentValue::Bool(false)));
-        assert!(rig.pending_wakeups().is_empty());
+        assert!(rig.pending_wakeups().is_empty(), "{:?}", rig.pending_wakeups());
     }
 
     #[test]
@@ -287,7 +287,7 @@ mod sim_tests {
             rig.advance(1000);
         }
         assert_eq!(levels, vec![true, false, true, false]);
-        assert!(rig.pending_wakeups().is_empty());
+        assert!(rig.pending_wakeups().is_empty(), "{:?}", rig.pending_wakeups());
     }
 
     #[test]

@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn no_input_emits_no_loop_body() {
         let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]

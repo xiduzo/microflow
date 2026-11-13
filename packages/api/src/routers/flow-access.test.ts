@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { FlowDocument } from "@microflow/collab/schema";
 
 /**
  * Recording stand-ins for setFlowRole's two dependencies: the drizzle handle
@@ -56,7 +57,11 @@ mock.module("@microflow/db", () => ({
   },
 }));
 
+// `mock.module` is process-wide in `bun test`: whichever file mocks this
+// module first fixes its export names for every later importer, so every mock
+// of it exports the same names (`FlowDocument` too, which flow.ts imports).
 mock.module("@microflow/collab/server", () => ({
+  FlowDocument,
   yjsServer: {
     setAccess: (flowId: string, userId: string, access: string) => {
       recorded.pushes.push({ flowId, userId, access });

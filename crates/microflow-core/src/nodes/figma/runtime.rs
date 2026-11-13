@@ -398,7 +398,8 @@ mod tests {
     fn no_wiring_without_broker_or_uid() {
         let mut c = config();
         c.unique_id = String::new();
-        assert!(Figma::new("node-1".into(), c).subscriber_wiring().is_empty());
+        let wiring = Figma::new("node-1".into(), c).subscriber_wiring();
+        assert!(wiring.is_empty(), "{wiring:?}");
     }
 
     #[test]

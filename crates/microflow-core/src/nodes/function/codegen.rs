@@ -605,35 +605,35 @@ mod tests {
     fn string_literal_is_marked_unsupported() {
         let e = emit(&func("fn-1", "return \"hello\";"), &trig("x"));
         assert!(is_unsupported(&e));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn template_slot_is_marked_unsupported() {
         let e = emit(&func("fn-1", "return input + {{gain}};"), &trig("x"));
         assert!(is_unsupported(&e));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn unknown_call_is_marked_unsupported() {
         let e = emit(&func("fn-1", "return parseInt(input);"), &trig("x"));
         assert!(is_unsupported(&e));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn missing_return_is_marked_unsupported() {
         let e = emit(&func("fn-1", "const a = input;"), &trig("x"));
         assert!(is_unsupported(&e));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn unknown_identifier_is_marked_unsupported() {
         let e = emit(&func("fn-1", "return undeclared + 1;"), &trig("x"));
         assert!(is_unsupported(&e));
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]

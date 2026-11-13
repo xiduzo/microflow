@@ -168,7 +168,7 @@ mod tests {
     #[test]
     fn no_input_declares_but_never_arms() {
         let e = emit(&delay("d-1", json!({})), &NodeInputs::default());
-        assert!(e.loop_body.is_empty());
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("delay_d_1_value = 0.0")));
         assert!(e.declarations.iter().any(|d| d.contains("delay_d_1_fired = false")));
     }

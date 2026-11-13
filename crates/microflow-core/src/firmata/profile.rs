@@ -326,7 +326,7 @@ mod tests {
         assert_eq!(profile.len(), 3);
         assert!(profile.caps(0).unwrap().has_mode(MODE_OUTPUT));
         assert_eq!(profile.analog_channel(1), Some(0));
-        assert!(profile.caps(2).unwrap().modes.is_empty());
+        assert!(profile.caps(2).unwrap().modes.is_empty(), "{:?}", profile.caps(2).unwrap().modes);
     }
 
     #[test]

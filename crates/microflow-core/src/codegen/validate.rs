@@ -701,7 +701,7 @@ mod tests {
             node("btn-1", "Button", json!({ "pin": 6 })),
             node("sensor-1", "Sensor", json!({ "pin": "A0" })),
         ]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// A Cloud Node on a non-networking board is flagged, naming Node and
@@ -722,7 +722,7 @@ mod tests {
     fn cloud_node_on_networking_board_is_runnable() {
         let esp32 = target_by_id("esp32").unwrap();
         let f = flow(vec![node("mqtt-1", "Mqtt", json!({}))]);
-        assert!(validate(&f, &esp32).is_empty());
+        assert!(validate(&f, &esp32).is_empty(), "{:?}", validate(&f, &esp32));
     }
 
     /// A pin the board lacks is flagged for a digital Node.
@@ -777,7 +777,8 @@ mod tests {
         let nodes: Vec<FlowNode> = (0..6)
             .map(|i| node(&format!("sensor-{i}"), "Sensor", json!({ "pin": format!("A{i}") })))
             .collect();
-        assert!(validate(&flow(nodes), &uno).is_empty());
+        let problems = validate(&flow(nodes), &uno);
+        assert!(problems.is_empty(), "{problems:?}");
     }
 
     /// An out-of-range Sensor raises only the per-Node problem, never also a
@@ -811,7 +812,7 @@ mod tests {
         let uno = target_by_id("uno").unwrap();
         // Uno pin 9 is PWM-capable.
         let f = flow(vec![node("srv-1", "Servo", json!({ "pin": 9 }))]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// A Servo on a pin the board lacks is flagged for the missing pin, not PWM
@@ -837,7 +838,7 @@ mod tests {
         let f = flow(vec![node("mqtt-1", "Mqtt", json!({}))]);
 
         // Clean on the networking board.
-        assert!(validate(&f, &esp32).is_empty());
+        assert!(validate(&f, &esp32).is_empty(), "{:?}", validate(&f, &esp32));
 
         // Re-validated against a board lacking networking, the new constraint
         // problem is reported — and no stale clean result persists.
@@ -918,7 +919,7 @@ mod tests {
     fn unwired_led_on_non_pwm_pin_is_not_flagged() {
         let uno = target_by_id("uno").unwrap();
         let f = flow(vec![node("led-1", "Led", json!({ "pin": 13 }))]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// The analog checks cover the whole analog-sensor family, not just the
@@ -939,7 +940,7 @@ mod tests {
     #[test]
     fn numeric_analog_pins_are_judged_as_pins() {
         let uno = target_by_id("uno").unwrap();
-        assert!(validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": 15 }))]), &uno).is_empty());
+        assert!(validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": 15 }))]), &uno).is_empty(), "{:?}", validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": 15 }))]), &uno));
         let problems = validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": "7" }))]), &uno);
         assert_eq!(problems.len(), 1);
         assert!(problems[0].message.contains("pin 7, which is not an analog input"), "{}", problems[0].message);
@@ -969,7 +970,7 @@ mod tests {
             node("led-1", "Led", json!({ "pin": 13 })),
             node("led-2", "Led", json!({ "pin": 12 })),
         ]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// Unknown / typeless Nodes never make a Flow unrunnable.
@@ -979,7 +980,7 @@ mod tests {
         let mut typeless = node("t-1", "Gizmo", json!({}));
         typeless.node_type = None;
         let f = flow(vec![node("g-1", "Gizmo", json!({})), typeless]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// Scenario: Cloud Node on a non-networked target is blocked — for **every**
@@ -1062,7 +1063,7 @@ mod tests {
             node("led-1", "Led", json!({ "pin": 13 })),
             node("btn-1", "Button", json!({ "pin": 6 })),
         ]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// Every single-pin digital Node type is covered by the existence check —
@@ -1114,7 +1115,7 @@ mod tests {
             "Stepper",
             json!({ "interface": "driver", "motorPin3": 40 }),
         )]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// An Rgb channel on a non-PWM pin (that the board has) is flagged for the
@@ -1134,7 +1135,7 @@ mod tests {
     #[test]
     fn rgb_on_default_pwm_pins_is_runnable() {
         let uno = target_by_id("uno").unwrap();
-        assert!(validate(&flow(vec![node("rgb-1", "Rgb", json!({}))]), &uno).is_empty());
+        assert!(validate(&flow(vec![node("rgb-1", "Rgb", json!({}))]), &uno).is_empty(), "{:?}", validate(&flow(vec![node("rgb-1", "Rgb", json!({}))]), &uno));
     }
 
     /// A Proximity analog index beyond the board's analog inputs is flagged
@@ -1236,7 +1237,7 @@ mod tests {
             node("pot-1", "Potentiometer", json!({ "pin": "A0" })),
         ];
         // Unwired: no PWM use, no conflict.
-        assert!(validate(&flow(nodes.clone()), &uno).is_empty());
+        assert!(validate(&flow(nodes.clone()), &uno).is_empty(), "{:?}", validate(&flow(nodes.clone()), &uno));
         // Brightness wired: the Led PWMs pin 3 → conflict (plus the Led's own
         // pin-3-is-PWM fact is fine, so exactly the timer warnings appear).
         let f = FlowUpdate {
@@ -1279,7 +1280,7 @@ mod tests {
             node("piezo-1", "Piezo", json!({ "pin": 8 })),
             node("rgb-1", "Rgb", json!({ "pins": { "red": 9, "green": 10, "blue": 6 } })),
         ]);
-        assert!(validate(&f, &uno).is_empty());
+        assert!(validate(&f, &uno).is_empty(), "{:?}", validate(&f, &uno));
     }
 
     /// A multi-pin Node sharing one of its pins with another Node is caught

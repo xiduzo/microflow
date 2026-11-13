@@ -530,7 +530,7 @@ mod tests {
         let bytes = s.encode_analog_reporting(2, true);
         assert_eq!(bytes, vec![0xC0, 1]);
         // A non-analog pin yields no bytes.
-        assert!(s.encode_analog_reporting(0, true).is_empty());
+        assert_eq!(s.encode_analog_reporting(0, true), [] as [u8; 0]);
     }
 
     #[test]

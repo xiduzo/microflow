@@ -350,7 +350,7 @@ mod sim_tests {
         let s = rig.board.pixel_strip().expect("configured");
         assert_eq!((s.pin, s.color_order, s.shown.len()), (6, ColorOrder::Rgb, 4));
         assert_eq!(shown(&rig), vec![0; 4]);
-        assert!(rig.board.refused_sysex().is_empty());
+        assert!(rig.board.refused_sysex().is_empty(), "{:?}", rig.board.refused_sysex());
     }
 
     #[test]

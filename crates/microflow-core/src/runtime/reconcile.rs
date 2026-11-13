@@ -468,8 +468,8 @@ mod tests {
     fn an_empty_plan_writes_nothing() {
         // The common case: a node moved, nothing about the board changed. An
         // empty plan must be silent on the wire, not merely harmless.
-        assert!(setup_bytes(&BoardPlan::default(), &[]).is_empty());
-        assert!(arm_bytes(&BoardPlan::default()).is_empty());
+        assert!(setup_bytes(&BoardPlan::default(), &[]).is_empty(), "{:?}", setup_bytes(&BoardPlan::default(), &[]));
+        assert!(arm_bytes(&BoardPlan::default()).is_empty(), "{:?}", arm_bytes(&BoardPlan::default()));
     }
 
     #[test]

@@ -232,13 +232,13 @@ mod tests {
     fn an_acyclic_flow_has_no_loop() {
         // A diamond: a → b, a → c, b → d, c → d. Events multiply; nothing loops.
         let edges = [edge("a", "b"), edge("a", "c"), edge("b", "d"), edge("c", "d")];
-        assert!(loop_members(&tail(&["a", "b", "c", "d"]), &edges).is_empty());
+        assert!(loop_members(&tail(&["a", "b", "c", "d"]), &edges).is_empty(), "{:?}", loop_members(&tail(&["a", "b", "c", "d"]), &edges));
     }
 
     #[test]
     fn a_loop_the_tail_never_reached_is_not_this_turns_loop() {
         let edges = [edge("a", "b"), edge("x", "y"), edge("y", "x")];
-        assert!(loop_members(&tail(&["a", "b"]), &edges).is_empty());
+        assert!(loop_members(&tail(&["a", "b"]), &edges).is_empty(), "{:?}", loop_members(&tail(&["a", "b"]), &edges));
     }
 
     #[test]

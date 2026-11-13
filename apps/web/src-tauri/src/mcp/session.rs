@@ -318,8 +318,8 @@ mod tests {
     #[tokio::test]
     async fn idle_app_exposes_nothing() {
         let state = McpState::default();
-        assert!(state.tools(Some("t")).await.is_empty());
-        assert!(state.tools(None).await.is_empty());
+        assert_eq!(state.tools(Some("t")).await, [] as [serde_json::Value; 0]);
+        assert_eq!(state.tools(None).await, [] as [serde_json::Value; 0]);
     }
 
     #[tokio::test]
@@ -328,8 +328,8 @@ mod tests {
         state.open("secret".into(), vec![spec("get_flow")], 10).await;
         assert_eq!(state.tools(Some("secret")).await.len(), 1);
         // The guard that keeps this user's *other* processes out.
-        assert!(state.tools(Some("guess")).await.is_empty());
-        assert!(state.tools(None).await.is_empty());
+        assert_eq!(state.tools(Some("guess")).await, [] as [serde_json::Value; 0]);
+        assert_eq!(state.tools(None).await, [] as [serde_json::Value; 0]);
     }
 
     #[tokio::test]
@@ -342,7 +342,7 @@ mod tests {
         state.close("first").await;
         assert_eq!(state.tools(Some("second")).await.len(), 1);
         state.close("second").await;
-        assert!(state.tools(Some("second")).await.is_empty());
+        assert_eq!(state.tools(Some("second")).await, [] as [serde_json::Value; 0]);
     }
 
     #[tokio::test]

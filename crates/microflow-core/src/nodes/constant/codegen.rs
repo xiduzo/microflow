@@ -63,7 +63,7 @@ mod tests {
     fn does_no_per_loop_work() {
         let e = emit(&constant("c-1", json!({ "value": 1.0 })));
         assert!(e.loop_body.is_empty(), "constant must not emit per-loop work");
-        assert!(e.setup.is_empty());
+        assert!(e.setup.is_empty(), "{:?}", e.setup);
     }
 
     #[test]

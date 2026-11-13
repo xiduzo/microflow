@@ -802,7 +802,7 @@ mod tests {
         }
         assert_eq!(link.board_port(), Some(UNO));
         assert!(matches!(link.io().states.last(), Some(BoardState::Connected { .. })));
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
     }
 
     #[test]
@@ -1007,7 +1007,7 @@ mod tests {
         // Scans while the offer is open neither re-probe nor flash.
         present(&mut link, 250, vec![ch340(NANO)]);
         assert_eq!(probes(&link), vec![NANO]);
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
 
         let (tx, rx) = std::sync::mpsc::channel();
         tx.send(FlashAnswer::Confirm(offer_id(NANO))).expect("send");
@@ -1028,7 +1028,7 @@ mod tests {
         // A late yes after the no does nothing.
         link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
         present(&mut link, 250, vec![ch340(NANO)]);
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
         assert_eq!(probes(&link), vec![NANO], "a declined device is not re-probed");
         assert_eq!(link.io().closes, 0, "the probe already closed the port");
     }
@@ -1060,7 +1060,7 @@ mod tests {
         link.answer_flash(FlashAnswer::Confirm(offer_id(UNO)));
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().closes, 0);
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
     }
 
     #[test]
@@ -1104,7 +1104,7 @@ mod tests {
 
         // An answer naming another device is ignored, and the open offer shown again.
         link.answer_flash(FlashAnswer::Confirm(offer_id(NANO_2)));
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
         assert_eq!(link.io().states.last().and_then(offered_port), Some(NANO));
 
         link.answer_flash(FlashAnswer::Confirm(offer_id(NANO)));
@@ -1161,7 +1161,7 @@ mod tests {
             link.io().states.last(),
             Some(BoardState::ConfirmFlash { board, vid: 0x10c4, .. }) if board == "uno"
         ));
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
     }
 
     #[test]
@@ -1170,7 +1170,7 @@ mod tests {
         link.io_mut().flash_ok = true;
         // An unknown VID with the Uno's PID: PID-only matching once called it an Uno.
         link.scan(vec![usb("/dev/cu.usbserial-x", 0x1234, 0x0043)]);
-        assert!(link.io().flashes.is_empty());
+        assert_eq!(link.io().flashes, [] as [std::string::String; 0]);
         assert!(!link.io().states.iter().any(|s| matches!(s, BoardState::ConfirmFlash { .. })));
         assert!(link.io().states.last().is_some_and(is_disconnected));
     }
@@ -1184,7 +1184,7 @@ mod tests {
         };
         let debug_console = usb("/dev/cu.debug-console", 0x1234, 0x0001);
         link.scan(vec![bluetooth, debug_console]);
-        assert!(link.io().probes.is_empty());
+        assert_eq!(link.io().probes, [] as [(std::string::String, std::time::Instant); 0]);
         assert_eq!(link.io().appeared.len(), 2);
     }
 
