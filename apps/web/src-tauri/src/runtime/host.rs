@@ -717,7 +717,7 @@ impl<E: HostEvents> EffectsSink for Actor<E> {
         // Audio plays in the webview: the desktop app already *is* a browser, so
         // forwarding the request lets both hosts share one `AudioPerformer`
         // instead of linking an audio backend here. The webview resolves the
-        // node's `src` (see `use-audio-requests.ts`).
+        // node's `src` (see `desktop-runtime-host.ts`).
         if matches!(request.kind, CloudRequestKind::AudioPlay { .. } | CloudRequestKind::AudioStop) {
             self.events.emit("audio-request", request);
             return;
@@ -727,7 +727,7 @@ impl<E: HostEvents> EffectsSink for Actor<E> {
         // so streaming, tool calls and provider quirks are implemented once
         // instead of twice-and-parity-tested. The webview resolves the provider
         // from its own store and injects the result back through the
-        // `llm_result` command (see `use-llm-requests.ts`).
+        // `llm_result` command (see `ai/llm-performer.ts`).
         //
         // Reaching a laptop-local endpoint from the webview would normally die
         // on CORS; the frontend performs it over `@tauri-apps/plugin-http`,

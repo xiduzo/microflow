@@ -12,7 +12,7 @@ import { track as trackEvent } from "@/lib/analytics";
 import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { useBoardStore } from "@/board/board-store";
 import { useDesignBridgeStore } from "@/cloud/design-bridge";
-import { useLlmProviderStore } from "@/ai/llm-provider";
+import { resolveStoredLlmProvider } from "@/ai/llm-performer";
 import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import {
   connectedState,
@@ -53,12 +53,7 @@ export {
  *  component) so credential edits apply to the next request without re-attaching.
  *  Direct-by-default per D4: the user's own key in the user's own browser. */
 const cloudDeps: CloudDeps = {
-  resolveLlmProvider: (id) => {
-    const provider = useLlmProviderStore.getState().getProvider(id);
-    return provider
-      ? { kind: provider.kind, baseUrl: provider.baseUrl, apiKey: provider.apiKey }
-      : undefined;
-  },
+  resolveLlmProvider: resolveStoredLlmProvider,
   resolveBroker: (id) => {
     const broker = useMqttBrokerStore.getState().getBroker(id);
     return broker

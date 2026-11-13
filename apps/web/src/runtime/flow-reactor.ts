@@ -1,7 +1,7 @@
 // The browser flow reactor: the host loop around the wasm `FlowRuntime`.
 //
 // The desktop runs the flow engine on a background thread and emits
-// `component-event`s over Tauri IPC (see runtime/use-component-events.ts). In the
+// `component-event`s over Tauri IPC (see runtime/desktop-runtime-host.ts). In the
 // browser the same engine runs in wasm (microflow-runtime-wasm) and THIS module
 // is its host: it owns the board connection + the wasm runtime, feeds inbound
 // Web Serial bytes in, writes the runtime's outbound bytes back, arms/cancels
