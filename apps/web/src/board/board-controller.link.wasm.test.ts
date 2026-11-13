@@ -440,16 +440,29 @@ describe("auto-flash needs a positively identified board", () => {
     expect(h.states.some((s) => s.state === "confirmFlash")).toBe(false);
   });
 
+  /** The open offer as the store shows it (what the prompt answers with). */
+  function openOffer(h: ReturnType<typeof linked>) {
+    const state = h.states.at(-1);
+    if (state?.state !== "confirmFlash") throw new Error(`no open offer: ${state?.state}`);
+    return state;
+  }
+
   test("a CH340 device is offered, and flashed only once the user confirms", async () => {
     const h = await gestureToSilent({ guessed: "nano" });
 
     expect(h.flashes).toBe(0);
-    expect(h.states.at(-1)).toEqual({ state: "confirmFlash", port: "USB 2341:0043", board: "nano" });
+    expect(h.states.at(-1)).toEqual({
+      state: "confirmFlash",
+      port: "USB 2341:0043",
+      board: "nano",
+      vid: 0x2341,
+      pid: 0x0043,
+    });
     expect(h.port.isOpen).toBe(false);
 
     // The flash puts Firmata on the board.
     h.port.device = firmataDevice();
-    await h.clock.run(h.controller.confirmFlash());
+    await h.clock.run(h.controller.confirmFlash(openOffer(h)));
     await h.settle();
 
     expect(h.flashedBoards).toEqual(["nano"]);
@@ -458,14 +471,56 @@ describe("auto-flash needs a positively identified board", () => {
 
   test("declining the offer flashes nothing, and a late yes is ignored", async () => {
     const h = await gestureToSilent({ guessed: "nano" });
+    const offer = openOffer(h);
 
-    await h.clock.run(h.controller.declineFlash());
+    await h.clock.run(h.controller.declineFlash(offer));
     await h.settle();
     expect(h.last()).toBe("disconnected");
 
-    await h.clock.run(h.controller.confirmFlash());
+    await h.clock.run(h.controller.confirmFlash(offer));
     await h.settle();
     expect(h.flashes).toBe(0);
+  });
+
+  test("unplugging the offered device withdraws the offer; a late yes flashes nothing", async () => {
+    // Review finding 5: the toast stayed and a click gave "Flash failed".
+    const h = await gestureToSilent({ guessed: "nano" });
+    const offer = openOffer(h);
+
+    h.serial.fire("disconnect", h.port);
+    await h.settle();
+    expect(h.last()).toBe("disconnected");
+
+    await h.clock.run(h.controller.confirmFlash(offer));
+    await h.settle();
+    expect(h.flashes).toBe(0);
+    expect(h.toasts).toEqual([]);
+  });
+
+  test("another granted device plugging in does not withdraw the offer", async () => {
+    const h = await gestureToSilent({ guessed: "nano" });
+    const other = new FakeSerialPort();
+    h.serial.granted = [other];
+    h.serial.fire("connect", other);
+    await h.settle();
+
+    expect(other.opens).toBe(0);
+    expect(h.last()).toBe("confirmFlash");
+
+    h.port.device = firmataDevice();
+    await h.clock.run(h.controller.confirmFlash(openOffer(h)));
+    await h.settle();
+    expect(h.flashedBoards).toEqual(["nano"]);
+  });
+
+  test("an answer naming a different device is ignored", async () => {
+    const h = await gestureToSilent({ guessed: "nano" });
+    const offer = openOffer(h);
+
+    await h.clock.run(h.controller.confirmFlash({ ...offer, pid: 0x7523 }));
+    await h.settle();
+    expect(h.flashes).toBe(0);
+    expect(h.last()).toBe("confirmFlash");
   });
 
   test("an unknown device is never flashed or offered", async () => {

@@ -102,6 +102,12 @@ export const useBoardPort = () =>
 
 export const useBoardState = () => useBoardStore(useShallow(({ board }) => board.state));
 
+/** The open flash offer as "nano on /dev/cu.wchusbserial2420", or null. */
+export const useFlashOfferTarget = () =>
+  useBoardStore(({ board }) =>
+    board.state === "confirmFlash" ? `${board.board} on ${board.port}` : null,
+  );
+
 export const useBoardError = () =>
   useBoardStore(useShallow(({ board }) => (board.state === "error" ? board.error : null)));
 
