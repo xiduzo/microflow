@@ -40,8 +40,8 @@ const flowRow = () => ({
 mock.module("@microflow/db", () => ({
   db: {
     query: {
-      flow: { findFirst: async () => flowRow() },
-      flowCollaborator: { findFirst: async () => undefined },
+      flow: { findFirst: async () => flowRow(), findMany: async () => [flowRow()] },
+      flowCollaborator: { findFirst: async () => undefined, findMany: async () => [] },
       userSettings: { findMany: async () => [] },
     },
     update: () => ({
@@ -98,6 +98,22 @@ describe("flow.get", () => {
     const result = await caller.get({ id: "flow-1" });
 
     expect(result.nodes.map((n) => n.id)).toEqual(["stored-node"]);
+  });
+});
+
+describe("flow.list", () => {
+  test("previews the live room's document ahead of the stored row", async () => {
+    state.live = docWith("live-node");
+
+    const { owned } = await caller.list();
+
+    expect(owned.map((f) => f.nodes.map((n) => n.id))).toEqual([["live-node"]]);
+  });
+
+  test("falls back to the stored row when no room is live", async () => {
+    const { owned } = await caller.list();
+
+    expect(owned.map((f) => f.nodes.map((n) => n.id))).toEqual([["stored-node"]]);
   });
 });
 
