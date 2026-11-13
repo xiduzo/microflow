@@ -1424,7 +1424,7 @@ mod tests {
         assert_eq!(rig.starts.get(), 2, "the flow was re-applied");
         assert!(rig.actor.session.is_some(), "the board session survives");
         let written = rig.take_written();
-        let safe = microflow_core::firmata::encode_safe_state(20);
+        let safe = safe_state_for(&analog_pins_json());
         assert!(written.starts_with(&safe), "the safe state goes out first: {written:02X?}");
         assert!(contains(&written[safe.len()..], &REPORT_A0), "then the re-seeded pins are re-inited");
         assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings(), "subscriptions unchanged");
@@ -1450,7 +1450,7 @@ mod tests {
         let starts = rig.starts.get();
         assert_eq!(starts, 3, "halting does not re-apply the flow");
         let written = rig.take_written();
-        let safe = microflow_core::firmata::encode_safe_state(20);
+        let safe = safe_state_for(&analog_pins_json());
         assert!(written.ends_with(&safe), "a halt leaves the board in its safe state: {written:02X?}");
 
         // Halted: flow turns are dropped, and a flow update is kept for the
@@ -1522,7 +1522,7 @@ mod tests {
         assert!(stopped.wait(SHUTDOWN_GRACE), "the actor stopped within the grace period");
 
         let written = written.lock().unwrap().clone();
-        assert!(written.ends_with(&microflow_core::firmata::encode_safe_state(20)), "{written:02X?}");
+        assert!(written.ends_with(&safe_state_for(&analog_pins_json())), "{written:02X?}");
         let mut board = SimBoard::new(BoardLayout::uno());
         board.receive(&written);
         assert!(!board.pin(13).is_high(), "the LED the flow drove is off after exit");
