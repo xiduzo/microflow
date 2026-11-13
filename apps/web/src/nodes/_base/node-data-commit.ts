@@ -11,10 +11,15 @@
  *   `forceCommit` owns the keys the controls cannot express. Scheduled
  *   commits coalesce — only the latest control values reach the doc.
  * - **Echo suppression.** `lastKnown` tracks the values the doc and the
- *   controls last agreed on. A commit whose values all match it is dropped
- *   (no write-back loop after a remote edit is replayed into the controls),
- *   and a reconcile whose doc data matches it returns nothing (the echo of
- *   our own write does not stomp the controls while the user is typing).
+ *   controls last agreed on, seeded from the doc at mount. A commit writes
+ *   only the keys that differ from it, so opening a node writes nothing, and
+ *   the replay of a remote edit into the controls is not written back.
+ * - **Pending intent is rebased, not dropped.** A key the user has edited but
+ *   not yet flushed is local intent. A doc change landing in that window does
+ *   not replay over it (the user's keystroke would vanish from the input), and
+ *   the flush then writes only that key — never the stale values of keys the
+ *   doc just changed. This is the same rule `ReactFlowBridge` applies to
+ *   positions and deletes.
  * - **The readOnly guard.** A read-only session's committer never writes.
  *   The session's `readOnlyDocument` proxy already no-ops every mutator;
  *   this is the cheaper first line, and it spares the rAF churn.
@@ -24,6 +29,8 @@
  *   — is therefore deliberately *preserved*: a commit never writes or deletes
  *   it, and a reconcile never replays it into the controls.
  */
+
+import { isValueEqual } from "@microflow/collab";
 
 type NodeData = Record<string, unknown>;
 
@@ -36,35 +43,31 @@ export interface NodeDataCommitterOptions {
   doc: NodeDataDoc;
   nodeId: string;
   readOnly: boolean;
+  /**
+   * What the doc and the controls hold at mount — the baseline every later
+   * commit is diffed against. `doc` wins where both have a key; `controls`
+   * covers the keys the doc lacks (a control added after the node was
+   * created shows its default, and showing a default is not an edit).
+   */
+  initial: { doc: NodeData; controls: NodeData };
   /** Defer callback for `commit`; rAF in the app, injectable in tests. */
   schedule?: (run: () => void) => void;
-}
-
-/** Mirror of `packages/collab/src/schema.ts` `isValueEqual` (not exported
- *  there): value equality for the JSON-ish values a Flow doc holds. Key order
- *  is irrelevant; `undefined` is a value, not an absent key. */
-function isValueEqual(a: unknown, b: unknown): boolean {
-  if (Object.is(a, b)) return true;
-  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
-  if (Array.isArray(a) || Array.isArray(b)) {
-    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-    return a.every((item, i) => isValueEqual(item, b[i]));
-  }
-  const ao = a as NodeData;
-  const bo = b as NodeData;
-  const aKeys = Object.keys(ao);
-  if (aKeys.length !== Object.keys(bo).length) return false;
-  return aKeys.every((key) => key in bo && isValueEqual(ao[key], bo[key]));
 }
 
 export function createNodeDataCommitter(options: NodeDataCommitterOptions) {
   const { doc, nodeId, readOnly } = options;
   const schedule = options.schedule ?? ((run: () => void) => requestAnimationFrame(run));
 
-  /** Last values the doc and the controls agreed on, per declared key.
-   *  Updated by every write and every reconcile; `null` until the first. */
-  let lastKnown: NodeData | null = null;
+  /** Last values the doc and the controls agreed on, per key. Updated by
+   *  every write and every reconcile. */
+  let lastKnown: NodeData = { ...options.initial.controls, ...options.initial.doc };
+  /** Control values queued for the next flush. */
   let pending: NodeData | null = null;
+
+  /** True when `key` holds an unflushed local edit: queued, and different from
+   *  what the doc and the controls last agreed on. */
+  const isPendingEdit = (key: string): boolean =>
+    pending !== null && key in pending && !isValueEqual(pending[key], lastKnown[key]);
 
   const write = (values: NodeData) => {
     doc.updateNodeData(nodeId, values);
@@ -75,18 +78,25 @@ export function createNodeDataCommitter(options: NodeDataCommitterOptions) {
     const values = pending;
     pending = null;
     if (!values) return;
-    // Compared at flush time, not commit time: a forceCommit or reconcile in
+    // Diffed at flush time, not commit time: a forceCommit or reconcile in
     // between has already moved `lastKnown`, and an echo must not write back.
-    if (lastKnown !== null && Object.keys(values).every((key) => isValueEqual(values[key], lastKnown![key]))) {
-      return;
+    // Only the changed keys go out — re-sending an unchanged one would
+    // overwrite a peer's concurrent edit to it.
+    const changed: NodeData = {};
+    let any = false;
+    for (const key of Object.keys(values)) {
+      if (isValueEqual(values[key], lastKnown[key])) continue;
+      changed[key] = values[key];
+      any = true;
     }
-    write(values);
+    if (any) write(changed);
   };
 
   return {
     /**
      * Queue the current control values for a deferred per-field write.
-     * Coalesces: only the values from the most recent call are written.
+     * Coalesces: only the values from the most recent call are written, and
+     * only the keys among them that changed.
      */
     commit(values: NodeData): void {
       if (readOnly) return;
@@ -108,19 +118,23 @@ export function createNodeDataCommitter(options: NodeDataCommitterOptions) {
     /**
      * The doc changed (remote edit, undo/redo, or the echo of our own write).
      * Returns the patch of *declared* keys the controls should replay, or
-     * `null` when doc and controls already agree. Recording the patch in
-     * `lastKnown` is what suppresses the follow-up commit of the replay.
+     * `null` when doc and controls already agree. Keys with a pending local
+     * edit are left out — the flush is about to write them. Recording the
+     * patch in `lastKnown`, and in the queued values, is what stops the replay
+     * (or the stale queue) from being written back.
      */
     reconcile(docData: NodeData, controlValues: NodeData): NodeData | null {
-      const basis = lastKnown ?? controlValues;
       const patch: NodeData = {};
+      let any = false;
       for (const key of Object.keys(controlValues)) {
-        if (key in docData && !isValueEqual(docData[key], basis[key])) {
-          patch[key] = docData[key];
-        }
+        if (!(key in docData) || isPendingEdit(key)) continue;
+        if (isValueEqual(docData[key], controlValues[key])) continue;
+        patch[key] = docData[key];
+        any = true;
       }
-      if (Object.keys(patch).length === 0) return null;
-      lastKnown = { ...basis, ...patch };
+      if (!any) return null;
+      lastKnown = { ...lastKnown, ...patch };
+      if (pending) pending = { ...pending, ...patch };
       return patch;
     },
   };
