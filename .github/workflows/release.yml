@@ -14,11 +14,12 @@ permissions:
   contents: write
 
 jobs:
-  # Release gate: the same checks pull requests run, on the tagged commit.
+  # Release gate: the checks pull requests run, plus the browser smoke suite,
+  # on the tagged commit.
   # Nothing below starts (no draft release, no version bump on main, no
-  # build) unless both pass. Note: build-tauri builds main as bump-version
-  # leaves it, which is the tagged commit plus the version bump only when the
-  # tag was pushed on main's head (the normal release flow).
+  # build) unless they pass. build-tauri builds main as bump-version leaves
+  # it, so main-is-tag also stops the release when main's head is not the
+  # tagged commit: what ships is exactly the gated commit plus the version bump.
   rust:
     name: Gate / Rust
     uses: ./.github/workflows/rust.yml
@@ -31,8 +32,39 @@ jobs:
     permissions:
       contents: read
 
+  smoke:
+    name: Gate / Smoke
+    uses: ./.github/workflows/smoke.yml
+    permissions:
+      contents: read
+
+  # The gate tests the tagged commit, but bump-version and build-tauri start
+  # from main. If main has moved on since the tag, those commits were never
+  # gated, so stop before anything (a draft release, a bump) is created.
+  main-is-tag:
+    name: Gate / main is the tagged commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Compare main with the tagged commit
+        env:
+          TAG: ${{ inputs.version || github.ref_name }}
+          TAGGED_SHA: ${{ github.sha }}
+        run: |
+          MAIN_SHA="$(git rev-parse origin/main)"
+          if [ "$MAIN_SHA" != "$TAGGED_SHA" ]; then
+            echo "::error::main has moved past $TAG; re-tag the current main head (after it passes CI) to release it. main is $MAIN_SHA, $TAG is $TAGGED_SHA."
+            exit 1
+          fi
+
   create-release:
-    needs: [rust, typescript]
+    needs: [rust, typescript, smoke, main-is-tag]
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
@@ -58,7 +90,7 @@ jobs:
           generate_release_notes: true
 
   bump-version:
-    needs: create-release
+    needs: [create-release, main-is-tag]
     runs-on: ubuntu-latest
     outputs:
       commit_sha: ${{ steps.commit.outputs.sha }}

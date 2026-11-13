@@ -58,3 +58,7 @@ dev-dist
 .dev.vars*
 
 .open-next
+
+# Browser smoke suite (playwright test)
+/test-results/
+/playwright-report/

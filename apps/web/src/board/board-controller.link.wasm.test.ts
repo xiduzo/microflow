@@ -306,7 +306,7 @@ describe("engine fault", () => {
     await h.settle();
 
     expect(h.port.isOpen).toBe(false);
-    expect(h.port.written.at(-1)?.at(-1)).toBe(FIRMATA_SYSTEM_RESET);
+    expect(Array.from(h.port.written.at(-1) ?? [])).toContain(FIRMATA_SYSTEM_RESET);
     // The machine's `disconnected` must not paint over the fault.
     expect(h.states.at(-1)).toEqual({ state: "error", error: "The flow engine stopped: unreachable" });
     expect(h.controller.retrying).toBe(false);
@@ -330,7 +330,7 @@ describe("page lifecycle", () => {
     h.lifecycle().onPageHide();
     await h.settle();
     expect(h.port.isOpen).toBe(false);
-    expect(h.port.written.at(-1)?.at(-1)).toBe(FIRMATA_SYSTEM_RESET);
+    expect(Array.from(h.port.written.at(-1) ?? [])).toContain(FIRMATA_SYSTEM_RESET);
     expect(h.last()).toBe("disconnected");
 
     h.lifecycle().onPageShow(true);

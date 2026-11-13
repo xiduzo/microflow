@@ -352,3 +352,22 @@ fn sysex_scan_resumes_across_feeds() {
     }
     assert_eq!(c.strings, vec!["Hi".to_string()]);
 }
+
+/// A sysex whose `END_SYSEX` never arrives must not grow the buffer without
+/// limit nor hold the reports behind it forever.
+#[test]
+fn an_unterminated_sysex_is_given_up_past_the_bound() {
+    let mut c = FirmataClient::new();
+    c.pins = vec![Pin::default(); 8];
+    c.feed(&[START_SYSEX, STRING_DATA]);
+    // Data bytes only: nothing in them closes the frame or starts another.
+    for _ in 0..(MAX_PENDING_BYTES / 64 + 2) {
+        assert!(c.feed(&[0x41; 64]).is_empty());
+        assert!(c.pending_bytes() <= MAX_PENDING_BYTES, "buffer stays bounded");
+    }
+    assert!(c.take_dropped_bytes() > 0);
+    assert_eq!(c.take_dropped_bytes(), 0, "taking resets the count");
+    // The stream is live again: the next report parses.
+    assert_eq!(c.feed(&[DIGITAL_MESSAGE, 0x04, 0x00]), vec![Message::Digital]);
+    assert_eq!(c.pins[2].value, 1);
+}

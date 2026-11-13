@@ -352,6 +352,40 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
+  test("the refresh timeout is cleared when the refresh settles, on reconnect, and on destroy", async () => {
+    const pending: Array<() => void> = [];
+    const refreshAuth = () => new Promise<void>((resolve) => pending.push(resolve));
+    const closeUnauthorized = () => {
+      const socket = lastSocket();
+      socket.open();
+      serverClose(socket, 1008, "Unauthorized");
+    };
+
+    // Settles: the 10s cap is disarmed with it.
+    const settled = makeAuthedProvider(() => "t", { refreshAuth });
+    closeUnauthorized();
+    expect(settled.provider.hasPendingRefreshTimeout).toBe(true);
+    pending.shift()!();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(settled.provider.hasPendingRefreshTimeout).toBe(false);
+    settled.provider.destroy();
+
+    // Cancelled by an explicit reconnect.
+    const reconnected = makeAuthedProvider(() => "t", { refreshAuth });
+    closeUnauthorized();
+    expect(reconnected.provider.hasPendingRefreshTimeout).toBe(true);
+    reconnected.provider.reconnect();
+    expect(reconnected.provider.hasPendingRefreshTimeout).toBe(false);
+    reconnected.provider.destroy();
+
+    // Cancelled by destroy.
+    const destroyed = makeAuthedProvider(() => "t", { refreshAuth });
+    closeUnauthorized();
+    expect(destroyed.provider.hasPendingRefreshTimeout).toBe(true);
+    destroyed.provider.destroy();
+    expect(destroyed.provider.hasPendingRefreshTimeout).toBe(false);
+  });
+
   test("re-auth waits for a slow token refresh instead of spending its budget", async () => {
     let token = "expired";
     let finishRefresh!: () => void;

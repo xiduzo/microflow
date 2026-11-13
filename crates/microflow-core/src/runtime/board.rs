@@ -7,7 +7,7 @@
 //! drains the buffer to the wire when it applies `Effects`. One-to-one with the
 //! desktop `BoardConnection` encode bodies, minus all I/O.
 
-use crate::firmata::FirmataClient;
+use crate::firmata::{FirmataClient, FirmwareFeature};
 use crate::runtime::error::{HardwareError, RuntimeError};
 use crate::runtime::pin_mode;
 
@@ -51,6 +51,26 @@ pub trait BoardWriter: I2cBus {
     fn tone(&mut self, pin: u8, half_period_us: u32, duration_ms: u32) -> Result<(), RuntimeError>;
     fn no_tone(&mut self, pin: u8) -> Result<(), RuntimeError>;
     fn sysex(&mut self, command: u8, data: &[u8]) -> Result<(), RuntimeError>;
+
+    /// Whether the board's firmware has `feature`, from its capability
+    /// response; `None` when there is nothing to judge by.
+    fn firmware_supports(&self, _feature: FirmwareFeature) -> Option<bool> {
+        None
+    }
+
+    /// Fail with [`RuntimeError::MissingFirmwareFeature`] when the board is
+    /// known to lack `feature` — so a node that depends on an extension says so
+    /// on its badge instead of sending sysex the firmware ignores.
+    ///
+    /// # Errors
+    /// [`RuntimeError::MissingFirmwareFeature`] when the capability response
+    /// shows the firmware lacks `feature`.
+    fn require_firmware(&self, feature: FirmwareFeature) -> Result<(), RuntimeError> {
+        match self.firmware_supports(feature) {
+            Some(false) => Err(RuntimeError::MissingFirmwareFeature(feature)),
+            _ => Ok(()),
+        }
+    }
 }
 
 /// [`BoardWriter`] that encodes into a byte buffer via a borrowed
@@ -174,6 +194,10 @@ impl BoardWriter for BufferBoardWriter<'_> {
     fn sysex(&mut self, command: u8, data: &[u8]) -> Result<(), RuntimeError> {
         self.out.extend_from_slice(&self.client.encode_sysex(command, data));
         Ok(())
+    }
+
+    fn firmware_supports(&self, feature: FirmwareFeature) -> Option<bool> {
+        self.client.supports(feature)
     }
 }
 
