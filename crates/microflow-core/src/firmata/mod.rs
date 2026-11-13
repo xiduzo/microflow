@@ -147,7 +147,18 @@ pub struct FirmataClient {
     /// a hit. Reset by `consume`, so it is only ever non-zero while a partial
     /// sysex frame is buffered.
     sysex_scanned: usize,
+    /// Bytes given up on since the last [`take_dropped_bytes`](Self::take_dropped_bytes)
+    /// because the frame they started never completed within
+    /// [`MAX_PENDING_BYTES`].
+    dropped_bytes: usize,
 }
+
+/// The most bytes the codec holds while it waits for a frame to complete.
+/// The largest frame a board sends is the capability response: a Mega 2560
+/// on `ConfigurableFirmata` advertises ~10 modes on each of 70 pins, ~1.5 KB.
+/// A sysex still open past this bound lost its `END_SYSEX` on the wire; left
+/// alone it would grow the buffer forever and hold every report behind it.
+pub const MAX_PENDING_BYTES: usize = 4096;
 
 impl FirmataClient {
     #[must_use]
@@ -351,11 +362,23 @@ impl FirmataClient {
             match self.parse_one() {
                 Step::Parsed(msg) => out.push(msg),
                 Step::Skipped => {}
+                // A frame still open past the bound will not complete: drop its
+                // first byte and parse on, so the reports buffered behind it
+                // come through and the buffer stays bounded.
+                Step::Incomplete if self.pending_bytes() > MAX_PENDING_BYTES => {
+                    self.consume(1);
+                    self.dropped_bytes += 1;
+                }
                 Step::Incomplete => break,
             }
         }
         self.compact();
         out
+    }
+
+    /// Bytes dropped by the [`MAX_PENDING_BYTES`] bound since the last call.
+    pub fn take_dropped_bytes(&mut self) -> usize {
+        std::mem::take(&mut self.dropped_bytes)
     }
 
     /// Number of bytes currently buffered awaiting completion (test/debug aid).
