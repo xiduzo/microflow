@@ -57,8 +57,6 @@ export interface Notifier {
   success(message: string, options?: { id?: string | number }): void;
   error(message: string): void;
   dismiss(id: string | number): void;
-  /** A message with one action button, shown until acted on or dismissed. */
-  confirm(message: string, action: { label: string; onConfirm: () => void }): void;
 }
 
 /** Page lifecycle the link reacts to. `persisted` is `PageTransitionEvent`'s:
@@ -483,20 +481,17 @@ export class BoardController {
         }
         this.publish({ state: "disconnected" });
         break;
-      case "confirmFlash": {
+      case "confirmFlash":
         // No Firmata, and the board is only guessed from a generic USB-serial
-        // chip: ask before overwriting whatever firmware the device runs.
-        const message =
-          `No Firmata answered. This device uses a generic USB-serial chip, so it may ` +
-          `be an Arduino ${phase.board} — or something else entirely. Flashing replaces ` +
-          `its firmware.`;
-        this.deps.setBoard({ state: "error", error: message });
-        this.deps.notify.confirm(message, {
-          label: `Flash as ${phase.board}`,
-          onConfirm: () => void this.run(() => this.dispatch({ type: "flashConfirmed" })),
+        // chip: the store's `confirmFlash` puts up the shared "Flash as …?"
+        // prompt (flash-offer.ts), answered via confirmFlash()/declineFlash().
+        // The attempt stays: a yes flashes its port.
+        this.publish({
+          state: "confirmFlash",
+          port: a ? this.deps.serial.portLabel(a.port.getInfo()) : "Serial port",
+          board: phase.board,
         });
         break;
-      }
       case "error":
         if (a?.flashToast !== undefined) {
           this.deps.notify.dismiss(a.flashToast);
@@ -640,6 +635,17 @@ export class BoardController {
       this.cancelRetry();
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
+  }
+
+  /** The user said yes to the "Flash as <board>?" offer. The machine ignores
+   *  it unless an offer is open, so a stale click is harmless. */
+  confirmFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashConfirmed" }));
+  }
+
+  /** The user said no to the offer: leave the device alone. */
+  declineFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashDeclined" }));
   }
 
   disconnect(): Promise<void> {

@@ -37,6 +37,7 @@ import {
   type PageLifecycleHandlers,
 } from "./board-controller-core";
 import { realClock } from "./clock";
+import { sonnerOfferToaster, watchFlashOffer } from "./flash-offer";
 
 export {
   BoardController,
@@ -112,9 +113,6 @@ export const browserBoardDeps: BoardControllerDeps = {
     dismiss: (id) => {
       toast.dismiss(id);
     },
-    confirm: (message, { label, onConfirm }) => {
-      toast.warning(message, { duration: Infinity, action: { label, onClick: onConfirm } });
-    },
   },
   track: trackEvent,
   clock: realClock,
@@ -132,7 +130,15 @@ export const dispatchToNode = (nodeId: string, port: string, value: unknown): vo
   controller.dispatchToNode(nodeId, port, value);
 export const connect = (): Promise<void> => controller.connect();
 export const disconnect = (): Promise<void> => controller.disconnect();
+let flashOfferWatched = false;
 export const start = (): void => {
+  if (!flashOfferWatched && !isDesktop()) {
+    flashOfferWatched = true;
+    watchFlashOffer(useBoardStore, sonnerOfferToaster, {
+      confirm: () => void controller.confirmFlash(),
+      decline: () => void controller.declineFlash(),
+    });
+  }
   controller.start();
 };
 
