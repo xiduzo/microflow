@@ -1,5 +1,6 @@
 //! Board bring-up policy — one sans-IO state machine shared by both Runtime
-//! Hosts (browser `board-controller.ts`, desktop `hardware/mod.rs`).
+//! Hosts (browser `apps/web/src/board/board-controller-core.ts`, desktop
+//! `apps/web/src-tauri/src/hardware/board_link.rs`).
 //!
 //! The policy — probe for Firmata → flash `StandardFirmata` if missing →
 //! re-probe → connected, plus auto-reconnect on reset/unplug and the
