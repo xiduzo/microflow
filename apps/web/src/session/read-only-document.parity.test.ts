@@ -25,6 +25,8 @@ const KNOWN_READS = new Set<string>([
   "getEdge",
   "getEdgeIds",
   "hasEdge",
+  "nodeWasDeleted",
+  "isEdgeDangling",
   "getMeta",
   "getFlowData",
   "canUndo",

@@ -52,6 +52,22 @@ describe("removeNodesWithEdges", () => {
   });
 });
 
+describe("dangling-edge pruning through a Viewer's document", () => {
+  test("a Viewer never prunes, now or later", () => {
+    const doc = seeded();
+    // Leave a dangling edge the way a concurrent peer would: node gone, edge kept.
+    doc.deleteNode("a");
+    expect(doc.hasEdge("ab")).toBe(true);
+
+    const viewer = readOnlyDocument(doc);
+    const stop = viewer.startEdgePruning();
+    viewer.pruneDanglingEdges();
+    doc.deleteNode("b"); // a later transaction that would trigger a prune
+    expect(doc.getEdgeIds().sort()).toEqual(["ab", "bc", "ca"]);
+    stop?.();
+  });
+});
+
 describe("removeEdgesAtHandles", () => {
   test("removes only the edges on the named handles of that node", () => {
     const doc = seeded();

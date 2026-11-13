@@ -50,6 +50,10 @@ const NODE_SCALAR_KEYS = ["id", "type", "position", "width", "height"] as const;
 /** Local-only; never written to the document. */
 const LOCAL_ONLY_KEYS = new Set(["selected", "dragging"]);
 
+/** Origin of the dangling-edge repair. Not `"local"`: the UndoManager must not
+ *  track it, or an undo would put the dangling edge back. */
+export const PRUNE_ORIGIN = "prune";
+
 /**
  * Build the `Y.Map` for a node, with `data` nested.
  *
@@ -528,6 +532,85 @@ export class FlowDocument {
 
   getEdgeIds(): string[] {
     return Array.from(this.edges.keys());
+  }
+
+  // --------------------------------------------------------------------------
+  // Dangling edges
+  // --------------------------------------------------------------------------
+  //
+  // Every local delete removes a node's edges with it, but two peers can still
+  // race: A deletes a node while B wires a new edge to it. Both writes are
+  // valid where they were made, and the merge holds an edge pointing at
+  // nothing. The document repairs that itself, after the fact, because no
+  // single client can prevent it beforehand.
+
+  /**
+   * Whether this document held `nodeId` and has since seen it deleted — a Yjs
+   * tombstone — as opposed to a node it never held. Only the first kind makes
+   * an edge dangling: an edge to an id the document has not seen yet may
+   * simply be ahead of the update that carries its node.
+   */
+  nodeWasDeleted(nodeId: string): boolean {
+    if (this.nodes.has(nodeId)) return false;
+    return this.nodes._map.get(nodeId)?.deleted === true;
+  }
+
+  /** Whether either endpoint of `edge` is a deleted node. */
+  isEdgeDangling(edge: Pick<FlowEdge, "source" | "target">): boolean {
+    return this.nodeWasDeleted(edge.source) || this.nodeWasDeleted(edge.target);
+  }
+
+  /**
+   * Delete every edge whose source or target node was deleted. Returns their
+   * ids. Written with origin `"prune"`, outside the UndoManager's tracked set:
+   * the repair is not a user edit, and undoing it would only bring the
+   * dangling edge back. Deletes are idempotent in Yjs, so peers pruning the
+   * same edge concurrently converge.
+   */
+  pruneDanglingEdges(): string[] {
+    const dangling: string[] = [];
+    for (const [id, edge] of this.edges.entries()) {
+      if (this.isEdgeDangling(edge)) dangling.push(id);
+    }
+    if (dangling.length === 0) return dangling;
+    this.doc.transact(() => {
+      for (const id of dangling) this.edges.delete(id);
+    }, PRUNE_ORIGIN);
+    return dangling;
+  }
+
+  /**
+   * Keep this document free of dangling edges from now on: prune once (the
+   * load case), then again after any transaction — local or remote — that
+   * deleted a node or wrote an edge to a deleted one. Returns the stop
+   * function.
+   *
+   * Opt-in, and a mutator on purpose: a Viewer's writes are refused by the
+   * room, so a Viewer must never prune. Through `readOnlyDocument` this method
+   * is a no-op, so the Editor's canvas can start it unconditionally.
+   */
+  startEdgePruning(): () => void {
+    this.pruneDanglingEdges();
+    const afterTransaction = (transaction: Y.Transaction) => {
+      if (transaction.origin === PRUNE_ORIGIN) return;
+      if (this.transactionLeftDanglingEdges(transaction)) this.pruneDanglingEdges();
+    };
+    this.doc.on("afterTransaction", afterTransaction);
+    return () => this.doc.off("afterTransaction", afterTransaction);
+  }
+
+  /** Cheap trigger check: only the keys the transaction touched. */
+  private transactionLeftDanglingEdges(transaction: Y.Transaction): boolean {
+    // `changed` is keyed by the generic AbstractType; our maps are narrower.
+    const changed = transaction.changed as Map<unknown, Set<string | null>>;
+    for (const key of changed.get(this.nodes) ?? []) {
+      if (key !== null && this.nodeWasDeleted(key)) return true;
+    }
+    for (const key of changed.get(this.edges) ?? []) {
+      const edge = key === null ? undefined : this.edges.get(key);
+      if (edge && this.isEdgeDangling(edge)) return true;
+    }
+    return false;
   }
 
   // --------------------------------------------------------------------------
