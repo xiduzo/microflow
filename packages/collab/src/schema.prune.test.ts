@@ -91,3 +91,47 @@ describe("dangling-edge pruning", () => {
     expect(a.hasEdge("late")).toBe(true);
   });
 });
+
+/**
+ * `nodeWasDeleted` reads Yjs's internal `Y.Map._map` (key → last `Item`) to
+ * tell a tombstone from an id the document never held. Yjs has no public API
+ * for that. These tests pin the shape the code depends on, so a Yjs upgrade
+ * that changes it fails here, by name, instead of silently disabling pruning
+ * (a missing `_map` or `deleted` reads as "never held": no edge is ever
+ * dangling). `yjs` is pinned to an exact version for the same reason.
+ */
+describe("Yjs internal: Y.Map._map tombstones (used by nodeWasDeleted)", () => {
+  const SHAPE_CHANGED =
+    "Yjs changed the shape of Y.Map._map; FlowDocument.nodeWasDeleted reads it — update it before bumping yjs";
+
+  test("_map is a Map from key to an Item carrying a boolean `deleted`", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("live"));
+    const internal = (doc.nodes as unknown as { _map?: unknown })._map;
+    if (!(internal instanceof Map)) throw new Error(`${SHAPE_CHANGED}: _map is not a Map`);
+    const item: unknown = internal.get("live");
+    if (typeof item !== "object" || item === null || !("deleted" in item)) {
+      throw new Error(`${SHAPE_CHANGED}: entry has no \`deleted\``);
+    }
+    expect(typeof (item as { deleted: unknown }).deleted, SHAPE_CHANGED).toBe("boolean");
+    expect((item as { deleted: boolean }).deleted, SHAPE_CHANGED).toBe(false);
+  });
+
+  test("a deleted key keeps a tombstone Item with deleted === true", () => {
+    const doc = new FlowDocument();
+    doc.addNode(mkNode("gone"));
+    doc.removeNode("gone");
+    const item = doc.nodes._map.get("gone");
+    expect(item, SHAPE_CHANGED).toBeDefined();
+    expect(item?.deleted, SHAPE_CHANGED).toBe(true);
+  });
+
+  test("tombstones replicate: a peer that held the node sees it deleted", () => {
+    const { a, b, exchange } = pair();
+    a.removeNode("x");
+    exchange();
+    expect(b.nodeWasDeleted("x"), SHAPE_CHANGED).toBe(true);
+    expect(b.nodeWasDeleted("never-held"), SHAPE_CHANGED).toBe(false);
+    expect(b.nodeWasDeleted("y"), SHAPE_CHANGED).toBe(false);
+  });
+});
