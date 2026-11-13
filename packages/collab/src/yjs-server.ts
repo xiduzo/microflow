@@ -115,6 +115,18 @@ export class RoomServerShuttingDown extends Error {
   }
 }
 
+/**
+ * Thrown by `join()` for a flow `dropRoom()` discarded — the flow was deleted,
+ * possibly while this join was past its access check. The transport closes
+ * with `CLOSE_FLOW_GONE`, a terminal code, so the client stops reconnecting.
+ */
+export class RoomGone extends Error {
+  constructor(readonly flowId: string) {
+    super(`Flow ${flowId} no longer exists`);
+    this.name = "RoomGone";
+  }
+}
+
 // ============================================================================
 // RoomConnection
 // ============================================================================
@@ -203,6 +215,8 @@ export class YjsServer {
   private maxMessageBytes: number;
   private maxBufferedBytes: number;
   private shuttingDown = false;
+  /** Flows discarded by `dropRoom()`; never loaded again by this process. */
+  private readonly droppedFlows = new Set<string>();
 
   constructor(options: YjsServerOptions) {
     this.store = options.store;
@@ -322,6 +336,11 @@ export class YjsServer {
    * longer exists. A plain cleanup would flush the doc back to a deleted row.
    */
   dropRoom(flowId: string): void {
+    // Remembered even when no room is loaded: a join may be past its access
+    // check with the load still in flight, and would otherwise build a fresh,
+    // empty room for the deleted flow. Flow ids are never reused, so the set
+    // only grows by one id per deletion in this process.
+    this.droppedFlows.add(flowId);
     const room = this.rooms.get(flowId);
     if (!room) return;
 
@@ -589,6 +608,7 @@ export class YjsServer {
    * `await` and reopen the window this exists to close.
    */
   private getOrCreateRoom(flowId: string): Promise<Room> {
+    if (this.droppedFlows.has(flowId)) return Promise.reject(new RoomGone(flowId));
     const live = this.rooms.get(flowId);
     if (live) return Promise.resolve(live);
 
@@ -606,6 +626,13 @@ export class YjsServer {
     // No wait for a previous teardown is needed: a room stays registered until
     // its document is in the store, so if we got here the store is current.
     const persisted = await this.store.load(flowId);
+
+    // Both can begin while the load is in flight. Registering anyway would
+    // leave a room nobody drains (shutdown already took its snapshot) or one
+    // for a deleted flow (whose saves match no row, acked as if they landed).
+    // Not registering loses nothing: the store still holds what was loaded.
+    if (this.shuttingDown) throw new RoomServerShuttingDown();
+    if (this.droppedFlows.has(flowId)) throw new RoomGone(flowId);
 
     const doc = new Y.Doc();
     if (persisted) {

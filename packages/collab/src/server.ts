@@ -1,5 +1,5 @@
 // Server-side exports (Node.js only - uses database)
-export { YjsServer, RoomServerShuttingDown } from "./yjs-server";
+export { YjsServer, RoomServerShuttingDown, RoomGone } from "./yjs-server";
 export type { YjsServerOptions, Connection, RoomConnection, Access } from "./yjs-server";
 export type { RoomStore } from "./room-store";
 export { MemoryRoomStore } from "./room-store";
@@ -20,4 +20,5 @@ export {
   MESSAGE_ACK,
   CLOSE_ACCESS_DENIED,
   CLOSE_SERVICE_RESTART,
+  CLOSE_FLOW_GONE,
 } from "./protocol";
