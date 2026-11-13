@@ -171,6 +171,9 @@ impl HostEvents for AppHandle {
 /// fact, and the hardware board link — the one owner of connection state —
 /// decides what it means. The `!Send` `FlowRuntime` is built inside the thread,
 /// so nothing unsendable crosses the spawn boundary.
+///
+/// Returns the [`ActorStopped`] the app waits on at exit, after sending
+/// [`ActorMsg::Shutdown`].
 pub fn run_actor(
     rx: UnboundedReceiver<ActorMsg>,
     self_tx: UnboundedSender<ActorMsg>,
@@ -178,23 +181,52 @@ pub fn run_actor(
     app: AppHandle,
     rt_handle: Handle,
     mqtt_publisher: Arc<dyn MqttPublisher>,
-) {
+) -> ActorStopped {
     supervisor::install_panic_hook();
+    spawn_actor(rx, move || {
+        Actor::new(app, rt_handle, mqtt_publisher, self_tx, session_ended, Box::new(FlowRuntime::new))
+    })
+}
+
+/// Run the actor `build` makes on its own thread until `Shutdown` (or every
+/// sender is gone). The actor is dropped *before* the thread reports itself
+/// stopped, so a live board session has written its safe state by then.
+fn spawn_actor<E: HostEvents + 'static>(
+    rx: UnboundedReceiver<ActorMsg>,
+    build: impl FnOnce() -> Actor<E> + Send + 'static,
+) -> ActorStopped {
+    let (stopped_tx, stopped_rx) = std::sync::mpsc::channel();
     std::thread::Builder::new()
         .name("microflow-runtime".into())
         .spawn(move || {
-            let actor = Actor::new(
-                app,
-                rt_handle,
-                mqtt_publisher,
-                self_tx,
-                session_ended,
-                Box::new(FlowRuntime::new),
-            );
-            actor.run(rx);
+            // `run` consumes the actor; returning drops it, and with it the
+            // board session (whose `Drop` writes the safe state).
+            build().run(rx);
             log::info!("[actor] runtime thread stopped");
+            let _ = stopped_tx.send(());
         })
         .expect("spawn microflow-runtime thread");
+    ActorStopped(stopped_rx)
+}
+
+/// How long app exit waits for the actor to stop. The actor notices
+/// `Shutdown` within one serial read timeout; the rest is the safe-state write.
+pub const SHUTDOWN_GRACE: Duration = Duration::from_millis(500);
+
+/// The actor thread's "I have stopped" signal. Tauri exits the process as soon
+/// as its exit handler returns, which would kill the actor mid-read without
+/// ever dropping its board session — so the board would keep driving whatever
+/// the flow left on. The exit handler sends `Shutdown`, then waits here.
+pub struct ActorStopped(std::sync::mpsc::Receiver<()>);
+
+impl ActorStopped {
+    /// Wait up to `grace` for the actor thread to stop. `true` once it has
+    /// (or died: a thread that unwound past the supervisor dropped its session
+    /// on the way out, too); `false` on timeout.
+    #[must_use]
+    pub fn wait(&self, grace: Duration) -> bool {
+        !matches!(self.0.recv_timeout(grace), Err(std::sync::mpsc::RecvTimeoutError::Timeout))
+    }
 }
 
 /// The hardware board link's seam to the runtime actor: hands it a detected
@@ -246,7 +278,8 @@ pub struct SessionEnded;
 /// ([`microflow_core::firmata::encode_safe_state`], the encoder the browser
 /// link uses too), so nothing the flow drove stays driven. Drop is the one
 /// place every end passes through: a deliberate disconnect (`ActorMsg::Disconnect`),
-/// app exit (`Shutdown` drops the actor), a replacing `Connect`, and a panic
+/// app exit (`Shutdown` ends the actor, and the exit waits for it — see
+/// [`ActorStopped`]), a replacing `Connect`, and a panic
 /// that escapes the actor's supervision and unwinds the thread. A panic the
 /// supervisor catches keeps the session for the respawned runtime and writes
 /// the safe state through [`BoardSession::write_safe_state`] instead. A
@@ -1261,6 +1294,11 @@ mod tests {
         /// An actor whose runtimes know `Panicker`, connected as session 7 to a
         /// 20-pin board whose pins 14–19 are analog (A0 = pin 14).
         fn connected() -> Self {
+            Self::connected_to(Arc::new(Mutex::new(Vec::new())))
+        }
+
+        /// As [`Rig::connected`], with the port writing into `written`.
+        fn connected_to(written: Arc<Mutex<Vec<u8>>>) -> Self {
             supervisor::install_panic_hook();
             let tokio = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
             let starts = Rc::new(Cell::new(0));
@@ -1294,7 +1332,6 @@ mod tests {
                 ended_tx,
                 make_runtime,
             );
-            let written = Arc::new(Mutex::new(Vec::new()));
             actor.connect(Box::new(RecordingPort(Arc::clone(&written))), analog_pins_json(), 7);
             Self { actor, events, written, starts, _tokio: tokio }
         }
@@ -1456,6 +1493,37 @@ mod tests {
         // flow's init — which sets the LED pin up again but does not drive it.
         board.receive(&rig.take_written());
         assert!(!board.pin(13).is_high(), "the panic left the LED off");
+    }
+
+    #[test]
+    fn app_exit_waits_for_the_actor_to_leave_the_board_safe() {
+        // The exit handler sends `Shutdown`, then waits on `ActorStopped`:
+        // by the time the wait returns, the session has dropped and written the
+        // safe state — so an LED the flow left on is off on the sim board.
+        use microflow_core::firmata::sim::{BoardLayout, SimBoard};
+        let written = Arc::new(Mutex::new(Vec::new()));
+        let port = Arc::clone(&written);
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let stopped = spawn_actor(rx, move || {
+            let mut rig = Rig::connected_to(port);
+            let (reply, _rx) = oneshot::channel();
+            let flow = FlowUpdate {
+                nodes: vec![node("led", "Led", serde_json::json!({ "instance": "Led", "pin": 13 }))],
+                edges: vec![],
+            };
+            rig.actor.step(ActorMsg::FlowUpdate { flow, reply });
+            rig.actor.step(ActorMsg::Call { id: "led".into(), method: "true".into(), value: ComponentValue::Bool(true) });
+            rig.actor
+        });
+
+        tx.send(ActorMsg::Shutdown).unwrap();
+        assert!(stopped.wait(SHUTDOWN_GRACE), "the actor stopped within the grace period");
+
+        let written = written.lock().unwrap().clone();
+        assert!(written.ends_with(&microflow_core::firmata::encode_safe_state(20)), "{written:02X?}");
+        let mut board = SimBoard::new(BoardLayout::uno());
+        board.receive(&written);
+        assert!(!board.pin(13).is_high(), "the LED the flow drove is off after exit");
     }
 
     #[test]
