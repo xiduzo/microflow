@@ -104,57 +104,56 @@ impl Stepper {
         self.send_sysex(ctx, data)
     }
 
-    /// Encode a float into `AccelStepper`'s custom 4-byte format.
-    /// 23-bit significand + 4-bit exponent (biased -11) + 1-bit sign.
+    /// Encode a float into `AccelStepper`'s custom 4-byte format, as firmata.js
+    /// `encodeCustomFloat` does: value = significand × 10^(exponent − 11), with a
+    /// 23-bit significand (bytes 0..2 + the low two bits of byte 3), the 4-bit
+    /// biased exponent in byte 3 bits 2..5 and the sign in byte 3 bit 6. The
+    /// decimal point is shifted right while a fraction remains, so 1.5 travels
+    /// as 15 × 10⁻¹ rather than being truncated to 1.
     fn encode_custom_float(value: f32) -> [u8; 4] {
-        if value == 0.0 {
+        const MAX_SIGNIFICAND: f64 = 8_388_608.0; // 2^23
+        if value == 0.0 || !value.is_finite() {
             return [0, 0, 0, 0];
         }
-
-        let sign: u8 = u8::from(value < 0.0);
-        let mut val = value.abs();
-
-        // Find exponent: we need to express val as significand * 10^(exp-11)
-        // where significand fits in 23 bits (max 8388607).
-        let mut exp: i8 = 11; // bias
-        while val < 1.0 && exp > 0 {
-            val *= 10.0;
-            exp -= 1;
+        let sign = u8::from(value < 0.0);
+        let mut significand = f64::from(value.abs());
+        let mut exponent: i32 = 0;
+        while significand.fract() > 1e-6 && significand * 10.0 < MAX_SIGNIFICAND && exponent > -11 {
+            significand *= 10.0;
+            exponent -= 1;
         }
-        while val >= 8_388_608.0 && exp < 15 {
-            val /= 10.0;
-            exp += 1;
+        while significand >= MAX_SIGNIFICAND && exponent < 4 {
+            significand /= 10.0;
+            exponent += 1;
         }
-
-        let significand = (val as u32).min(0x7F_FFFF); // 23 bits max
-        let exp_bits = (exp as u8) & 0x0F;
-
-        // Pack into 4 bytes of 7-bit data:
-        // byte 0: bits 0-6 of significand
-        // byte 1: bits 7-13 of significand
-        // byte 2: bits 14-20 of significand
-        // byte 3: bits 21-22 of significand + sign (bit 5) + exponent (bits 2-5... actually bits 22-25)
-        let b0 = (significand & 0x7F) as u8;
-        let b1 = ((significand >> 7) & 0x7F) as u8;
-        let b2 = ((significand >> 14) & 0x7F) as u8;
-        let b3 = ((significand >> 21) & 0x03) as u8
-            | (sign << 5)
-            | (exp_bits << 2);
-
-        // Mask to 7-bit
-        [b0, b1, b2, b3 & 0x7F]
+        let significand = (significand.round() as u32).min(0x7F_FFFF);
+        let exp_bits = ((exponent + 11) as u8) & 0x0F;
+        [
+            (significand & 0x7F) as u8,
+            ((significand >> 7) & 0x7F) as u8,
+            ((significand >> 14) & 0x7F) as u8,
+            ((significand >> 21) & 0x03) as u8 | (exp_bits << 2) | (sign << 6),
+        ]
     }
 
-    /// Encode a 32-bit signed integer into 5 bytes of 7-bit data.
+    /// Encode a 32-bit signed integer the way `AccelStepperFirmata` decodes it
+    /// (firmata.js `encode32BitSignedInteger`): **sign-magnitude**, the
+    /// magnitude in 4 × 7 + 3 bits and the sign in bit 3 of the fifth byte.
+    /// Two's complement here turned a 50-step move backwards into a move of
+    /// ~268 million steps.
     fn encode_signed_long(value: i32) -> [u8; 5] {
-        let v = value as u32;
-        [
-            (v & 0x7F) as u8,
-            ((v >> 7) & 0x7F) as u8,
-            ((v >> 14) & 0x7F) as u8,
-            ((v >> 21) & 0x7F) as u8,
-            ((v >> 28) & 0x0F) as u8,
-        ]
+        let magnitude = value.unsigned_abs();
+        let mut out = [
+            (magnitude & 0x7F) as u8,
+            ((magnitude >> 7) & 0x7F) as u8,
+            ((magnitude >> 14) & 0x7F) as u8,
+            ((magnitude >> 21) & 0x7F) as u8,
+            ((magnitude >> 28) & 0x07) as u8,
+        ];
+        if value < 0 {
+            out[4] |= 0x08;
+        }
+        out
     }
 
     /// Send set-speed sysex.
@@ -294,5 +293,86 @@ impl ComponentBuilder for Stepper {
     type Config = StepperConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, Extension, SimBoard, StepperInterface};
+    use serde_json::json;
+
+    fn stepper(data: serde_json::Value) -> SimRig {
+        let board = SimBoard::new(BoardLayout::uno()).with_extension(Extension::AccelStepper);
+        let mut rig = SimRig::connect(board);
+        rig.apply_flow(vec![node("motor", "Stepper", data)], vec![]);
+        rig
+    }
+
+    fn position(rig: &SimRig) -> i32 {
+        rig.board.stepper(0).expect("configured").position
+    }
+
+    #[test]
+    fn initialize_configures_a_driver_with_speed_and_acceleration() {
+        let rig = stepper(json!({ "stepPin": 4, "dirPin": 5, "speed": 200, "acceleration": 100 }));
+        let m = rig.board.stepper(0).expect("configured");
+        assert_eq!(m.interface, StepperInterface::Driver);
+        assert_eq!(m.pins, vec![4, 5]);
+        assert!((m.max_speed - 200.0).abs() < 1e-3, "speed {}", m.max_speed);
+        assert!((m.acceleration - 100.0).abs() < 1e-3, "accel {}", m.acceleration);
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    #[test]
+    fn four_wire_config_carries_all_four_pins_and_the_enable_pin() {
+        let rig = stepper(json!({
+            "interface": "four_wire",
+            "motorPin1": 8, "motorPin2": 9, "motorPin3": 10, "motorPin4": 11,
+            "enablePin": 12,
+        }));
+        let m = rig.board.stepper(0).expect("configured");
+        assert_eq!(m.interface, StepperInterface::FourWire);
+        assert_eq!(m.pins, vec![8, 9, 10, 11, 12]);
+        assert!(m.has_enable_pin && m.enabled);
+    }
+
+    /// A relative move backwards was sent in two's complement, which
+    /// `AccelStepperFirmata` reads as sign-magnitude: −50 became −268 435 406.
+    #[test]
+    fn relative_moves_go_both_ways() {
+        let mut rig = stepper(json!({}));
+        rig.dispatch("motor", "value", 100.0);
+        rig.pump();
+        assert_eq!(position(&rig), 100);
+        rig.dispatch("motor", "value", -150.0);
+        rig.pump();
+        assert_eq!(position(&rig), -50);
+    }
+
+    #[test]
+    fn absolute_move_zero_stop_and_enable() {
+        let mut rig = stepper(json!({ "enablePin": 7 }));
+        rig.dispatch("motor", "to", -2_000_000.0);
+        rig.pump();
+        assert_eq!(position(&rig), -2_000_000);
+        rig.dispatch("motor", "zero", true);
+        assert_eq!(position(&rig), 0);
+        rig.dispatch("motor", "to", 40.0);
+        rig.dispatch("motor", "stop", true);
+        rig.pump();
+        assert_eq!(position(&rig), 0, "stop before the move ran");
+        rig.dispatch("motor", "enable", 0.0);
+        assert!(!rig.board.stepper(0).expect("configured").enabled);
+    }
+
+    /// The custom float kept only the integer part above 1 (1.5 → 1) and put
+    /// the sign in the exponent's top bit.
+    #[test]
+    fn fractional_speed_survives_the_custom_float() {
+        let rig = stepper(json!({ "speed": 1.5, "acceleration": 0.25 }));
+        let m = rig.board.stepper(0).expect("configured");
+        assert!((m.max_speed - 1.5).abs() < 1e-6, "speed {}", m.max_speed);
+        assert!((m.acceleration - 0.25).abs() < 1e-6, "accel {}", m.acceleration);
     }
 }
