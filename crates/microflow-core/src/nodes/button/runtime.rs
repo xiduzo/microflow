@@ -200,11 +200,11 @@ impl HardwareComponent for Button {
         ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
         // A pull-up button reads active-low: the line rests HIGH and a press
-        // pulls it to ground. Invert to a logical "pressed", as the emitted
-        // sketch does (`digitalRead(pin) == LOW`); without it the node reported
+        // pulls it to ground. The rule is shared with the emitted sketch
+        // (`ButtonConfig::pressed_when_high`); without it the node reported
         // pressed at rest and released while held.
         if let Some(high) = value.as_bool() {
-            self.process_state(high != self.config.is_pullup, ctx);
+            self.process_state(high == self.config.pressed_when_high(), ctx);
         }
         Ok(())
     }
