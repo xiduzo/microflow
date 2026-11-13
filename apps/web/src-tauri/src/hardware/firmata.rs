@@ -5,7 +5,6 @@
 
 use super::port_monitor::PortMonitor;
 use super::types::{BoardState, PinInfo};
-use crate::runtime::host::BoardLink;
 use microflow_core::firmata::FirmataClient;
 use std::io::{Read, Write};
 use std::time::Duration;
@@ -26,9 +25,18 @@ const FIRMWARE_DETECT_ITERATIONS: usize = 60;
 const FIRMWARE_REQUERY_EVERY: usize = 10;
 const CAPABILITY_READ_ITERATIONS: usize = 10;
 
-/// Detect Firmata on a port and connect directly to the provided `BoardHandle`.
-/// Returns `BoardState` if successful, and the board connection is stored in the handle.
-pub fn detect_and_connect(port_name: &str, board: &BoardLink) -> Option<BoardState> {
+/// A board that answered the Firmata probe: its open port, the pin table the
+/// runtime is seeded from, and the `Connected` payload for the UI.
+pub struct Detected {
+    pub port: Box<dyn serialport::SerialPort>,
+    pub pins_json: String,
+    pub state: BoardState,
+}
+
+/// Detect Firmata on a port. Returns the open port + pin table on success; the
+/// caller decides where the connection goes (the board link hands it to the
+/// runtime actor).
+pub fn detect(port_name: &str) -> Option<Detected> {
     if PortMonitor::should_skip_firmata_test(port_name) {
         return None;
     }
@@ -52,17 +60,15 @@ pub fn detect_and_connect(port_name: &str, board: &BoardLink) -> Option<BoardSta
     // so this is exactly the pin table it needs.
     let pins_json = serde_json::to_string(&info.pins).unwrap_or_else(|_| "[]".to_string());
 
-    // Hand the open port + pin table to the runtime actor, which seeds its codec
-    // and (re)applies the active flow against the fresh board.
-    board.connect_board(port, pins_json);
-
-    log::info!("Board connected; handed to runtime actor");
-
-    Some(BoardState::Connected {
-        port: port_name.to_string(),
-        firmware_name: info.firmware_name,
-        firmware_version: info.firmware_version,
-        pins: info.pins,
+    Some(Detected {
+        port,
+        pins_json,
+        state: BoardState::Connected {
+            port: port_name.to_string(),
+            firmware_name: info.firmware_name,
+            firmware_version: info.firmware_version,
+            pins: info.pins,
+        },
     })
 }
 
