@@ -16,6 +16,7 @@
 //! `on_pin_change` / `on_i2c_reply`); the dispatch path no longer carries
 //! a reserved string for it.
 
+use crate::firmata::FirmwareFeature;
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, DiagnosticLevel,
     HardwareComponent, RuntimeContext, RuntimeError,
@@ -306,6 +307,8 @@ impl HardwareComponent for Stepper {
             self.config.dir_pin, self.config.speed, self.config.acceleration
         );
 
+        // 0. Stock firmware ignores AccelStepper sysex: say so instead.
+        ctx.board().require_firmware(FirmwareFeature::AccelStepper)?;
         // 1. Send stepper config (pins, interface type)
         self.send_config(ctx)?;
         // 2. Set max speed

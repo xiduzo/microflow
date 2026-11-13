@@ -279,13 +279,11 @@ mod sim_tests {
         assert_eq!(rig.handles_from("btn"), vec!["value", "event", "false"]);
     }
 
-    /// `update_flow` enables `REPORT_DIGITAL` (setup phase) before `initialize`
-    /// sets the pin's input mode, and `StandardFirmata` answers the enable at
-    /// once with the port masked to its *input* pins — so the first report
-    /// carries the pin as LOW. For a pull-up input that is a phantom press at
-    /// every flow start (settled by the debounce one window later).
+    /// `StandardFirmata` answers `REPORT_DIGITAL` at once with the port masked
+    /// to its *input* pins. Enabled before `initialize` set the pin's mode, that
+    /// first report carried the pin as LOW — for a pull-up input, a phantom
+    /// press at every flow start. Reporting is now switched on after the modes.
     #[test]
-    #[ignore = "track J: digital reporting is enabled before input pin modes, so the first port report reads every new input LOW"]
     fn pullup_button_does_not_flash_pressed_at_startup() {
         let mut rig = button(json!({ "pin": 6, "isPullup": true }));
         rig.advance(100);

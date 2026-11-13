@@ -2,7 +2,16 @@ import type * as Y from "yjs";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as decoding from "lib0/decoding";
 import { WebsocketProvider } from "y-websocket";
-import { MESSAGE_ACK } from "./protocol";
+import {
+  ACCESS_CODES,
+  MAX_REAUTH_ATTEMPTS,
+  MESSAGE_ACCESS,
+  MESSAGE_ACK,
+  MESSAGE_UNSAVED,
+  UNSAVED_REASONS,
+  classifyClose,
+  type UnsavedReason,
+} from "./protocol";
 
 // ============================================================================
 // Constants
@@ -60,8 +69,30 @@ export type SyncProviderEvents = {
   synced: () => void;
   error: (error: Error) => void;
   ack: (version: number) => void;
-  /** Access was denied or revoked; the transport will not retry. */
-  accessDenied: (reason: string) => void;
+  /**
+   * The room holds changes not durably stored (`MESSAGE_UNSAVED`): withdraws
+   * the last `ack`. `"failed"` when a persist failed and the room is retrying.
+   */
+  unsaved: (reason: UnsavedReason) => void;
+  /**
+   * The server closed and retrying will not help (see `classifyClose`): access
+   * was denied or revoked, or the credentials stayed rejected after
+   * `MAX_REAUTH_ATTEMPTS` fresh-token retries. The transport has stopped; only
+   * an explicit `reconnect()` resumes it.
+   */
+  accessDenied: (reason: string, code: number) => void;
+  /**
+   * The server closed the socket and the transport will retry. Carries the
+   * close code so the status can tell a graceful restart (1012) from a drop.
+   */
+  dropped: (code: number, reason: string) => void;
+  /** The server stated what this connection may do (`MESSAGE_ACCESS`). */
+  access: (access: "read" | "write") => void;
+  /**
+   * A transaction that did not come from the server changed the document —
+   * an edit the room has not seen yet. The session status counts these.
+   */
+  localUpdate: () => void;
 };
 
 export type SyncProviderOptions = {
@@ -75,8 +106,23 @@ export type SyncProviderOptions = {
     icon?: string;
     isSupporter?: boolean;
   };
-  /** Bearer token for auth (used in Tauri where cookies aren't available) */
-  authToken?: string;
+  /**
+   * Bearer token for auth (used in Tauri where cookies aren't available).
+   *
+   * Pass a function to have it read afresh before every connection attempt:
+   * a token captured once goes stale, and after it expires every reconnect
+   * presents the dead token and is refused. A plain string is frozen.
+   */
+  authToken?: string | (() => string | undefined);
+  /**
+   * Ask the auth client for a fresh token, after the server rejected the
+   * current one (1008). Awaited (up to `REAUTH_REFRESH_TIMEOUT_MS`) before
+   * each bounded re-auth attempt, so a slow refresh is not raced by the retry
+   * budget. Optional: without it the attempt just waits its backoff.
+   */
+  refreshAuth?: () => Promise<unknown>;
+  /** First re-auth backoff, doubled per attempt. Tests shorten it. */
+  reauthBaseMs?: number;
   /**
    * Minimum gap between presence broadcasts, in milliseconds.
    *
@@ -96,6 +142,9 @@ export type SyncProviderOptions = {
 };
 
 const DEFAULT_CURSOR_THROTTLE_MS = 50;
+/** 1s, 2s, 4s: long enough for an auth round trip, short enough to recover. */
+const DEFAULT_REAUTH_BASE_MS = 1000;
+const REAUTH_REFRESH_TIMEOUT_MS = 10_000;
 
 // ============================================================================
 // SyncProvider
@@ -143,6 +192,17 @@ export class SyncProvider {
   private listeners = new Map<keyof SyncProviderEvents, Set<Function>>();
   private destroyed = false;
   private currentError: Error | null = null;
+  private readonly readAuthToken: () => string | undefined;
+  private currentAccess: "read" | "write" | null = null;
+  /** Fresh-token retries spent since the last successful sync. */
+  private reauthAttempts = 0;
+  /** A re-auth attempt is waiting (backoff + refresh); cancelled by any explicit connect. */
+  private reauthTimer: ReturnType<typeof setTimeout> | null = null;
+  private reauthGeneration = 0;
+  /** Caps how long a re-auth waits on `refreshAuth`; cleared once settled or cancelled. */
+  private refreshTimeout: ReturnType<typeof setTimeout> | null = null;
+  private readonly refreshAuth: (() => Promise<unknown>) | undefined;
+  private readonly reauthBaseMs: number;
 
   /** Latest presence not yet broadcast, and the timer that will. */
   private pendingCursor: { x: number; y: number } | null = null;
@@ -180,6 +240,11 @@ export class SyncProvider {
     this.awareness = new awarenessProtocol.Awareness(options.doc);
     this.awareness.setLocalStateField("user", { ...this.localUser });
 
+    const authToken = options.authToken;
+    this.readAuthToken = typeof authToken === "function" ? authToken : () => authToken;
+    this.refreshAuth = options.refreshAuth;
+    this.reauthBaseMs = options.reauthBaseMs ?? DEFAULT_REAUTH_BASE_MS;
+
     this.provider = new WebsocketProvider(
       // `WebsocketProvider` builds `${serverUrl}/${roomname}` itself, so the
       // room path lives here and the flow id is the room name.
@@ -188,15 +253,56 @@ export class SyncProvider {
       options.doc,
       {
         awareness: this.awareness,
-        params: options.authToken ? { token: options.authToken } : {},
+        // Never connect from the constructor: `params` is replaced by a live
+        // getter just below, and the first socket must already see it.
+        connect: false,
+        // y-websocket only treats 4400–4499 as final; the server's auth gate
+        // closes with 1008, which it would otherwise retry forever.
+        shouldReconnect: (event: CloseEvent) => this.shouldReconnect(event),
         ...(options.WebSocketPolyfill ? { WebSocketPolyfill: options.WebSocketPolyfill } : {}),
       },
     );
+
+    // y-websocket builds each socket's URL from `provider.params` at the
+    // moment it opens the socket (`setupWS`). Making `params` a getter reads
+    // the token right then — not at close time, up to a backoff (2.5s)
+    // earlier, when a token the auth client rotates in between would be
+    // missed. Assigning `params` (which y-websocket never does) is ignored.
+    Object.defineProperty(this.provider, "params", {
+      configurable: true,
+      enumerable: true,
+      get: () => this.authParams(),
+      set: () => {},
+    });
 
     // Our own message type; the provider dispatches by number into this array.
     this.provider.messageHandlers[MESSAGE_ACK] = (_encoder, decoder) => {
       this.emit("ack", decoding.readVarUint(decoder));
     };
+    this.provider.messageHandlers[MESSAGE_UNSAVED] = (_encoder, decoder) => {
+      const reason = UNSAVED_REASONS[decoding.readVarUint(decoder)] ?? "pending";
+      this.emit("unsaved", reason);
+    };
+    this.provider.messageHandlers[MESSAGE_ACCESS] = (_encoder, decoder) => {
+      const access = ACCESS_CODES[decoding.readVarUint(decoder)];
+      // "none" never arrives as a message — revocation closes the socket.
+      if (access !== "read" && access !== "write") return;
+      const promoted = this.currentAccess === "read" && access === "write";
+      this.currentAccess = access;
+      this.emit("access", access);
+      // While read-only the room dropped our half of the handshake, so edits
+      // held from before are still only here. Only a fresh handshake carries
+      // them (the server sends its sync step 1 on join), so start one.
+      if (promoted) queueMicrotask(() => this.reconnect());
+    };
+
+    this.provider.on("connection-close", () => {
+      // y-websocket only reports "disconnected" for a socket that had opened;
+      // a refused attempt would otherwise leave us claiming "connecting".
+      this.setState("disconnected");
+    });
+
+    this.doc.on("update", this.handleDocUpdate);
 
     this.provider.on("status", ({ status }: { status: string }) => {
       // "connected" means the socket is up; "synced" is a stronger claim that
@@ -209,6 +315,7 @@ export class SyncProvider {
     this.provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
       this.currentError = null;
+      this.reauthAttempts = 0;
       this.setState("synced");
       this.emit("synced");
     });
@@ -218,15 +325,19 @@ export class SyncProvider {
       this.emit("error", this.currentError);
     });
 
-    // 4400–4499: the server says retrying will not help. `y-websocket` has
-    // already stopped reconnecting by the time this fires.
-    this.provider.on("closed", ({ reason }: { code: number; reason: string }) => {
+    // `shouldReconnect` said no. `y-websocket` has already stopped
+    // reconnecting by the time this fires.
+    this.provider.on("closed", ({ code, reason }: { code: number; reason: string }) => {
+      // A bounded re-auth stops y-websocket too; it is not a final answer.
+      if (this.reauthTimer !== null) return;
       this.currentError = new Error(reason || "Access denied");
-      this.emit("accessDenied", reason || "Access denied");
+      this.emit("accessDenied", reason || "Access denied", code);
       this.emit("error", this.currentError);
     });
 
     this.awareness.on("change", this.handleAwarenessChange);
+
+    this.provider.connect();
   }
 
   // --------------------------------------------------------------------------
@@ -264,17 +375,99 @@ export class SyncProvider {
 
   connect(): void {
     if (this.destroyed) return;
+    this.cancelReauth();
     this.provider.connect();
   }
 
   disconnect(): void {
+    this.cancelReauth();
     this.provider.disconnect();
   }
 
+  /** Also the way out of a terminal close: a new connection, a fresh token. */
   reconnect(): void {
+    if (this.destroyed) return;
+    this.cancelReauth();
     this.provider.disconnect();
+    this.reauthAttempts = 0;
     this.provider.connect();
   }
+
+  /** The retry policy over the server's close codes (`classifyClose`). */
+  private shouldReconnect(event: CloseEvent): boolean {
+    const verdict = classifyClose(event.code);
+    if (verdict === "terminal") return false;
+    if (verdict === "reauth") {
+      if (++this.reauthAttempts > MAX_REAUTH_ATTEMPTS) return false;
+      this.emit("dropped", event.code, event.reason);
+      this.scheduleReauth(this.reauthAttempts);
+      // We reconnect ourselves, once the backoff and the refresh are done;
+      // y-websocket's own 200ms–800ms schedule would spend the budget before
+      // a slow token refresh could land.
+      return false;
+    }
+    this.emit("dropped", event.code, event.reason);
+    return true;
+  }
+
+  /** Back off, let the auth client refresh, then open a socket with whatever token it holds. */
+  private scheduleReauth(attempt: number): void {
+    const generation = ++this.reauthGeneration;
+    const backoff = this.reauthBaseMs * 2 ** (attempt - 1);
+    this.clearRefreshTimeout();
+    const refreshed = this.refreshAuth
+      ? Promise.race([
+          this.refreshAuth().catch(() => {}),
+          new Promise((resolve) => {
+            this.refreshTimeout = setTimeout(resolve, REAUTH_REFRESH_TIMEOUT_MS);
+          }),
+        ]).finally(() => {
+          // Only ours: a newer attempt may have armed its own since.
+          if (generation === this.reauthGeneration) this.clearRefreshTimeout();
+        })
+      : Promise.resolve();
+    this.reauthTimer = setTimeout(() => {
+      void refreshed.then(() => {
+        if (this.destroyed || generation !== this.reauthGeneration) return;
+        this.reauthTimer = null;
+        this.provider.connect();
+      });
+    }, backoff);
+  }
+
+  /** Also run by `destroy()`. */
+  private cancelReauth(): void {
+    this.reauthGeneration++;
+    if (this.reauthTimer !== null) clearTimeout(this.reauthTimer);
+    this.reauthTimer = null;
+    this.clearRefreshTimeout();
+  }
+
+  private clearRefreshTimeout(): void {
+    if (this.refreshTimeout !== null) clearTimeout(this.refreshTimeout);
+    this.refreshTimeout = null;
+  }
+
+  /** Test seam: whether a refresh-timeout timer is still armed. */
+  get hasPendingRefreshTimeout(): boolean {
+    return this.refreshTimeout !== null;
+  }
+
+  /** What the server last said this connection may do; `null` until it says. */
+  get access(): "read" | "write" | null {
+    return this.currentAccess;
+  }
+
+  private authParams(): Record<string, string> {
+    const token = this.readAuthToken();
+    return token ? { token } : {};
+  }
+
+  /** Remote updates carry the provider as their transaction origin. */
+  private handleDocUpdate = (_update: Uint8Array, origin: unknown): void => {
+    if (origin === this.provider) return;
+    this.emit("localUpdate");
+  };
 
   isConnected(): boolean {
     return this.state === "synced" || this.state === "syncing";
@@ -453,6 +646,7 @@ export class SyncProvider {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.cancelReauth();
 
     if (this.presenceTimer !== null) {
       clearTimeout(this.presenceTimer);
@@ -462,6 +656,7 @@ export class SyncProvider {
     this.pendingDrag = null;
 
     this.awareness.off("change", this.handleAwarenessChange);
+    this.doc.off("update", this.handleDocUpdate);
     // Tears down the socket, the watchdog and the BroadcastChannel, and
     // detaches the doc and awareness handlers it installed.
     this.provider.destroy();

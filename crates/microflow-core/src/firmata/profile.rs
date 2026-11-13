@@ -259,10 +259,19 @@ impl PinProfile {
     /// `Some(false)` for a pin past the board's last pin.
     #[must_use]
     pub fn supports(&self, pin: u8, mode: u8) -> Option<bool> {
-        if !self.pins.iter().any(|p| !p.modes.is_empty()) {
-            return None;
-        }
-        Some(self.caps(pin).is_some_and(|caps| caps.has_mode(mode)))
+        self.modes_known()
+            .then(|| self.caps(pin).is_some_and(|caps| caps.has_mode(mode)))
+    }
+
+    /// Whether any pin supports `mode` — how firmware advertises an extension
+    /// (`FirmataClient::supports`). `None` when no modes are described.
+    #[must_use]
+    pub fn any_pin_supports(&self, mode: u8) -> Option<bool> {
+        self.modes_known().then(|| self.pins.iter().any(|caps| caps.has_mode(mode)))
+    }
+
+    fn modes_known(&self) -> bool {
+        self.pins.iter().any(|p| !p.modes.is_empty())
     }
 
     /// `A0`..`A<n>` as text, for messages: `"A0–A5"`.

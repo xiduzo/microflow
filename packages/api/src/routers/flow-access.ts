@@ -22,13 +22,27 @@ export function resolveFlowRole(
   return collaboratorRole ?? null;
 }
 
+/**
+ * An access *decision*: the flow does not exist, or the user may not reach it.
+ * Every other error out of `requireFlowAccess` (a database timeout, an unready
+ * pool) is a failure to decide — callers that react differently, like the
+ * websocket gate (terminal close vs retryable 1011), tell them apart by this
+ * class. The messages are unchanged from the plain `Error`s it replaces.
+ */
+export class FlowAccessDenied extends Error {
+  constructor(readonly kind: "not-found" | "denied") {
+    super(kind === "not-found" ? "Flow not found" : "Access denied");
+    this.name = "FlowAccessDenied";
+  }
+}
+
 /** Throw unless `role` is at least `minRole`. Returns the role for convenience. */
 export function assertFlowRole(
   role: FlowRole | null,
   minRole: FlowRole
 ): FlowRole {
   if (!role || RANK[role] < RANK[minRole]) {
-    throw new Error("Access denied");
+    throw new FlowAccessDenied("denied");
   }
   return role;
 }
@@ -71,7 +85,8 @@ export async function setFlowRole(
 
 /**
  * Fetch a flow and enforce that `userId` has at least `minRole` on it.
- * Throws "Flow not found" / "Access denied"; returns the row + resolved role.
+ * Throws `FlowAccessDenied` ("Flow not found" / "Access denied") for a
+ * decision, anything else for a failure to decide; returns the row + role.
  */
 export async function requireFlowAccess(
   flowId: string,
@@ -83,7 +98,7 @@ export async function requireFlowAccess(
   });
 
   if (!flowRecord) {
-    throw new Error("Flow not found");
+    throw new FlowAccessDenied("not-found");
   }
 
   let collaboratorRole: FlowRole | undefined;

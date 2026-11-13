@@ -182,6 +182,21 @@ pub trait HardwareComponent: Component {
     /// Acquire pin modes, reporting toggles, or I/O state against the board.
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError>;
 
+    /// Re-drive `last` — the value this node held before the board rebooted
+    /// under a live session — on the freshly built, freshly initialized node.
+    /// Called once, right after `initialize`, when the runtime re-applies the
+    /// flow to a board that re-announced itself. Implement it only where driving
+    /// the old output again is safe without knowing why the board reset (a
+    /// plain digital or PWM output); the default leaves the initialized state.
+    /// Must not emit: the node's value did not change as far as the flow knows.
+    fn restore_output(
+        &mut self,
+        _last: &ComponentValue,
+        _ctx: &mut RuntimeContext,
+    ) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+
     /// Pin-change Hardware Callback for a registered `DigitalPin` / `AnalogPin`.
     /// `value` is `Bool` for digital pins, `Number` (raw u16 as f64) for analog.
     fn on_pin_change(

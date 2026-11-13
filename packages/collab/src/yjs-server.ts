@@ -9,12 +9,17 @@ import { upgradeLegacyNodes } from "./schema";
 // Shared with the client provider — the numbering is constrained by
 // y-websocket's reserved range. See `protocol.ts`.
 import {
+  ACCESS_CODES,
   CLOSE_ACCESS_DENIED,
   CLOSE_SERVICE_RESTART,
+  MESSAGE_ACCESS,
   MESSAGE_ACK,
   MESSAGE_AWARENESS,
   MESSAGE_QUERY_AWARENESS,
   MESSAGE_SYNC,
+  MESSAGE_UNSAVED,
+  UNSAVED_REASONS,
+  type UnsavedReason,
 } from "./protocol";
 
 // ============================================================================
@@ -102,7 +107,25 @@ type Room = {
   persistence: RoomPersistence;
   /** Set when the doc is destroyed, so a join that raced teardown retries. */
   destroyed: boolean;
+  /** When the store last confirmed a save (load time until the first save). */
+  lastPersistedAt: number;
 };
+
+/** `MESSAGE_ACK`: the room's document reached durable storage at `version`. */
+function ackMessage(version: number): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_ACK);
+  encoding.writeVarUint(encoder, version);
+  return encoding.toUint8Array(encoder);
+}
+
+/** `MESSAGE_UNSAVED`: the room holds changes that are not durably stored. */
+function unsavedMessage(reason: UnsavedReason): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_UNSAVED);
+  encoding.writeVarUint(encoder, UNSAVED_REASONS.indexOf(reason));
+  return encoding.toUint8Array(encoder);
+}
 
 /**
  * Thrown by `join()` once `shutdown()` has begun. The transport closes the
@@ -274,6 +297,21 @@ export class YjsServer {
     // Send current awareness state
     this.sendAwarenessState(socket, room.awareness);
 
+    // State the access this connection was granted. The client's role came
+    // from an earlier `flow.get`; a demotion while it was offline would
+    // otherwise go unnoticed until its writes silently vanished.
+    this.sendAccess(socket, canWrite ? "write" : "read");
+
+    // Say where the room stands on durability. Settled (nothing dirty, no
+    // save in flight): ack, so a client that dropped between delivering an
+    // edit and its persist does not wait for an ack it missed. Otherwise
+    // "unsaved": an ack now would claim "Saved" in the middle of a save.
+    socket.send(
+      room.persistence.isSettled
+        ? ackMessage(room.lastPersistedAt)
+        : unsavedMessage("pending"),
+    );
+
     return connection;
   }
 
@@ -328,6 +366,9 @@ export class YjsServer {
         continue;
       }
       connection.canWrite = access === "write";
+      // Tell the client, so a demoted editor's canvas stops accepting edits
+      // the room would now drop.
+      this.sendAccess(connection.socket, access);
     }
   }
 
@@ -541,11 +582,15 @@ export class YjsServer {
     }
   }
 
-  private broadcastAck(room: Room, version: number): void {
+  private sendAccess(socket: Connection, access: Exclude<Access, "none">): void {
     const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, MESSAGE_ACK);
-    encoding.writeVarUint(encoder, version);
-    this.broadcast(room, encoding.toUint8Array(encoder), null);
+    encoding.writeVarUint(encoder, MESSAGE_ACCESS);
+    encoding.writeVarUint(encoder, ACCESS_CODES.indexOf(access));
+    socket.send(encoding.toUint8Array(encoder));
+  }
+
+  private broadcastAck(room: Room, version: number): void {
+    this.broadcast(room, ackMessage(version), null);
   }
 
   // --------------------------------------------------------------------------
@@ -575,10 +620,18 @@ export class YjsServer {
     });
   }
 
-  /** A save landed: acknowledge it, and finish an idle room's teardown. */
+  /**
+   * A save landed: acknowledge it, and finish an idle room's teardown.
+   *
+   * Only a settled room is acked. A change that arrived while the write was
+   * in flight is not in it — the room is dirty again and a save is scheduled
+   * — so acking now would show "Saved" for an edit that is not; that save's
+   * own ack follows.
+   */
   private onRoomPersisted(flowId: string, room: Room, at: number): void {
     if (room.destroyed) return;
-    this.broadcastAck(room, at);
+    room.lastPersistedAt = at;
+    if (room.persistence.isSettled) this.broadcastAck(room, at);
     console.log(`[YJS] Persisted room ${flowId}`);
     if (room.connections.size === 0 && room.persistence.isSettled) {
       this.destroyRoom(flowId, room);
@@ -649,10 +702,20 @@ export class YjsServer {
       awareness: new awarenessProtocol.Awareness(doc),
       connections: new Set(),
       destroyed: false,
+      lastPersistedAt: Date.now(),
       // After the stored state is applied (loading is not an edit), before the
       // migration below (which is, and must be written back).
-      persistence: new RoomPersistence(flowId, doc, this.store, this.persistPolicy, (at) =>
-        this.onRoomPersisted(flowId, room, at),
+      persistence: new RoomPersistence(
+        flowId,
+        doc,
+        this.store,
+        this.persistPolicy,
+        (at) => this.onRoomPersisted(flowId, room, at),
+        // Withdraw any ack the room's clients are showing: their edits are
+        // only in this process's memory until a retry lands.
+        () => {
+          if (!room.destroyed) this.broadcast(room, unsavedMessage("failed"), null);
+        },
       ),
     };
     const { awareness } = room;
@@ -728,6 +791,54 @@ export class YjsServer {
   currentState(flowId: string): Uint8Array | null {
     const room = this.rooms.get(flowId);
     return room ? Y.encodeStateAsUpdate(room.doc) : null;
+  }
+
+  /**
+   * Write flow meta (e.g. a rename) into the document, as the server.
+   *
+   * The flow row and the document both carry the name; the server owns the
+   * document's copy (ADR-0022's pattern: a server-side change reaches the live
+   * doc, not just the row). A live room takes the write directly — it
+   * broadcasts to every client and `RoomPersistence` saves it. With no room,
+   * the change goes straight to the store, which merges (see `RoomStore.save`),
+   * so a room that loads meanwhile cannot be clobbered; if one did load during
+   * the store round trip, the change is applied to it too.
+   */
+  async writeMeta(flowId: string, meta: Record<string, unknown>): Promise<void> {
+    if (this.droppedFlows.has(flowId)) return;
+    // `FlowDocument.setMeta`'s write, without building a `FlowDocument` (and
+    // its undo manager) around a live room's doc.
+    const apply = (doc: Y.Doc) =>
+      doc.transact(() => {
+        const map = doc.getMap("meta");
+        for (const [key, value] of Object.entries(meta)) map.set(key, value);
+        map.set("updatedAt", Date.now());
+      }, "server");
+
+    const live = this.rooms.get(flowId) ?? (await this.roomsLoading.get(flowId)?.catch(() => null));
+    if (live && !live.destroyed) {
+      apply(live.doc);
+      return;
+    }
+
+    const doc = new Y.Doc();
+    try {
+      const stored = await this.store.load(flowId);
+      if (stored) Y.applyUpdate(doc, stored);
+      const before = Y.encodeStateVector(doc);
+      apply(doc);
+      const change = Y.encodeStateAsUpdate(doc, before);
+      await this.store.save(flowId, Y.encodeStateAsUpdate(doc));
+      // A room may have started loading during the round trip, its
+      // `store.load` reading the row before our save committed. Whether it
+      // has registered yet or is still loading, give it the change too
+      // (idempotent: Yjs ignores an update it already has).
+      const raced =
+        this.rooms.get(flowId) ?? (await this.roomsLoading.get(flowId)?.catch(() => null));
+      if (raced && !raced.destroyed) Y.applyUpdate(raced.doc, change);
+    } finally {
+      doc.destroy();
+    }
   }
 
   /**

@@ -19,6 +19,7 @@ import {
   revokeInvite,
 } from "@microflow/db/flow-invitation";
 import { resendInviteMailer } from "./invite-mailer";
+import { mirrorNameToDocument } from "./flow-rename";
 
 // ============================================================================
 // Constants
@@ -361,6 +362,16 @@ export const flowRouter = router({
         })
         .where(eq(flow.id, input.id))
         .returning();
+
+      // The document carries the name too (export and sketch filenames read
+      // it). The row write alone left it stale: push the rename into the live
+      // room, or the stored document when none is open. Best-effort — the row
+      // has committed, so a failed document write must not fail the rename.
+      if (input.name !== undefined) {
+        await mirrorNameToDocument(input.id, input.name, (id, meta) =>
+          yjsServer.writeMeta(id, meta),
+        );
+      }
 
       return updatedFlow;
     }),

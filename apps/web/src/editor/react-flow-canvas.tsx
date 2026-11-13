@@ -35,6 +35,7 @@ import { useTheme } from "@/ui/theme-provider";
 import { HotkeySheet } from "./sheets/hotkey-sheet";
 import { CollabCursors } from "./collab-cursors";
 import { PressensePanel } from "./panels/pressense-panel";
+import { SessionStatusIndicator } from "./panels/session-status-indicator";
 import { track } from "@/lib/analytics";
 
 const uid = () => Math.random().toString(36).substring(2, 9);
@@ -43,7 +44,7 @@ export function ReactFlowCanvas() {
   const { fitView, getNodes } = useReactFlow();
   const { theme } = useTheme();
 
-  const { doc, readOnly, role } = useFlowSession();
+  const { doc, readOnly } = useFlowSession();
   // Presence is deliberately *not* read here: `CollabCursors` and
   // `PressensePanel` subscribe to it themselves, so a remote cursor moving no
   // longer re-renders this component and everything under it.
@@ -158,11 +159,7 @@ export function ReactFlowCanvas() {
           <DockPanel />
         </Panel>
         <Panel position="top-left" className="flex items-center gap-2">
-          {role === "viewer" && (
-            <span className="rounded-full border bg-background/80 px-3 py-1 text-xs font-medium backdrop-blur">
-              View only
-            </span>
-          )}
+          <SessionStatusIndicator />
           <PressensePanel />
         </Panel>
       </ReactFlow>

@@ -174,6 +174,8 @@ function TemplateCard(props: {
   return (
     <Card
       onClick={props.onUse}
+      data-testid="template-card"
+      data-template-id={props.template.id}
       className={cn(
         "pt-0 cursor-pointer hover:bg-muted/40 transition",
         props.isNext && "ring-2 ring-primary",

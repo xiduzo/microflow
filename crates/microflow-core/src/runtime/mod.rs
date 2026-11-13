@@ -23,6 +23,7 @@ pub mod pin_mode;
 pub mod reconcile;
 pub mod registry;
 pub mod router;
+mod session;
 pub mod subscriptions;
 pub mod turn_budget;
 pub mod value;
@@ -335,9 +336,9 @@ impl FlowRuntime {
             self.i2c_listeners.iter().map(|(&addr, ids)| (addr, ids.len())).collect();
         let plan = reconcile::plan_board(&self.report_set, &prev_i2c_counts, &desired);
 
-        // 5a. Setup phase — emit BEFORE per-node initialize so the reporting toggles,
-        //     bus config, and sampling interval are live before any device's
-        //     power-on writes. (Sent every update_flow: a cheap sysex, and the
+        // 5a. Setup phase — emit BEFORE per-node initialize so reporting is off,
+        //     and the bus config and sampling interval are live, before any
+        //     device's power-on writes. Reporting is switched on in the arm phase. (Sent every update_flow: a cheap sysex, and the
         //     runtime is rebuilt fresh on each board (re)connect, so this is also
         //     how the rate is restored after a replug.)
         plan.encode_setup(&mut BufferBoardWriter::new(&mut self.client, &mut out));
@@ -354,20 +355,7 @@ impl FlowRuntime {
         // 6. Initialize newly-built hardware (pin modes + initial output state).
         let added_ids: Vec<String> = to_add.iter().map(|n| n.id.clone()).collect();
         for id in &added_ids {
-            let mut writer = BufferBoardWriter::new(&mut self.client, &mut out);
-            let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id.as_str(), &mut reqs);
-            if let Some(component) = self.components.get_mut(id) {
-                if let Some(hw) = component.as_hardware_mut() {
-                    if let Err(e) = hw.initialize(&mut ctx) {
-                        tracing::warn!(node = %id, error = %e, "initialize failed");
-                        self.health.start_failed(id, format!("Could not set up on the board: {e}"));
-                    }
-                }
-                if let Err(e) = component.on_start(&mut ctx) {
-                    tracing::warn!(node = %id, error = %e, "on_start failed");
-                    self.health.start_failed(id, format!("Failed to start: {e}"));
-                }
-            }
+            self.start_node(id, &mut out, &mut reqs);
         }
 
         // 6b. Arm phase — emit AFTER per-node initialize so each device is
@@ -389,14 +377,44 @@ impl FlowRuntime {
         self.finish("update_flow", out, reqs)
     }
 
+    /// `initialize` (hardware) then `on_start` one freshly built node, putting a
+    /// failure on its badge.
+    fn start_node(&mut self, id: &str, out: &mut Vec<u8>, reqs: &mut ScheduleRequests) {
+        let mut writer = BufferBoardWriter::new(&mut self.client, out);
+        let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id, reqs);
+        if let Some(component) = self.components.get_mut(id) {
+            if let Some(hw) = component.as_hardware_mut() {
+                if let Err(e) = hw.initialize(&mut ctx) {
+                    tracing::warn!(node = %id, error = %e, "initialize failed");
+                    self.health.start_failed(id, format!("Could not set up on the board: {e}"));
+                }
+            }
+            if let Err(e) = component.on_start(&mut ctx) {
+                tracing::warn!(node = %id, error = %e, "on_start failed");
+                self.health.start_failed(id, format!("Failed to start: {e}"));
+            }
+        }
+    }
+
     /// Feed raw inbound serial bytes: decode via the codec, diff the pin table,
-    /// resolve listeners, stamp the live sequence, and drain the cascade.
+    /// resolve listeners, stamp the live sequence, and drain the cascade. A
+    /// firmware announcement on the live session means the board rebooted, and
+    /// the flow is re-applied to it in this turn (see `session`).
     pub fn feed_bytes(&mut self, bytes: &[u8]) -> Effects {
-        self.client.feed(bytes);
+        let parsed = self.client.feed(bytes);
+        let mut out = Vec::new();
+        let mut reqs = ScheduleRequests::default();
+        let dropped = self.client.take_dropped_bytes();
+        if dropped > 0 {
+            log::warn!("firmata stream: dropped {dropped} bytes of a frame that never completed");
+        }
+        if Self::is_reannounce(&parsed) {
+            self.board_reannounced(&mut out, &mut reqs);
+        }
         self.detect_pin_changes();
         self.drain_i2c_replies();
         self.drain_firmata_strings();
-        self.finish("feed_bytes", Vec::new(), ScheduleRequests::default())
+        self.finish("feed_bytes", out, reqs)
     }
 
     /// Surface the board's `STRING_DATA` diagnostics (e.g. "I2C: Too few bytes
