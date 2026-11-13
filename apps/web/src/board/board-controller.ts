@@ -18,6 +18,7 @@ import {
   connectedState,
   detectBoard,
   flashPort,
+  guessBoard,
   isWebSerialSupported,
   listGrantedPorts,
   onSerialConnectivity,
@@ -32,9 +33,11 @@ import { isDesktop } from "@/platform/platform";
 import {
   BoardController,
   type BoardControllerDeps,
+  type FlowApplyResult,
   type PageLifecycleHandlers,
 } from "./board-controller-core";
 import { realClock } from "./clock";
+import { sonnerOfferToaster, watchFlashOffer } from "./flash-offer";
 
 export {
   BoardController,
@@ -42,6 +45,7 @@ export {
   type Notifier,
   type PageLifecycleHandlers,
   type ReactorHandle,
+  type FlowApplyResult,
 } from "./board-controller-core";
 
 /** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
@@ -90,6 +94,7 @@ export const browserBoardDeps: BoardControllerDeps = {
     listGrantedPorts,
     requestBoardPort,
     detectBoard,
+    guessBoard,
     probeFirmata,
     probeAfterFlash,
     flashPort,
@@ -119,12 +124,21 @@ export const browserBoardDeps: BoardControllerDeps = {
 // no call site needs to know an instance exists.
 const controller = new BoardController(browserBoardDeps);
 
-export const pushFlowUpdate = (flow: CoreFlowUpdate): void => controller.pushFlowUpdate(flow);
+export const pushFlowUpdate = (flow: CoreFlowUpdate): FlowApplyResult =>
+  controller.pushFlowUpdate(flow);
 export const dispatchToNode = (nodeId: string, port: string, value: unknown): void =>
   controller.dispatchToNode(nodeId, port, value);
 export const connect = (): Promise<void> => controller.connect();
 export const disconnect = (): Promise<void> => controller.disconnect();
+let flashOfferWatched = false;
 export const start = (): void => {
+  if (!flashOfferWatched && !isDesktop()) {
+    flashOfferWatched = true;
+    watchFlashOffer(useBoardStore, sonnerOfferToaster, {
+      confirm: () => void controller.confirmFlash(),
+      decline: () => void controller.declineFlash(),
+    });
+  }
   controller.start();
 };
 

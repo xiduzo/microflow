@@ -23,10 +23,13 @@ pub enum Event {
     /// A candidate port is ready to bring up (user gesture, load scan, plug-in
     /// event, or the desktop poll finding a new port).
     ///
-    /// `board` is the recognised board id (from USB vid/pid), if any.
-    /// `auto_flash` allows flashing `StandardFirmata` when the probe misses.
+    /// `board` is the board id the USB vid/pid names or suggests, if any.
+    /// `auto_flash` allows flashing `StandardFirmata` when the probe misses; a
+    /// host sets it only for a *positively identified* board
+    /// (`BoardConfig::detect_from_usb`), never for a bridge-chip guess.
     /// `explicit` means someone is watching this attempt: failures surface as
-    /// `Error` (browser: a user gesture; desktop: any recognised board).
+    /// `Error` (browser: a user gesture; desktop: any recognised board), and a
+    /// guessed `board` without `auto_flash` is offered as `ConfirmFlash`.
     PortReady {
         board: Option<String>,
         auto_flash: bool,
@@ -42,6 +45,12 @@ pub enum Event {
     FlashOk,
     /// Flashing failed; `detail` is the driver's error text.
     FlashFailed { detail: String },
+    /// The user said yes to `ConfirmFlash`: flash the offered board. Ignored
+    /// unless an offer is open.
+    FlashConfirmed,
+    /// The user said no to `ConfirmFlash`. Ignored unless an offer is open, so
+    /// a late answer can never tear down a live connection.
+    FlashDeclined,
     /// The live connection dropped mid-session (board reset; port still there).
     ConnectionLost,
     /// The port physically disappeared (USB unplug).
@@ -59,6 +68,11 @@ pub enum Phase {
     Disconnected,
     Connecting,
     Flashing { board: String },
+    /// No Firmata answered, and the device is only *guessed* to be `board` (a
+    /// generic USB-serial bridge chip, which other devices use too). Nothing is
+    /// flashed until the user confirms: the host asks "flash as `board`?" and
+    /// feeds `FlashConfirmed` on yes, `FlashDeclined` on no.
+    ConfirmFlash { board: String },
     Connected,
     /// `detail` must reach the user verbatim (commit `7c8f7e2` — board error
     /// details surfaced in the UI); hosts must not collapse it to a bare label.
@@ -99,6 +113,9 @@ struct Attempt {
 enum State {
     Idle,
     Probing(Attempt),
+    /// No Firmata on a guessed board: waiting for the user to confirm a flash.
+    /// The probe has already closed the port.
+    AwaitingConfirm(Attempt),
     Flashing(Attempt),
     /// Post-flash probe: the board was just flashed and is rebooting.
     Reprobing(Attempt),
@@ -138,9 +155,12 @@ impl BringUp {
         // Teardown events share one shape regardless of state.
         match &event {
             Event::DisconnectRequested => {
-                let was_idle = self.state == State::Idle;
+                // An open offer holds no port (the probe closed it): declining
+                // it has nothing to close.
+                let holds_no_port =
+                    matches!(self.state, State::Idle | State::AwaitingConfirm(_));
                 self.state = State::Idle;
-                return if was_idle {
+                return if holds_no_port {
                     vec![notify(Phase::Disconnected)]
                 } else {
                     vec![Action::ClosePort, notify(Phase::Disconnected)]
@@ -178,8 +198,7 @@ impl BringUp {
         match core::mem::replace(&mut self.state, State::Idle) {
             State::Idle => match event {
                 Event::PortReady { board, auto_flash, explicit } => {
-                    self.state = State::Probing(Attempt { board, auto_flash, explicit });
-                    vec![notify(Phase::Connecting), Action::Probe { after_flash: false }]
+                    self.start(Attempt { board, auto_flash, explicit })
                 }
                 _ => vec![],
             },
@@ -189,21 +208,32 @@ impl BringUp {
                     vec![notify(Phase::Connected)]
                 }
                 Event::ProbeFailed => match attempt.board.clone() {
-                    Some(board) if attempt.auto_flash => {
-                        self.state = State::Flashing(attempt);
-                        vec![
-                            notify(Phase::Flashing { board: board.clone() }),
-                            Action::Flash { board },
-                        ]
+                    // Positively identified: flash without asking.
+                    Some(board) if attempt.auto_flash => self.flash(attempt, board),
+                    // Only a guess (bridge chip): never flash unasked.
+                    Some(board) if attempt.explicit => {
+                        self.state = State::AwaitingConfirm(attempt);
+                        vec![notify(Phase::ConfirmFlash { board })]
                     }
-                    board if attempt.explicit => vec![notify(Phase::Error {
-                        detail: no_firmata_detail(board.as_deref()),
+                    None if attempt.explicit => vec![notify(Phase::Error {
+                        detail: NO_FIRMATA_UNIDENTIFIED.to_string(),
                     })],
                     // Background attempt (auto-reconnect / plug-in / unknown
                     // device): stay quietly disconnected, no error spam.
                     _ => vec![notify(Phase::Disconnected)],
                 },
                 other => stay(&mut self.state, State::Probing(attempt), &other),
+            },
+            State::AwaitingConfirm(attempt) => match (event, attempt.board.clone()) {
+                // Only an attempt with a board is ever awaiting confirmation.
+                (Event::FlashConfirmed, Some(board)) => self.flash(attempt, board),
+                // The probe already closed the port: nothing to close.
+                (Event::FlashDeclined, _) => vec![notify(Phase::Disconnected)],
+                // Another port came up: it supersedes the open offer.
+                (Event::PortReady { board, auto_flash, explicit }, _) => {
+                    self.start(Attempt { board, auto_flash, explicit })
+                }
+                (other, _) => stay(&mut self.state, State::AwaitingConfirm(attempt), &other),
             },
             State::Flashing(attempt) => match event {
                 Event::FlashProgress { done, total } => {
@@ -242,6 +272,19 @@ impl BringUp {
             }
         }
     }
+
+    /// Begin an attempt: probe the port for Firmata.
+    fn start(&mut self, attempt: Attempt) -> Vec<Action> {
+        self.state = State::Probing(attempt);
+        vec![notify(Phase::Connecting), Action::Probe { after_flash: false }]
+    }
+
+    /// Flash the attempt's board. Callers have checked the board is either
+    /// positively identified or confirmed by the user.
+    fn flash(&mut self, attempt: Attempt, board: String) -> Vec<Action> {
+        self.state = State::Flashing(attempt);
+        vec![notify(Phase::Flashing { board: board.clone() }), Action::Flash { board }]
+    }
 }
 
 /// Restore `state` for an event that doesn't apply to it; no actions.
@@ -261,12 +304,8 @@ fn percent(done: u32, total: u32) -> u8 {
     ((u64::from(done) * 100 + u64::from(total) / 2) / u64::from(total)).min(100) as u8
 }
 
-fn no_firmata_detail(board: Option<&str>) -> String {
-    match board {
-        Some(board) => format!("No Firmata on {board}."),
-        None => "No Firmata firmware responded and the board could not be identified.".to_string(),
-    }
-}
+const NO_FIRMATA_UNIDENTIFIED: &str =
+    "No Firmata firmware responded and the board could not be identified.";
 
 #[cfg(test)]
 mod tests {
@@ -389,11 +428,90 @@ mod tests {
             })]
         );
 
-        let _ = m.handle(port_ready(Some("mega"), false, true));
+    }
+
+    #[test]
+    fn guessed_board_is_offered_never_flashed_unasked() {
+        // A bridge-chip guess (explicit, no auto_flash): the probe miss becomes
+        // an offer, with no Flash action.
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("nano"), false, true));
         assert_eq!(
             m.handle(Event::ProbeFailed),
-            vec![notify(Phase::Error { detail: "No Firmata on mega.".into() })]
+            vec![notify(Phase::ConfirmFlash { board: "nano".into() })]
         );
+        // Stale or unrelated events never start a flash on their own.
+        assert_eq!(m.handle(Event::FlashOk), vec![]);
+        assert_eq!(m.handle(Event::ProbeOk), vec![]);
+        assert!(!m.is_connected());
+        // Only the user's yes flashes.
+        assert_eq!(
+            m.handle(Event::FlashConfirmed),
+            vec![
+                notify(Phase::Flashing { board: "nano".into() }),
+                Action::Flash { board: "nano".into() }
+            ]
+        );
+        assert_eq!(
+            m.handle(Event::FlashOk),
+            vec![notify(Phase::Connecting), Action::Probe { after_flash: true }]
+        );
+        assert_eq!(m.handle(Event::ProbeOk), vec![notify(Phase::Connected)]);
+    }
+
+    #[test]
+    fn declining_the_offer_closes_nothing_and_flashes_nothing() {
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("uno"), false, true));
+        let _ = m.handle(Event::ProbeFailed);
+        // The probe already closed the port: no ClosePort.
+        assert_eq!(m.handle(Event::FlashDeclined), vec![notify(Phase::Disconnected)]);
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+
+        // A disconnect while offering closes nothing either.
+        let _ = m.handle(port_ready(Some("uno"), false, true));
+        let _ = m.handle(Event::ProbeFailed);
+        assert_eq!(m.handle(Event::DisconnectRequested), vec![notify(Phase::Disconnected)]);
+    }
+
+    #[test]
+    fn late_answers_never_touch_a_live_connection() {
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("uno"), true, true));
+        let _ = m.handle(Event::ProbeOk);
+        assert_eq!(m.handle(Event::FlashDeclined), vec![]);
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+        assert!(m.is_connected());
+    }
+
+    #[test]
+    fn unplug_withdraws_the_offer() {
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("nano"), false, true));
+        let _ = m.handle(Event::ProbeFailed);
+        assert_eq!(m.handle(Event::PortGone), vec![notify(Phase::Disconnected)]);
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+    }
+
+    #[test]
+    fn new_port_supersedes_the_offer() {
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("nano"), false, true));
+        let _ = m.handle(Event::ProbeFailed);
+        assert_eq!(
+            m.handle(port_ready(Some("uno"), true, true)),
+            vec![notify(Phase::Connecting), Action::Probe { after_flash: false }]
+        );
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+    }
+
+    #[test]
+    fn background_guess_stays_quiet() {
+        // A bridge chip seen in the background is probed, never offered or flashed.
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("nano"), false, false));
+        assert_eq!(m.handle(Event::ProbeFailed), vec![notify(Phase::Disconnected)]);
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
     }
 
     #[test]
@@ -455,5 +573,10 @@ mod tests {
         })
         .expect("action json");
         assert_eq!(json, r#"{"type":"notify","phase":{"kind":"flashing","board":"nano"}}"#);
+        let event: Event = serde_json::from_str(r#"{"type":"flashConfirmed"}"#).expect("confirm json");
+        assert_eq!(event, Event::FlashConfirmed);
+        let json = serde_json::to_string(&Phase::ConfirmFlash { board: "nano".into() })
+            .expect("phase json");
+        assert_eq!(json, r#"{"kind":"confirmFlash","board":"nano"}"#);
     }
 }

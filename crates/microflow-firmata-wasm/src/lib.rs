@@ -383,12 +383,24 @@ pub fn parse_hex(hex_content: &str) -> Result<Vec<u8>, JsError> {
     hex::parse(hex_content).map_err(|e| JsError::new(&e.to_string()))
 }
 
-/// Detect the Arduino board type from a USB vendor/product id, returning the
-/// lowercase board id (e.g. `"uno"`, `"nano"`) or `null` if unrecognised.
+/// The board a USB vendor/product id **positively identifies** (an official
+/// Arduino VID), as a lowercase board id (e.g. `"uno"`) — the only board that
+/// may be flashed without asking. `null` for generic USB-serial bridge chips
+/// (CH340, `CP210x`, FTDI) and unknown devices.
 #[wasm_bindgen(js_name = detectBoardFromUsb)]
 #[must_use]
 pub fn detect_board_from_usb(vid: u16, pid: u16) -> Option<String> {
     BoardConfig::detect_from_usb(vid, pid).map(|b| b.as_str().to_string())
+}
+
+/// The board a USB vendor/product id names *or suggests*: like
+/// `detectBoardFromUsb`, plus the board a generic bridge chip's PID is common
+/// on (CH340 `7523` → `"nano"`). A suggestion is enough to probe for Firmata or
+/// to offer "flash as …?", never to flash unasked. `null` if unrecognised.
+#[wasm_bindgen(js_name = guessBoardFromUsb)]
+#[must_use]
+pub fn guess_board_from_usb(vid: u16, pid: u16) -> Option<String> {
+    BoardConfig::identify_usb(vid, pid).map(|m| m.board().as_str().to_string())
 }
 
 /// The embedded `StandardFirmata` hex for a board id (e.g. `"nano"`), or `null`
@@ -588,9 +600,18 @@ mod tests {
 
     #[test]
     fn detect_board_from_usb_maps_known_ids() {
-        assert_eq!(detect_board_from_usb(0x1a86, 0x7523).as_deref(), Some("nano"));
         assert_eq!(detect_board_from_usb(0x2341, 0x0043).as_deref(), Some("uno"));
         assert_eq!(detect_board_from_usb(0x0000, 0xFFFF), None);
+        // A CH340 is only a guess: never reported as an auto-flash target.
+        assert_eq!(detect_board_from_usb(0x1a86, 0x7523), None);
+    }
+
+    #[test]
+    fn guess_board_from_usb_includes_bridge_chip_suggestions() {
+        assert_eq!(guess_board_from_usb(0x1a86, 0x7523).as_deref(), Some("nano"));
+        assert_eq!(guess_board_from_usb(0x10c4, 0xea60).as_deref(), Some("uno"));
+        assert_eq!(guess_board_from_usb(0x2341, 0x0043).as_deref(), Some("uno"));
+        assert_eq!(guess_board_from_usb(0x1234, 0x0043), None);
     }
 
     #[test]

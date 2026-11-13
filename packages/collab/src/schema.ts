@@ -50,6 +50,10 @@ const NODE_SCALAR_KEYS = ["id", "type", "position", "width", "height"] as const;
 /** Local-only; never written to the document. */
 const LOCAL_ONLY_KEYS = new Set(["selected", "dragging"]);
 
+/** Origin of the dangling-edge repair. Not `"local"`: the UndoManager must not
+ *  track it, or an undo would put the dangling edge back. */
+export const PRUNE_ORIGIN = "prune";
+
 /**
  * Build the `Y.Map` for a node, with `data` nested.
  *
@@ -268,12 +272,16 @@ export function isValueEqual(a: unknown, b: unknown): boolean {
  * a deep observer: an untouched node yields the identical object across calls.
  * Do not remove that cache without understanding what it holds up.
  *
- * **Every node is a `Y.Map`.** There is no second shape to branch on: a
- * document written before ADR-0019 is brought forward by `upgradeLegacyNodes`
- * at the load boundary, before anything reads it. Keeping the compatibility
- * branch out of these methods is the point — a dual-shape read path is
- * permanent complexity on the hottest code in the editor, whereas a migration
- * gets deleted.
+ * **Nodes are `Y.Map`s, upgraded by their owner.** A document written before
+ * ADR-0019 is brought forward by `upgradeLegacyNodes` where it is loaded and
+ * owned: the room store on the server, IndexedDB on the client. Two places can
+ * still hand this class a plain-object node, and neither may write the upgrade
+ * itself: a cloud seed (the server upgrades that room on load and syncs it
+ * down; a client upgrade racing it would drop whichever side lost), and a live
+ * update from an outdated client. So reads accept the old shape, and a write
+ * to such a node replaces it with the map form carrying the edit. That branch
+ * is confined to `materialiseNode` and the three writers, and goes when
+ * `upgradeLegacyNodes` does.
  */
 export class FlowDocument {
   readonly doc: Y.Doc;
@@ -329,33 +337,48 @@ export class FlowDocument {
 
     const stored: unknown = this.nodes.get(id);
     if (stored === undefined) return undefined;
-    // Every load boundary runs `upgradeLegacyNodes`, but a live update from a
-    // client that predates ADR-0019 can still put a plain object here. Reading
-    // it as a `Y.Map` would throw on every `getNodes()` and take the canvas and
-    // the runtime dispatch down with it; skip it instead, loudly.
-    if (!(stored instanceof Y.Map)) {
-      warnOnce(`node ${id} is not stored as a Y.Map (written by an outdated client?); skipping it`);
-      return undefined;
-    }
 
+    // A node is a `Y.Map` everywhere the doc was upgraded by its owner (the
+    // room store, IndexedDB). A plain object can still be here, read-only: a
+    // cloud seed is applied as the server persisted it — the server upgrades
+    // the room on load and syncs that upgrade down, and a client writing its
+    // own upgrade into the seed would race it — and a live update from a
+    // client that predates ADR-0019 writes the old shape. Read either; reading
+    // a plain object as a `Y.Map` would throw on every `getNodes()` and take
+    // the canvas and the runtime dispatch down with it.
+    let get: (key: string) => unknown;
     const data: Record<string, unknown> = {};
-    const storedData = stored.get("data");
-    if (storedData instanceof Y.Map) {
-      for (const [key, value] of storedData.entries()) data[key] = value;
+    if (stored instanceof Y.Map) {
+      get = (key) => stored.get(key);
+      const storedData = stored.get("data");
+      if (storedData instanceof Y.Map) {
+        for (const [key, value] of storedData.entries()) data[key] = value;
+      }
+    } else if (stored && typeof stored === "object") {
+      const legacy = stored as Record<string, unknown>;
+      get = (key) => legacy[key];
+      if (legacy.data && typeof legacy.data === "object") {
+        for (const [key, value] of Object.entries(legacy.data)) {
+          if (!LOCAL_ONLY_KEYS.has(key)) data[key] = value;
+        }
+      }
+    } else {
+      warnOnce(`node ${id} is neither a Y.Map nor an object; skipping it`);
+      return undefined;
     }
 
     // The document is shared and written by every client in the room, so its
     // scalars are checked rather than cast: a malformed value is replaced by
     // the same default a missing one gets.
-    const storedId = stored.get("id");
-    const type = stored.get("type");
+    const storedId = get("id");
+    const type = get("type");
     const node = {
       id: typeof storedId === "string" ? storedId : id,
       type: typeof type === "string" ? type : "",
-      position: readPosition(stored.get("position")),
+      position: readPosition(get("position")),
       data,
-      width: finiteOrUndefined(stored.get("width")),
-      height: finiteOrUndefined(stored.get("height")),
+      width: finiteOrUndefined(get("width")),
+      height: finiteOrUndefined(get("height")),
     } satisfies FlowNode;
 
     this.nodeCache.set(id, node);
@@ -371,9 +394,12 @@ export class FlowDocument {
    * anyone editing that node concurrently.
    */
   private writeNode(node: FlowNode): void {
-    const existing = this.nodes.get(node.id);
+    const existing: unknown = this.nodes.get(node.id);
 
-    if (existing === undefined) {
+    // New, or still in the pre-ADR-0019 shape: write the whole node as a map.
+    // For a legacy node this is the user's own edit upgrading it — the one
+    // client-side write to such a node, and it carries the edit with it.
+    if (!(existing instanceof Y.Map)) {
       this.nodes.set(node.id, buildNodeMap(node));
       return;
     }
@@ -460,8 +486,13 @@ export class FlowDocument {
 
   updateNodePosition(nodeId: string, position: { x: number; y: number }): void {
     this.doc.transact(() => {
-      const stored = this.nodes.get(nodeId);
+      const stored: unknown = this.nodes.get(nodeId);
       if (stored === undefined) return;
+      if (!(stored instanceof Y.Map)) {
+        const legacy = this.materialiseNode(nodeId);
+        if (legacy) this.writeNode({ ...legacy, position });
+        return;
+      }
       // Skip a move that moved nothing: a Y.Map `set` emits an update even for
       // an unchanged value, and that fans out to every observer in the room.
       const prev = stored.get("position") as { x: number; y: number } | undefined;
@@ -481,8 +512,13 @@ export class FlowDocument {
    */
   updateNodeData(nodeId: string, data: Record<string, unknown>): void {
     this.doc.transact(() => {
-      const stored = this.nodes.get(nodeId);
+      const stored: unknown = this.nodes.get(nodeId);
       if (stored === undefined) return;
+      if (!(stored instanceof Y.Map)) {
+        const legacy = this.materialiseNode(nodeId);
+        if (legacy) this.writeNode({ ...legacy, data: { ...legacy.data, ...data } });
+        return;
+      }
       // `writeNodeData` already skips keys whose value is unchanged.
       this.writeNodeData(stored, data, false);
     }, "local");
@@ -563,6 +599,85 @@ export class FlowDocument {
 
   getEdgeIds(): string[] {
     return Array.from(this.edges.keys());
+  }
+
+  // --------------------------------------------------------------------------
+  // Dangling edges
+  // --------------------------------------------------------------------------
+  //
+  // Every local delete removes a node's edges with it, but two peers can still
+  // race: A deletes a node while B wires a new edge to it. Both writes are
+  // valid where they were made, and the merge holds an edge pointing at
+  // nothing. The document repairs that itself, after the fact, because no
+  // single client can prevent it beforehand.
+
+  /**
+   * Whether this document held `nodeId` and has since seen it deleted — a Yjs
+   * tombstone — as opposed to a node it never held. Only the first kind makes
+   * an edge dangling: an edge to an id the document has not seen yet may
+   * simply be ahead of the update that carries its node.
+   */
+  nodeWasDeleted(nodeId: string): boolean {
+    if (this.nodes.has(nodeId)) return false;
+    return this.nodes._map.get(nodeId)?.deleted === true;
+  }
+
+  /** Whether either endpoint of `edge` is a deleted node. */
+  isEdgeDangling(edge: Pick<FlowEdge, "source" | "target">): boolean {
+    return this.nodeWasDeleted(edge.source) || this.nodeWasDeleted(edge.target);
+  }
+
+  /**
+   * Delete every edge whose source or target node was deleted. Returns their
+   * ids. Written with origin `"prune"`, outside the UndoManager's tracked set:
+   * the repair is not a user edit, and undoing it would only bring the
+   * dangling edge back. Deletes are idempotent in Yjs, so peers pruning the
+   * same edge concurrently converge.
+   */
+  pruneDanglingEdges(): string[] {
+    const dangling: string[] = [];
+    for (const [id, edge] of this.edges.entries()) {
+      if (this.isEdgeDangling(edge)) dangling.push(id);
+    }
+    if (dangling.length === 0) return dangling;
+    this.doc.transact(() => {
+      for (const id of dangling) this.edges.delete(id);
+    }, PRUNE_ORIGIN);
+    return dangling;
+  }
+
+  /**
+   * Keep this document free of dangling edges from now on: prune once (the
+   * load case), then again after any transaction — local or remote — that
+   * deleted a node or wrote an edge to a deleted one. Returns the stop
+   * function.
+   *
+   * Opt-in, and a mutator on purpose: a Viewer's writes are refused by the
+   * room, so a Viewer must never prune. Through `readOnlyDocument` this method
+   * is a no-op, so the Editor's canvas can start it unconditionally.
+   */
+  startEdgePruning(): () => void {
+    this.pruneDanglingEdges();
+    const afterTransaction = (transaction: Y.Transaction) => {
+      if (transaction.origin === PRUNE_ORIGIN) return;
+      if (this.transactionLeftDanglingEdges(transaction)) this.pruneDanglingEdges();
+    };
+    this.doc.on("afterTransaction", afterTransaction);
+    return () => this.doc.off("afterTransaction", afterTransaction);
+  }
+
+  /** Cheap trigger check: only the keys the transaction touched. */
+  private transactionLeftDanglingEdges(transaction: Y.Transaction): boolean {
+    // `changed` is keyed by the generic AbstractType; our maps are narrower.
+    const changed = transaction.changed as Map<unknown, Set<string | null>>;
+    for (const key of changed.get(this.nodes) ?? []) {
+      if (key !== null && this.nodeWasDeleted(key)) return true;
+    }
+    for (const key of changed.get(this.edges) ?? []) {
+      const edge = key === null ? undefined : this.edges.get(key);
+      if (edge && this.isEdgeDangling(edge)) return true;
+    }
+    return false;
   }
 
   // --------------------------------------------------------------------------

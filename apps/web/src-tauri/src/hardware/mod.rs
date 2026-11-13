@@ -30,7 +30,7 @@ mod firmata;
 mod port_monitor;
 mod types;
 
-pub use board_link::SessionId;
+pub use board_link::{FlashAnswer, SessionId};
 pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
@@ -39,7 +39,7 @@ use crate::flasher::{BoardType, Flasher};
 use crate::runtime::host::ActorLink;
 use board_link::{BoardLink, LinkIo};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -52,6 +52,8 @@ pub struct HardwareService {
     app_handle: Option<tauri::AppHandle>,
     monitoring: Arc<AtomicBool>,
     monitor_handle: Option<thread::JoinHandle<()>>,
+    /// The UI's answers to a flash offer, drained by the monitor loop.
+    flash_answers: Option<Sender<FlashAnswer>>,
 }
 
 impl HardwareService {
@@ -63,6 +65,7 @@ impl HardwareService {
             app_handle: None,
             monitoring: Arc::new(AtomicBool::new(false)),
             monitor_handle: None,
+            flash_answers: None,
         }
     }
 
@@ -88,12 +91,15 @@ impl HardwareService {
         self.monitoring.store(true, Ordering::Relaxed);
 
         let monitoring = Arc::clone(&self.monitoring);
+        let (answers_tx, flash_answers) = mpsc::channel();
+        self.flash_answers = Some(answers_tx);
         let handle = thread::spawn(move || {
             let io = DesktopLinkIo {
                 events: EventEmitter::with_observer(app_handle, observer),
                 actor,
             };
-            HardwareMonitorLoop { monitoring, link: BoardLink::new(io), session_ended }.run();
+            HardwareMonitorLoop { monitoring, link: BoardLink::new(io), session_ended, flash_answers }
+                .run();
         });
 
         self.monitor_handle = Some(handle);
@@ -113,6 +119,16 @@ impl HardwareService {
         }
 
         log::info!("Hardware monitoring stopped");
+    }
+
+    /// Hand the user's answer to a flash offer to the monitor loop. Never
+    /// blocks: the loop picks it up on its next tick.
+    ///
+    /// # Errors
+    /// When monitoring is not running.
+    pub fn answer_flash(&self, answer: FlashAnswer) -> Result<(), String> {
+        let sender = self.flash_answers.as_ref().ok_or("Hardware monitoring is not running")?;
+        sender.send(answer).map_err(|_| "Hardware monitoring has stopped".to_string())
     }
 
     /// Get available serial ports (static method for commands)
@@ -143,6 +159,7 @@ struct HardwareMonitorLoop {
     monitoring: Arc<AtomicBool>,
     link: BoardLink<DesktopLinkIo>,
     session_ended: Receiver<SessionId>,
+    flash_answers: Receiver<FlashAnswer>,
 }
 
 impl HardwareMonitorLoop {
@@ -160,6 +177,7 @@ impl HardwareMonitorLoop {
 
     fn tick(&mut self) {
         self.link.drain_session_ends(&self.session_ended);
+        self.link.drain_flash_answers(&self.flash_answers);
         match PortMonitor::get_ports() {
             Ok(ports) => self.link.scan(ports),
             Err(e) => log::debug!("Port scan failed: {e}"),
@@ -226,4 +244,26 @@ impl LinkIo for DesktopLinkIo {
 #[tauri::command]
 pub fn get_available_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
     HardwareService::get_available_ports()
+}
+
+/// The user said yes to the `confirmFlash` board state: flash the offered board.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub fn confirm_board_flash(state: tauri::State<'_, crate::AppState>) -> Result<(), String> {
+    answer_board_flash(&state, FlashAnswer::Confirm)
+}
+
+/// The user said no to the `confirmFlash` board state: leave the device alone.
+#[tauri::command]
+#[allow(clippy::needless_pass_by_value)]
+pub fn decline_board_flash(state: tauri::State<'_, crate::AppState>) -> Result<(), String> {
+    answer_board_flash(&state, FlashAnswer::Decline)
+}
+
+fn answer_board_flash(state: &crate::AppState, answer: FlashAnswer) -> Result<(), String> {
+    state
+        .hardware_service
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .answer_flash(answer)
 }

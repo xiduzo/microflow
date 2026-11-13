@@ -7,6 +7,13 @@ import {
 
 const GRACE_PERIOD_MS = 100;
 
+/**
+ * How long a session built during render may wait for its first `acquire`.
+ * Longer than `GRACE_PERIOD_MS`: render-to-commit can take a while on a heavy
+ * tree, and losing the race only costs a rebuild, not correctness.
+ */
+const UNCLAIMED_GRACE_MS = 5_000;
+
 type Entry = {
   session: FlowSession;
   refs: number;
@@ -15,7 +22,27 @@ type Entry = {
 
 const sessions = new Map<string, Entry>();
 
-function acquire(flowId: string, build: () => FlowSession): FlowSession {
+/**
+ * The registered session for `flowId`, building it if absent — without taking
+ * a reference. Safe to call during render: a render React throws away (Strict
+ * Mode, an interrupted transition, Suspense) holds no reference, so its
+ * session is reclaimed after `UNCLAIMED_GRACE_MS` instead of leaking a socket.
+ * The reference is taken by `acquireSession`, from an effect.
+ */
+export function peekSession(
+  flowId: string,
+  build: () => FlowSession,
+  unclaimedGraceMs = UNCLAIMED_GRACE_MS,
+): FlowSession {
+  const existing = sessions.get(flowId);
+  if (existing) return existing.session;
+  const entry: Entry = { session: build(), refs: 0, pendingDestroy: null };
+  sessions.set(flowId, entry);
+  scheduleDestroy(flowId, entry, unclaimedGraceMs);
+  return entry.session;
+}
+
+export function acquireSession(flowId: string, build: () => FlowSession): FlowSession {
   const existing = sessions.get(flowId);
   if (existing) {
     if (existing.pendingDestroy) {
@@ -31,11 +58,11 @@ function acquire(flowId: string, build: () => FlowSession): FlowSession {
 }
 
 export function acquireLocalSession(): FlowSession {
-  return acquire("local", createLocalSession);
+  return acquireSession("local", createLocalSession);
 }
 
 export function acquireCloudSession(options: CreateCloudSessionOptions): FlowSession {
-  return acquire(options.flowId, () => createCloudSession(options));
+  return acquireSession(options.flowId, () => createCloudSession(options));
 }
 
 export function releaseSession(flowId: string): void {
@@ -44,12 +71,17 @@ export function releaseSession(flowId: string): void {
   entry.refs -= 1;
   if (entry.refs > 0) return;
   if (entry.pendingDestroy) return;
+  scheduleDestroy(flowId, entry, GRACE_PERIOD_MS);
+}
+
+function scheduleDestroy(flowId: string, entry: Entry, delayMs: number): void {
   entry.pendingDestroy = setTimeout(() => {
+    entry.pendingDestroy = null;
     const current = sessions.get(flowId);
-    if (current !== entry) return;
+    if (current !== entry || entry.refs > 0) return;
     sessions.delete(flowId);
     entry.session.destroy();
-  }, GRACE_PERIOD_MS);
+  }, delayMs);
 }
 
 /**

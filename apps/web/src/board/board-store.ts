@@ -1,7 +1,9 @@
 import { create } from "zustand";
 import { useShallow } from "zustand/shallow";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useListen, type BoardState, type PinInfo } from "@/platform/ipc";
+import { isDesktop } from "@/platform/platform";
+import { desktopFlashAnswer, sonnerOfferToaster, watchFlashOffer } from "./flash-offer";
 
 // `Board` is the legacy alias the rest of the app uses for the generated
 // tagged-union payload of the `board-state` Tauri event.
@@ -58,6 +60,13 @@ export function useBoardEvents() {
       setBoard(payload);
     },
   });
+
+  // The desktop's "Flash as <board>?" prompt; the browser's is installed by its
+  // board controller. Same prompt, host-specific answer.
+  useEffect(() => {
+    if (!isDesktop()) return;
+    return watchFlashOffer(useBoardStore, sonnerOfferToaster, desktopFlashAnswer());
+  }, []);
 }
 
 /**

@@ -61,6 +61,13 @@ export function createNodeDataCommitter(options: NodeDataCommitterOptions) {
   /** Last values the doc and the controls agreed on, per key. Updated by
    *  every write and every reconcile. */
   let lastKnown: NodeData = { ...options.initial.controls, ...options.initial.doc };
+  /** What the controls show for a key the doc does not hold: their value at
+   *  mount for every key the doc lacked then. A key that later leaves the doc
+   *  (an undo of the edit that added it) is reset to this. */
+  const defaults: NodeData = {};
+  for (const [key, value] of Object.entries(options.initial.controls)) {
+    if (!(key in options.initial.doc)) defaults[key] = value;
+  }
   /** Control values queued for the next flush. */
   let pending: NodeData | null = null;
 
@@ -127,9 +134,20 @@ export function createNodeDataCommitter(options: NodeDataCommitterOptions) {
       const patch: NodeData = {};
       let any = false;
       for (const key of Object.keys(controlValues)) {
-        if (!(key in docData) || isPendingEdit(key)) continue;
-        if (isValueEqual(docData[key], controlValues[key])) continue;
-        patch[key] = docData[key];
+        if (isPendingEdit(key)) continue;
+        // A key the doc does not hold reads as its default — the value the
+        // runtime will use. Without this, undoing the edit that added a key
+        // left the control showing the undone value, and re-entering that
+        // value wrote nothing because it already matched `lastKnown`.
+        const docValue = key in docData ? docData[key] : defaults[key];
+        if (!(key in docData) && !(key in defaults)) {
+          // No default known (the key was in the doc at mount): keep what the
+          // control shows rather than write it back unasked.
+          lastKnown = { ...lastKnown, [key]: controlValues[key] };
+          continue;
+        }
+        if (isValueEqual(docValue, controlValues[key])) continue;
+        patch[key] = docValue;
         any = true;
       }
       if (!any) return null;

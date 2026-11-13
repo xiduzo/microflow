@@ -64,7 +64,7 @@ mock.module("@microflow/collab/server", () => ({
   },
 }));
 
-const { assertFlowRole, resolveFlowRole, roleToAccess, setFlowRole } =
+const { assertFlowRole, resolveFlowRole, roleToAccess, setFlowRole, FlowAccessDenied } =
   await import("./flow-access");
 type FlowRole = import("./flow-access").FlowRole;
 const { inviteByEmail } = await import("@microflow/db/flow-invitation");
@@ -110,6 +110,17 @@ describe("assertFlowRole access matrix", () => {
     } else {
       expect(() => assertFlowRole(role, minRole)).toThrow("Access denied");
     }
+  });
+
+  test("a denial is a FlowAccessDenied, so the websocket gate can tell it from a DB failure", () => {
+    let caught: unknown;
+    try {
+      assertFlowRole(null, "viewer");
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(FlowAccessDenied);
+    expect((caught as InstanceType<typeof FlowAccessDenied>).kind).toBe("denied");
   });
 });
 

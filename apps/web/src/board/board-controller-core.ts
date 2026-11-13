@@ -40,8 +40,12 @@ import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 
 /** The part of a `FlowReactor` this module drives. Named so a test can stand in
  *  for it without a wasm module. */
+/** Whether a flow update reached a live runtime (the dispatcher's `SendResult`
+ *  shape). */
+export type FlowApplyResult = { ok: true } | { ok: false; error: string };
+
 export interface ReactorHandle {
-  applyFlow(flow: CoreFlowUpdate): void;
+  applyFlow(flow: CoreFlowUpdate): FlowApplyResult;
   feedBytes(bytes: Uint8Array): void;
   dispatchToNode(nodeId: string, port: string, value: unknown): void;
   dispose(): void;
@@ -75,6 +79,7 @@ export interface BoardControllerDeps {
     listGrantedPorts: typeof WebSerial.listGrantedPorts;
     requestBoardPort: typeof WebSerial.requestBoardPort;
     detectBoard: typeof WebSerial.detectBoard;
+    guessBoard: typeof WebSerial.guessBoard;
     probeFirmata: typeof WebSerial.probeFirmata;
     probeAfterFlash: typeof WebSerial.probeAfterFlash;
     flashPort: typeof WebSerial.flashPort;
@@ -181,10 +186,18 @@ export class BoardController {
    * Push the latest flow graph to the runtime. Called by `WasmFlowUpdateSender`
    * on every graph change; stored so a board connecting later starts on the
    * current flow.
+   *
+   * The result is honest so the dispatcher's retry policy can act on it: the
+   * runtime's own verdict when one is up, a failure when the engine is dead,
+   * and success when no runtime exists *yet* (still loading, or swapping
+   * between the boardless and a board-backed one) — the stored flow is applied
+   * the moment one attaches, so there is nothing for a retry to do.
    */
-  pushFlowUpdate(flow: CoreFlowUpdate): void {
+  pushFlowUpdate(flow: CoreFlowUpdate): FlowApplyResult {
     this.latestFlow = flow;
-    this.reactor?.applyFlow(flow);
+    if (this.reactor !== null) return this.reactor.applyFlow(flow);
+    if (this.engineFault !== null) return { ok: false, error: this.engineFault };
+    return { ok: true };
   }
 
   /**
@@ -303,14 +316,19 @@ export class BoardController {
       case "probe": {
         const a = this.attempt;
         if (!a) return;
+        if (this.standingDown()) {
+          await this.abandonAttempt();
+          return;
+        }
         const probe = action.afterFlash ? this.deps.serial.probeAfterFlash : this.deps.serial.probeFirmata;
-        let connection = await probe(a.port, this.linkHooks()).catch(() => null);
-        if (connection && (this.pageHidden || this.engineFault !== null)) {
+        const connection = await probe(a.port, this.linkHooks()).catch(() => null);
+        if (this.standingDown()) {
           // The page went away (or the engine died) while the probe ran: give
           // the port straight back rather than hand it to a flow that will
-          // never run.
-          await connection.disconnect();
-          connection = null;
+          // never run — and say nothing about what the probe found.
+          await connection?.disconnect();
+          await this.abandonAttempt();
+          return;
         }
         if (connection) {
           this.link = connection;
@@ -323,8 +341,16 @@ export class BoardController {
       case "flash": {
         const a = this.attempt;
         if (!a) return;
+        // Flashing opens the port and rewrites the board: never on a hidden page
+        // or for a dead engine.
+        if (this.standingDown()) {
+          await this.abandonAttempt();
+          return;
+        }
         try {
           await this.deps.serial.flashPort(a.port, {
+            // The machine's board: identified, or confirmed by the user.
+            board: action.board,
             onProgress: (done, total) => void this.dispatch({ type: "flashProgress", done, total }),
           });
           await this.dispatch({ type: "flashOk" });
@@ -455,6 +481,17 @@ export class BoardController {
         }
         this.publish({ state: "disconnected" });
         break;
+      case "confirmFlash":
+        // No Firmata, and the board is only guessed from a generic USB-serial
+        // chip: the store's `confirmFlash` puts up the shared "Flash as …?"
+        // prompt (flash-offer.ts), answered via confirmFlash()/declineFlash().
+        // The attempt stays: a yes flashes its port.
+        this.publish({
+          state: "confirmFlash",
+          port: a ? this.deps.serial.portLabel(a.port.getInfo()) : "Serial port",
+          board: phase.board,
+        });
+        break;
       case "error":
         if (a?.flashToast !== undefined) {
           this.deps.notify.dismiss(a.flashToast);
@@ -509,7 +546,12 @@ export class BoardController {
     port: WebSerialPort,
     flags: { autoFlash: boolean; explicit: boolean },
   ): Promise<void> {
-    const board = await this.deps.serial.detectBoard(port).catch(() => undefined);
+    // `board` may be a guess (a generic USB-serial chip); only a positively
+    // identified board may be flashed unasked — a guess becomes an offer.
+    const [identified, board] = await Promise.all([
+      this.deps.serial.detectBoard(port).catch(() => undefined),
+      this.deps.serial.guessBoard(port).catch(() => undefined),
+    ]);
     this.attempt = {
       port,
       explicit: flags.explicit,
@@ -520,18 +562,41 @@ export class BoardController {
     await this.dispatch({
       type: "portReady",
       board: board ?? null,
-      autoFlash: flags.autoFlash,
+      autoFlash: flags.autoFlash && identified !== undefined,
       explicit: flags.explicit,
     });
   }
 
-  /** Cheap pre-check so auto paths don't handshake unrelated granted serial devices. */
+  /** Cheap pre-check so auto paths don't handshake unrelated granted serial devices.
+   *  A guessed board counts: probing for an existing Firmata never writes firmware. */
   private async looksLikeBoard(port: WebSerialPort): Promise<boolean> {
     try {
-      return Boolean(await this.deps.serial.detectBoard(port));
+      return Boolean(await this.deps.serial.guessBoard(port));
     } catch {
       return false;
     }
+  }
+
+  /** The page is hidden or the engine is dead: no bring-up step may proceed. */
+  private standingDown(): boolean {
+    return this.pageHidden || this.engineFault !== null;
+  }
+
+  /**
+   * End the attempt in flight without a verdict on the board, because the page
+   * went away or the engine died while it ran.
+   *
+   * The machine hears `disconnectRequested` — its teardown from any state —
+   * and never `probeFailed`: that reads as "no Firmata here", and on an
+   * explicit connect to a known board the machine answers it with `flash`,
+   * rewriting a board that may well have answered. The attempt's bookkeeping
+   * goes first, so no `board_connect_failed` is tracked for it either.
+   */
+  private async abandonAttempt(): Promise<void> {
+    const a = this.attempt;
+    if (a?.flashToast !== undefined) this.deps.notify.dismiss(a.flashToast);
+    this.attempt = null;
+    await this.dispatch({ type: "disconnectRequested" });
   }
 
   /** Whether a background path may open a port right now. */
@@ -570,6 +635,17 @@ export class BoardController {
       this.cancelRetry();
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
+  }
+
+  /** The user said yes to the "Flash as <board>?" offer. The machine ignores
+   *  it unless an offer is open, so a stale click is harmless. */
+  confirmFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashConfirmed" }));
+  }
+
+  /** The user said no to the offer: leave the device alone. */
+  declineFlash(): Promise<void> {
+    return this.run(() => this.dispatch({ type: "flashDeclined" }));
   }
 
   disconnect(): Promise<void> {

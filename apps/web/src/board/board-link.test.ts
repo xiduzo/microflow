@@ -4,6 +4,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   probeBoard,
+  SerialBoardLink,
   FIRMATA_SYSTEM_RESET,
   type BoardConnection,
   type LinkLoss,
@@ -77,6 +78,51 @@ describe("probe", () => {
   test("the pin seed is the detection codec's table at handshake time", async () => {
     const { link } = await readyLink();
     expect(JSON.parse(link.pinSeed)).toHaveLength(20);
+  });
+});
+
+describe("probing → ready", () => {
+  test("a reader that ended before markReady keeps the link out of ready", async () => {
+    // The window the handshake loop cannot see: its last `transportFailed`
+    // check passed, then the reader ended before `markReady` ran.
+    const clock = new FakeClock();
+    const port = new FakeSerialPort();
+    await port.open({ baudRate: 57600 });
+    const losses: LinkLoss[] = [];
+    const link = new SerialBoardLink(
+      port,
+      new FakeSession().asSession(),
+      port.readable!.getReader(),
+      port.writable!.getWriter(),
+      clock,
+      (_link, loss) => losses.push(loss),
+    );
+    port.unplug();
+    await flush();
+
+    expect(link.markReady()).toBe(false);
+    expect(link.phase).toBe("probing");
+    // Still closable, and closing it is not reported as a loss of a live link.
+    await clock.run(link.disconnect());
+    expect(port.isOpen).toBe(false);
+    expect(losses).toEqual([]);
+  });
+
+  test("a healthy probing link becomes ready", async () => {
+    const clock = new FakeClock();
+    const port = new FakeSerialPort();
+    await port.open({ baudRate: 57600 });
+    const link = new SerialBoardLink(
+      port,
+      new FakeSession().asSession(),
+      port.readable!.getReader(),
+      port.writable!.getWriter(),
+      clock,
+      undefined,
+    );
+    expect(link.markReady()).toBe(true);
+    expect(link.phase).toBe("ready");
+    await clock.run(link.disconnect());
   });
 });
 

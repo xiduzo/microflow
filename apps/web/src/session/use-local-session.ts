@@ -1,11 +1,6 @@
-import { useEffect, useMemo } from "react";
-import { acquireLocalSession, releaseSession } from "./session-registry";
-import type { FlowSession } from "./flow-session";
+import { createLocalSession, type FlowSession } from "./flow-session";
+import { useRegisteredSession } from "./use-registered-session";
 
 export function useLocalSession(): FlowSession {
-  const session = useMemo(() => acquireLocalSession(), []);
-  useEffect(() => {
-    return () => releaseSession(session.flowId);
-  }, [session.flowId]);
-  return session;
+  return useRegisteredSession("local", createLocalSession);
 }

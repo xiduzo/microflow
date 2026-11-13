@@ -21,6 +21,7 @@ import {
   flashAdvance,
   flashBaud,
   flashStart,
+  guessBoardFromUsb,
   parseHex,
   sessionPins,
   standardFirmataHex,
@@ -121,13 +122,28 @@ export function portLabel(info: WebSerialPortInfo): string {
   return "Serial port";
 }
 
-/** Best-effort board id from the port's USB vendor/product id (for flashing). */
+/**
+ * The board id the port's USB vendor/product id positively identifies (an
+ * official Arduino VID) — the only board that may be flashed without asking.
+ */
 export async function detectBoard(port: WebSerialPort): Promise<string | undefined> {
   const info = port.getInfo();
   if (info.usbVendorId === undefined || info.usbProductId === undefined) {
     return undefined;
   }
   return detectBoardFromUsb(info.usbVendorId, info.usbProductId);
+}
+
+/**
+ * The board id the port's USB id names or suggests, including a generic
+ * USB-serial chip's guess (CH340 → "nano"). Enough to probe or to offer a flash.
+ */
+export async function guessBoard(port: WebSerialPort): Promise<string | undefined> {
+  const info = port.getInfo();
+  if (info.usbVendorId === undefined || info.usbProductId === undefined) {
+    return undefined;
+  }
+  return guessBoardFromUsb(info.usbVendorId, info.usbProductId);
 }
 
 // --- Flashing ---------------------------------------------------------------
@@ -146,19 +162,21 @@ function concat(
 }
 
 /**
- * Flash StandardFirmata onto an already-granted port (no picker). Identifies the
- * board from its USB id, picks the embedded firmware + bootloader protocol, and
+ * Flash StandardFirmata onto an already-granted port (no picker). Flashes
+ * `opts.board` — the board the bring-up machine decided on (positively
+ * identified, or confirmed by the user) — or else the board the USB id
+ * positively identifies; picks the embedded firmware + bootloader protocol, and
  * runs the shared sans-IO driver. Resolves with the flashed board id.
  */
 export async function flashPort(
   port: WebSerialPort,
-  opts: { onProgress?: FlashProgress } = {},
+  opts: { board?: string; onProgress?: FlashProgress } = {},
 ): Promise<string> {
   const serial = browserSerial();
   if (!serial) {
     throw new Error("Web Serial is not supported in this browser");
   }
-  const board = await detectBoard(port);
+  const board = opts.board ?? (await detectBoard(port));
   if (!board) {
     throw new Error(
       "Couldn't identify the board from its USB id — browser flashing needs a recognised Arduino (Uno, Nano, Mega, Leonardo, or Micro).",

@@ -2,7 +2,7 @@ import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@microflow/api/context";
 import { appRouter } from "@microflow/api/routers/index";
 import { getPublicSupportersCached } from "@microflow/api/routers/supporters";
-import { requireFlowAccess } from "@microflow/api/routers/flow-access";
+import { FlowAccessDenied, requireFlowAccess } from "@microflow/api/routers/flow-access";
 import { auth } from "@microflow/auth";
 import { env } from "@microflow/env/server";
 import { createYjsHandler, yjsServer } from "@microflow/collab/server";
@@ -13,6 +13,7 @@ import { logger } from "hono/logger";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
 import { redactSecrets } from "./log-redaction";
+import { decideRoomAccess } from "./room-gate";
 import { installShutdownHook, type Drain } from "./shutdown";
 
 const { upgradeWebSocket, websocket } = createBunWebSocket();
@@ -105,24 +106,13 @@ app.get(
           headers.set("authorization", `Bearer ${token}`);
         }
 
-        const session = await auth.api.getSession({
-          headers,
+        const decision = await decideRoomAccess({
+          getSession: () => auth.api.getSession({ headers }),
+          requireAccess: (userId) => requireFlowAccess(flowId, userId, "viewer"),
+          classifyDenial: (error) => (error instanceof FlowAccessDenied ? error.kind : null),
         });
-
-        if (!session) {
-          ws.close(1008, "Unauthorized");
-          return;
-        }
-
-        // Authenticated is not authorized: check this user against THIS flow,
-        // through the same owner/collaborator model the tRPC procedures use.
-        // Viewers may connect, but read-only.
-        let canWrite: boolean;
-        try {
-          const { role } = await requireFlowAccess(flowId, session.user.id, "viewer");
-          canWrite = role !== "viewer";
-        } catch {
-          ws.close(1008, "Forbidden");
+        if (!decision.ok) {
+          ws.close(decision.code, decision.reason);
           return;
         }
 
@@ -133,8 +123,8 @@ app.get(
           canWrite: boolean;
         };
         data.flowId = flowId;
-        data.userId = session.user.id;
-        data.canWrite = canWrite;
+        data.userId = decision.userId;
+        data.canWrite = decision.canWrite;
 
         handler.onOpen(event, ws as any);
       },

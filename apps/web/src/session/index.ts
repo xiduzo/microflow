@@ -13,7 +13,12 @@ export type {
 } from "./sync-adapter";
 export { isRemoteSyncAdapter } from "./sync-adapter";
 
-export { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
+export {
+  IndexeddbSyncAdapter,
+  LocalPersistenceError,
+  type LocalPersistenceFailure,
+  type LocalPersistenceState,
+} from "./indexeddb-sync-adapter";
 export { RecordingSyncAdapter } from "./recording-sync-adapter";
 
 export { createLocalSession, createCloudSession } from "./flow-session";
@@ -27,11 +32,20 @@ export {
   evictSession,
 } from "./session-registry";
 
-export { FlowSessionContext, FlowSessionProvider } from "./flow-session-context";
+export {
+  FlowSessionContext,
+  FlowSessionProvider,
+  RemountOnAccessChange,
+} from "./flow-session-context";
 export { useFlowSession } from "./use-flow-session";
 export { useLocalSession } from "./use-local-session";
 export { useCloudSession } from "./use-cloud-session";
-export { useFlowSync, type FlowSyncSnapshot } from "./use-flow-sync";
+export { useFlowSessionStatus, useSessionStatus } from "./use-flow-session-status";
+export type {
+  FlowSessionStatus,
+  SessionStatusKind,
+  SessionStatusStore,
+} from "./session-status";
 export {
   usePresence,
   observePresence,

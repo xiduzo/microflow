@@ -194,6 +194,7 @@ export class ReactFlowBridge {
   private readonly listeners = new Set<() => void>();
   private readonly unobserveNodes: () => void;
   private readonly unobserveEdges: () => void;
+  private readonly stopEdgePruning: () => void;
 
   private pendingFrame: number | null = null;
 
@@ -221,6 +222,10 @@ export class ReactFlowBridge {
   constructor(doc: FlowDocument, options: { readOnly?: boolean } = {}) {
     this.readOnly = options.readOnly ?? false;
     this.doc = doc;
+    // While an Editor's canvas is open, the doc repairs edges left dangling by
+    // concurrent peers (a delete racing a new edge). Through a Viewer's
+    // read-only document this is a no-op that returns nothing.
+    this.stopEdgePruning = (this.readOnly ? undefined : doc.startEdgePruning()) ?? (() => {});
     this.currentSnapshot = { nodes: doc.getNodes(), edges: doc.getEdges() };
     this.unobserveNodes = doc.onNodesChange(this.handleYjsNodesChange);
     this.unobserveEdges = doc.onEdgesChange(this.handleYjsEdgesChange);
@@ -286,11 +291,14 @@ export class ReactFlowBridge {
             recorded = true;
             break;
           }
-          const patch = ReactFlowBridge.diffNode(node, stored, prior);
-          if (patch) {
-            this.nodeIntents.set(id, patch);
-            recorded = true;
-          }
+          // A re-add after a remove in the same frame supersedes the remove:
+          // diff it against the doc afresh, and if nothing differs there is
+          // nothing left to do — the node simply stays.
+          const base = prior?.kind === "remove" ? undefined : prior;
+          if (prior?.kind === "remove") this.nodeIntents.delete(id);
+          const patch = ReactFlowBridge.diffNode(node, stored, base);
+          if (patch) this.nodeIntents.set(id, patch);
+          recorded = true;
           break;
         }
         case "position":
@@ -369,9 +377,12 @@ export class ReactFlowBridge {
     }
 
     // The node delete also removed edges the local snapshot may still show
-    // (one a peer attached inside the frame). Our own observer was muted for
-    // the write, so pick that up here rather than render a dangling edge.
-    if (cascaded.length > 0) this.handleYjsEdgesChange();
+    // (one a peer attached inside the frame), and an edge prune can run inside
+    // the same transact call. Our own observer was muted for both, so pick
+    // them up here rather than render a dangling edge.
+    if (cascaded.length > 0 || this.doc.edges.size !== this.currentSnapshot.edges.length) {
+      this.handleYjsEdgesChange();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -387,6 +398,7 @@ export class ReactFlowBridge {
     this.flush();
 
     this.destroyed = true;
+    this.stopEdgePruning();
     this.unobserveNodes();
     this.unobserveEdges();
     if (this.pendingFrame !== null) {
@@ -402,7 +414,7 @@ export class ReactFlowBridge {
 
   private handleYjsNodesChange = (): void => {
     if (this.isFlushingToDoc || this.destroyed) return;
-    this.dropIntentsDeletedByDoc();
+    const { droppedEdge } = this.dropIntentsDeletedByDoc();
     const merged = ReactFlowBridge.mergeYjsIntoSnapshot(
       this.doc.getNodes(),
       this.currentSnapshot.nodes,
@@ -411,8 +423,12 @@ export class ReactFlowBridge {
     // With identity preserved, an update that changes nothing we render
     // produces an element-wise identical array. Publishing it anyway would
     // hand React a new snapshot object and re-render for nothing.
-    if (sameMembers(merged, this.currentSnapshot.nodes)) return;
-    this.setSnapshot({ ...this.currentSnapshot, nodes: merged });
+    if (!sameMembers(merged, this.currentSnapshot.nodes)) {
+      this.setSnapshot({ ...this.currentSnapshot, nodes: merged });
+    }
+    // A node delete can void a pending new edge without touching the edge
+    // map, so the edge observer would never hear of it.
+    if (droppedEdge) this.handleYjsEdgesChange();
   };
 
   private handleYjsEdgesChange = (): void => {
@@ -431,17 +447,24 @@ export class ReactFlowBridge {
    * A peer's delete wins over a local edit to the same element: drop the
    * intent for anything that existed when the intent was taken and is gone
    * from the doc now. New elements (`add`, `isNew`) are ours to create and
-   * stay. Walks only the pending intents, which are empty between frames.
+   * stay — except an edge whose endpoint node was deleted, which would only
+   * be written dangling. Walks only the pending intents, which are empty
+   * between frames.
    */
-  private dropIntentsDeletedByDoc(): void {
+  private dropIntentsDeletedByDoc(): { droppedEdge: boolean } {
     for (const [id, intent] of this.nodeIntents) {
       if (intent.kind !== "patch") continue;
       if (!this.doc.hasNode(id)) this.nodeIntents.delete(id);
     }
+    let droppedEdge = false;
     for (const [id, intent] of this.edgeIntents) {
-      if (intent.kind === "remove" || intent.isNew) continue;
-      if (!this.doc.hasEdge(id)) this.edgeIntents.delete(id);
+      if (intent.kind === "remove") continue;
+      if (this.doc.isEdgeDangling(intent.edge) || (!intent.isNew && !this.doc.hasEdge(id))) {
+        this.edgeIntents.delete(id);
+        droppedEdge = true;
+      }
     }
+    return { droppedEdge };
   }
 
   /**
@@ -657,6 +680,9 @@ export class ReactFlowBridge {
       }
       const stored = this.doc.getEdge(id);
       if (!stored && !intent.isNew) continue;
+      // Never write an edge to a deleted node — including one this very flush
+      // just deleted (node intents are written first).
+      if (this.doc.isEdgeDangling(intent.edge)) continue;
       // Existing edges are updated, not skipped: a reconnect changes an edge's
       // endpoints in place, and skipping meant that never reached the document.
       if (!ReactFlowBridge.edgeNeedsWrite(intent.edge, stored)) continue;

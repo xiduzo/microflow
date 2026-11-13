@@ -14,6 +14,7 @@ import init, {
   FlashSession,
   parseHex as wasmParseHex,
   detectBoardFromUsb as wasmDetectBoardFromUsb,
+  guessBoardFromUsb as wasmGuessBoardFromUsb,
   standardFirmataHex as wasmStandardFirmataHex,
   flashBaud as wasmFlashBaud,
 } from "./generated/microflow_firmata_wasm.js";
@@ -105,13 +106,29 @@ export async function parseHex(hexContent: string): Promise<Uint8Array> {
   return wasmParseHex(hexContent);
 }
 
-/** Map a USB vendor/product id to a board id (e.g. "uno"), or undefined. */
+/**
+ * The board id (e.g. "uno") a USB vendor/product id positively identifies (an
+ * official Arduino VID), or undefined. Only such a board may be flashed unasked.
+ */
 export async function detectBoardFromUsb(
   vid: number,
   pid: number,
 ): Promise<string | undefined> {
   await ensureFirmataReady();
   return wasmDetectBoardFromUsb(vid, pid);
+}
+
+/**
+ * The board id a USB vendor/product id names *or suggests* — including the
+ * board a generic USB-serial chip (CH340, CP210x, FTDI) is common on. Enough to
+ * probe for Firmata or offer "flash as …?", never to flash unasked.
+ */
+export async function guessBoardFromUsb(
+  vid: number,
+  pid: number,
+): Promise<string | undefined> {
+  await ensureFirmataReady();
+  return wasmGuessBoardFromUsb(vid, pid);
 }
 
 /** The shape `FirmataSession.feed()` returns (parsed from its JSON string). */

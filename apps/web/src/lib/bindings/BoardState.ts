@@ -4,4 +4,4 @@ import type { PinInfo } from "./PinInfo";
 /**
  * Board state for frontend events
  */
-export type BoardState = { "state": "connected", port: string, firmwareName: string, firmwareVersion: string, pins: Array<PinInfo>, } | { "state": "connecting", } | { "state": "flashing", port: string, board: string, } | { "state": "disconnected", } | { "state": "error", error: string | null, };
+export type BoardState = { "state": "connected", port: string, firmwareName: string, firmwareVersion: string, pins: Array<PinInfo>, } | { "state": "connecting", } | { "state": "flashing", port: string, board: string, } | { "state": "confirmFlash", port: string, board: string, } | { "state": "disconnected", } | { "state": "error", error: string | null, };

@@ -110,12 +110,28 @@ pub enum DiagnosticLevel {
     Error,
 }
 
-/// A runtime health signal a node raises about *itself* — surfaced on the node
-/// in the UI (not routed across edges like a [`ComponentEvent`]). A hardware
-/// node uses this to report a fault it can only see at runtime, e.g. an I2C
-/// device whose reads never ACK ("too few bytes"). `message: None` clears any
-/// prior diagnostic on that node (recovery). Nodes should raise these only on a
-/// state *transition* so a per-poll failure doesn't spam the channel.
+/// Who raised a [`NodeDiagnostic`]. A node shows the most severe diagnostic of
+/// either origin, and each origin raises and clears only its own — so the
+/// runtime clearing a rejected input can never wipe an I2C NACK the node
+/// reported, and vice versa.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum DiagnosticOrigin {
+    /// The node reported it about itself ([`RuntimeContext::report_diagnostic`]).
+    Node,
+    /// The runtime observed it: the node failed to build or start, rejected an
+    /// input, or was paused by the turn budget.
+    Runtime,
+}
+
+/// A runtime health signal about one node — surfaced on the node in the UI (not
+/// routed across edges like a [`ComponentEvent`]). A hardware node uses this to
+/// report a fault it can only see at runtime, e.g. an I2C device whose reads
+/// never ACK ("too few bytes"); the runtime uses it for faults the node cannot
+/// see itself. `message: None` clears that origin's diagnostic on the node
+/// (recovery). Raised only on a state *transition* so a per-poll failure
+/// doesn't spam the channel.
 #[derive(Debug, Clone, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
@@ -123,8 +139,10 @@ pub struct NodeDiagnostic {
     /// The node the diagnostic is about (and displayed on).
     pub node: String,
     pub level: DiagnosticLevel,
-    /// The message to show; `None` clears the node's diagnostic.
+    /// The message to show; `None` clears this origin's diagnostic on the node.
     pub message: Option<String>,
+    /// Who raised it; a clear only clears the same origin.
+    pub origin: DiagnosticOrigin,
 }
 
 /// Everything the host must do after one runtime turn. Bytes go to the serial
@@ -336,6 +354,7 @@ impl<'a> RuntimeContext<'a> {
             node: self.node_id.to_string(),
             level,
             message: Some(message.into()),
+            origin: DiagnosticOrigin::Node,
         });
     }
 
@@ -345,6 +364,7 @@ impl<'a> RuntimeContext<'a> {
             node: self.node_id.to_string(),
             level: DiagnosticLevel::Error,
             message: None,
+            origin: DiagnosticOrigin::Node,
         });
     }
 }
@@ -433,6 +453,7 @@ mod apply_tests {
                 node: "i2c".to_string(),
                 level: DiagnosticLevel::Error,
                 message: Some("no ACK".to_string()),
+                origin: DiagnosticOrigin::Node,
             }],
         };
 
@@ -587,6 +608,7 @@ mod wire_tests {
                 node: "node-1".into(),
                 level: DiagnosticLevel::Warning,
                 message: None,
+                origin: DiagnosticOrigin::Runtime,
             }],
             ..Effects::default()
         };

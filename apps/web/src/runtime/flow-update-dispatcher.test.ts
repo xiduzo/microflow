@@ -361,19 +361,67 @@ describe("FlowUpdateDispatcher", () => {
     await Promise.resolve();
     expect(retry.hasPending).toBe(true);
 
-    // Nothing changed, so only the retry scheduler drives the next attempts.
+    // The doc changes between attempts: the retry sends it as it is now.
+    doc.addNode(mkNode("n1"));
     sender.scriptError("down 2");
-    retry.flush();
+    retry.flush(); // superseded by the change: nothing pending here
+    scheduler.flush();
     await Promise.resolve();
     expect(sender.sent).toHaveLength(2);
+    expect(sender.sent[1]!.nodes.map((n) => n.id)).toEqual(["n1"]);
     expect(reported).toEqual([]);
 
+    // With the doc unchanged, the retry scheduler alone drives the next attempt
+    // — and it too sends the current doc, not the update that first failed.
+    expect(retry.hasPending).toBe(true);
     sender.scriptError("down 3");
     retry.flush();
     await Promise.resolve();
     expect(sender.sent).toHaveLength(3);
+    expect(sender.sent[2]!.nodes.map((n) => n.id)).toEqual(["n1"]);
     expect(reported).toEqual(["down 3"]);
     expect(retry.hasPending).toBe(false);
+
+    dispatcher.destroy();
+  });
+
+  test("in a busy room, failures still add up to one report", async () => {
+    // Every remote edit schedules a dispatch. Those must not reset the failure
+    // count, or a runtime that never accepts an update is never reported.
+    const doc = FlowDocument.createEmpty();
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const retry = new ManualDispatchScheduler();
+    const reported: string[] = [];
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+      { scheduler: retry, maxAttempts: 3, onGiveUp: (error) => reported.push(error) },
+    );
+
+    for (let i = 0; i < 6; i++) {
+      sender.scriptError(`down ${i}`);
+      doc.addNode(mkNode(`n${i}`));
+      scheduler.flush();
+      await Promise.resolve();
+    }
+    expect(sender.sent.length).toBeGreaterThanOrEqual(6);
+    expect(reported).toEqual(["down 2"]);
+
+    // A success resets it: the next run of failures is reported again.
+    doc.addNode(mkNode("ok"));
+    scheduler.flush();
+    await Promise.resolve();
+    for (let i = 0; i < 3; i++) {
+      sender.scriptError(`again ${i}`);
+      doc.addNode(mkNode(`m${i}`));
+      scheduler.flush();
+      await Promise.resolve();
+    }
+    expect(reported).toEqual(["down 2", "again 2"]);
 
     dispatcher.destroy();
   });
