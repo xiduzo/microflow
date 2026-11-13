@@ -159,12 +159,9 @@ impl HardwareMonitorLoop {
     }
 
     fn tick(&mut self) {
-        let now = Instant::now();
-        while let Ok(session) = self.session_ended.try_recv() {
-            self.link.session_ended(session, now);
-        }
+        self.link.drain_session_ends(&self.session_ended);
         match PortMonitor::get_ports() {
-            Ok(ports) => self.link.scan(ports, now),
+            Ok(ports) => self.link.scan(ports),
             Err(e) => log::debug!("Port scan failed: {e}"),
         }
     }
@@ -214,6 +211,10 @@ impl LinkIo for DesktopLinkIo {
 
     fn port_disconnected(&mut self, port: &SerialPortInfo) {
         self.events.port_disconnected(port);
+    }
+
+    fn now(&self) -> Instant {
+        Instant::now()
     }
 }
 
