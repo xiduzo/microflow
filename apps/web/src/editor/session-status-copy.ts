@@ -74,13 +74,24 @@ export function describeSessionStatus(status: FlowSessionStatus): SessionStatusC
       return { label: "Saving…", detail: "Your changes are being stored.", tone: "busy", canRetry: false };
     case "saved":
       return { label: "Saved", detail: "All changes are stored.", tone: "good", canRetry: false };
-    case "read-only":
+    case "read-only": {
+      const n = status.unsyncedChanges;
+      if (n > 0) {
+        const these = n === 1 ? "1 local change" : `${n} local changes`;
+        return {
+          label: `View only · ${these} not saved`,
+          detail: `You have view access to this flow now, so ${these} made on this device can't be saved. Export the flow to keep them; reloading discards them.`,
+          tone: "warn",
+          canRetry: false,
+        };
+      }
       return {
         label: "View only",
         detail: "You can look around, but you can't change this flow.",
         tone: "neutral",
         canRetry: false,
       };
+    }
     case "offline": {
       const n = status.unsyncedChanges;
       if (status.serverRestarting) {

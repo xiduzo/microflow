@@ -127,14 +127,16 @@ export function reduceSessionStatus(
       // reconnect; show it as connecting, and a repeat refusal sets it again.
       if (event.state === "connecting") return { ...next, accessLost: null };
       if (event.state === "synced") {
+        const synced = { ...next, accessLost: null, lastDropCode: null, hasConnectedOrFailed: true };
+        // Read-only: the room dropped our half of the handshake (it accepts
+        // no writes from us), so edits held while offline are still only
+        // here. Keep counting them — "0 unsynced" would be a lie.
+        if (state.readOnly) return synced;
         // The handshake exchanged state vectors in both directions, so edits
         // held while offline are on the server now — awaiting persistence.
         const delivered = state.pendingDelivery;
         return {
-          ...next,
-          accessLost: null,
-          lastDropCode: null,
-          hasConnectedOrFailed: true,
+          ...synced,
           pendingDelivery: 0,
           pendingSave: state.pendingSave + delivered,
           confirmed: delivered > 0 ? false : state.confirmed,
@@ -143,7 +145,7 @@ export function reduceSessionStatus(
       return next;
     }
     case "local-update":
-      if (state.transport === "synced" && state.accessLost === null) {
+      if (state.transport === "synced" && state.accessLost === null && !state.readOnly) {
         return { ...state, pendingSave: state.pendingSave + 1, confirmed: false };
       }
       return { ...state, pendingDelivery: state.pendingDelivery + 1 };

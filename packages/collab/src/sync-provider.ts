@@ -273,8 +273,13 @@ export class SyncProvider {
       const access = ACCESS_CODES[decoding.readVarUint(decoder)];
       // "none" never arrives as a message — revocation closes the socket.
       if (access !== "read" && access !== "write") return;
+      const promoted = this.currentAccess === "read" && access === "write";
       this.currentAccess = access;
       this.emit("access", access);
+      // While read-only the room dropped our half of the handshake, so edits
+      // held from before are still only here. Only a fresh handshake carries
+      // them (the server sends its sync step 1 on join), so start one.
+      if (promoted) queueMicrotask(() => this.reconnect());
     };
 
     this.provider.on("connection-close", () => {

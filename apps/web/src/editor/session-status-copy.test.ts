@@ -34,6 +34,14 @@ describe("session status copy", () => {
     expect(describe_({ kind: "offline" })?.canRetry).toBe(true);
   });
 
+  test("view only with held edits says they can't be saved", () => {
+    expect(describe_({ kind: "read-only", readOnly: true })?.label).toBe("View only");
+    expect(describe_({ kind: "read-only", readOnly: true, unsyncedChanges: 2 })).toMatchObject({
+      label: "View only · 2 local changes not saved",
+      tone: "warn",
+    });
+  });
+
   test("a server restart is reconnecting, not an error", () => {
     expect(describe_({ kind: "offline", serverRestarting: true })).toMatchObject({
       label: "Server restarting",

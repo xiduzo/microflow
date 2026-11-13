@@ -149,6 +149,35 @@ describe("Flow Session Status", () => {
     expect(status().readOnly).toBe(false);
   });
 
+  test("offline edits are not counted as delivered when the rejoin says read-only", () => {
+    const { source, status } = setup();
+    source.connect();
+    source.emit("state", "disconnected");
+    source.emit("localUpdate");
+    source.emit("localUpdate");
+
+    // Demoted while away: the join states read access before the handshake
+    // completes, and the room drops our sync step 2.
+    source.emit("state", "syncing");
+    source.emit("access", "read");
+    source.emit("state", "synced");
+
+    expect(status()).toMatchObject({ kind: "read-only", readOnly: true, unsyncedChanges: 2 });
+  });
+
+  test("a promotion's fresh handshake delivers the held edits", () => {
+    const { source, status } = setup();
+    source.emit("access", "read");
+    source.emit("localUpdate");
+    source.connect();
+    expect(status().unsyncedChanges).toBe(1);
+
+    source.emit("access", "write");
+    source.emit("state", "disconnected"); // the provider reconnects on promotion
+    source.connect();
+    expect(status()).toMatchObject({ kind: "saving", unsyncedChanges: 0 });
+  });
+
   test("a viewer session starts read-only and catches up with an access the source already knows", () => {
     const source = new FakeSource();
     source.access = "write";

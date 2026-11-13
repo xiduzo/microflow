@@ -460,6 +460,19 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
+  test("a promotion from read to write starts a fresh handshake", async () => {
+    const { provider } = makeAuthedProvider(() => undefined);
+    const socket = lastSocket();
+    socket.open();
+    socket.onmessage?.({ data: new Uint8Array([MESSAGE_ACCESS, 1]).buffer as ArrayBuffer });
+    expect(FakeSocket.instances.length).toBe(1);
+
+    socket.onmessage?.({ data: new Uint8Array([MESSAGE_ACCESS, 2]).buffer as ArrayBuffer });
+    await Promise.resolve();
+    expect(FakeSocket.instances.length).toBe(2);
+    provider.destroy();
+  });
+
   test("local edits are reported; edits arriving from the server are not", () => {
     const { doc, provider } = makeAuthedProvider(() => undefined);
     const socket = lastSocket();
