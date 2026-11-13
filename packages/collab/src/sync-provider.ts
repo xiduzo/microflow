@@ -347,7 +347,7 @@ export class SyncProvider {
    * client holds now.
    */
   private shouldReconnect(event: CloseEvent): boolean {
-    const verdict = classifyClose(event.code, event.reason);
+    const verdict = classifyClose(event.code);
     if (verdict === "terminal") return false;
     if (verdict === "reauth" && ++this.reauthAttempts > MAX_REAUTH_ATTEMPTS) return false;
     this.emit("dropped", event.code, event.reason);

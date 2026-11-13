@@ -65,13 +65,27 @@ export const ACCESS_CODES = ["none", "read", "write"] as const;
 export type WireAccess = (typeof ACCESS_CODES)[number];
 
 /**
- * The close code the server's auth gate uses (`apps/server`): RFC 6455
- * "policy violation". The reason tells the two cases apart — "Unauthorized"
- * (no valid session) and "Forbidden" (this user may not open this flow).
- * Outside y-websocket's 4400–4499 terminal range, so by default the provider
- * retries both forever — `classifyClose` decides instead.
+ * Terminal (4400–4499): the authenticated user may not open this flow — the
+ * auth gate's denial. Kept apart from a failure while *deciding* (a database
+ * timeout, an unready pool), which closes with `CLOSE_INTERNAL_ERROR` and is
+ * retried: otherwise one deploy hiccup strands every client in "access lost".
+ */
+export const CLOSE_FORBIDDEN = 4403;
+
+/**
+ * The auth gate's "no valid session" close: RFC 6455 "policy violation",
+ * reason "Unauthorized". Older servers also sent it, reason "Forbidden", for
+ * denials *and* for database errors while checking access — so the client
+ * treats every 1008 as `"reauth"`: a few bounded retries, then stop.
  */
 export const CLOSE_POLICY_VIOLATION = 1008;
+
+/**
+ * RFC 6455 "internal error". Retryable: the server could not decide or load
+ * (store or database failure), and asking again later may well succeed.
+ */
+export const CLOSE_INTERNAL_ERROR = 1011;
+
 /**
  * Standard WebSocket "Service Restart" (RFC 6455 registry). The server sends
  * it from `YjsServer.shutdown()` when the process is going down. Retryable on
@@ -83,22 +97,20 @@ export const CLOSE_SERVICE_RESTART = 1012;
 /**
  * What a client should do after the server closed its socket:
  *
- * - `"retry"` — transient (network, 1011 load failure, 1012 restart, 1013,
- *   a dropped room or stalled send buffer). Back off and reconnect.
- * - `"reauth"` — the credentials were rejected (1008 "Unauthorized"). A token
- *   refreshed in the meantime may fix it, so retry with a freshly read token —
- *   a bounded number of times (`MAX_REAUTH_ATTEMPTS`), then give up.
- * - `"terminal"` — the answer will not change (1008 "Forbidden", 4400–4499
- *   including `CLOSE_ACCESS_DENIED` "Access revoked"). Stop.
+ * - `"retry"` — transient (network, 1011 access-check or load failure, 1012
+ *   restart, 1013, a dropped room or stalled send buffer). Back off, reconnect.
+ * - `"reauth"` — 1008: the credentials were rejected, or an older server's
+ *   ambiguous "Forbidden". Refresh the token and retry a bounded number of
+ *   times (`MAX_REAUTH_ATTEMPTS`), then give up.
+ * - `"terminal"` — the answer will not change: 4400–4499, i.e.
+ *   `CLOSE_ACCESS_DENIED` (revoked), `CLOSE_FORBIDDEN`, `CLOSE_FLOW_GONE`.
  */
 export type CloseVerdict = "retry" | "reauth" | "terminal";
 
 export const MAX_REAUTH_ATTEMPTS = 3;
 
-export function classifyClose(code: number, reason = ""): CloseVerdict {
+export function classifyClose(code: number): CloseVerdict {
   if (code >= 4400 && code < 4500) return "terminal";
-  if (code === CLOSE_POLICY_VIOLATION) {
-    return /unauthori[sz]ed/i.test(reason) ? "reauth" : "terminal";
-  }
+  if (code === CLOSE_POLICY_VIOLATION) return "reauth";
   return "retry";
 }

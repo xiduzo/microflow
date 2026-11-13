@@ -372,15 +372,24 @@ describe("Flow Session Status over SyncProvider", () => {
     provider.destroy();
   });
 
-  test("a 1008 close stops retrying and reports access lost", async () => {
+  test("a denial (4403) stops retrying and reports access lost", async () => {
     const { provider, machine, socket } = connectedProvider();
-    socket.serverClose(1008, "Forbidden");
+    socket.serverClose(4403, "Forbidden");
     await new Promise((r) => setTimeout(r, 260));
     expect(FakeSocket.instances.length).toBe(1);
     expect(machine.getSnapshot()).toMatchObject({
       kind: "access-lost",
-      accessLost: { reason: "Forbidden", code: 1008 },
+      accessLost: { reason: "Forbidden", code: 4403 },
     });
+    provider.destroy();
+  });
+
+  test("a failed access check (1011) is a retry, not access lost", async () => {
+    const { provider, machine, socket } = connectedProvider();
+    socket.serverClose(1011, "Access check failed");
+    expect(machine.getSnapshot()).toMatchObject({ kind: "offline", accessLost: null });
+    await new Promise((r) => setTimeout(r, 260));
+    expect(FakeSocket.instances.length).toBe(2);
     provider.destroy();
   });
 });

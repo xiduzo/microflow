@@ -1,3 +1,4 @@
+import { CLOSE_ACCESS_DENIED, CLOSE_FLOW_GONE, CLOSE_POLICY_VIOLATION } from "@microflow/collab";
 import type { FlowSessionStatus } from "@/session";
 
 export type SessionStatusTone = "neutral" | "busy" | "good" | "warn" | "bad";
@@ -14,6 +15,36 @@ export type SessionStatusCopy = {
 
 function changes(n: number): string {
   return `${n} unsynced change${n === 1 ? "" : "s"}`;
+}
+
+/** Who refused, by close code (see `protocol.ts`), with the reason as a fallback. */
+function accessLostCopy(
+  lost: FlowSessionStatus["accessLost"],
+): { label: string; detail: string; canRetry: boolean } {
+  const code = lost?.code;
+  const reason = lost?.reason ?? "";
+  if (code === CLOSE_FLOW_GONE) {
+    return { label: "Flow deleted", detail: "This flow was deleted.", canRetry: false };
+  }
+  if (code === CLOSE_ACCESS_DENIED) {
+    return {
+      label: "Access removed",
+      detail: "Your access to this flow was removed.",
+      canRetry: false,
+    };
+  }
+  if (code === CLOSE_POLICY_VIOLATION && !/forbidden/i.test(reason)) {
+    return {
+      label: "Signed out",
+      detail: "Your session expired. Sign in again, then retry.",
+      canRetry: true,
+    };
+  }
+  return {
+    label: "No access",
+    detail: "You don't have access to this flow.",
+    canRetry: true,
+  };
 }
 
 /** What the editor header says for a Flow Session Status. `null` hides it. */
@@ -71,20 +102,10 @@ export function describeSessionStatus(status: FlowSessionStatus): SessionStatusC
       };
     }
     case "access-lost": {
-      const reason = status.accessLost?.reason ?? "";
-      const label = /unauthori[sz]ed/i.test(reason)
-        ? "Signed out"
-        : /revoked/i.test(reason)
-          ? "Access removed"
-          : "No access";
+      const { label, detail, canRetry } = accessLostCopy(status.accessLost);
       const n = status.unsyncedChanges;
       const lost = n > 0 ? ` ${changes(n)} could not be saved.` : "";
-      return {
-        label,
-        detail: `${reason || "The server refused the connection"}. Editing is paused.${lost}`,
-        tone: "bad",
-        canRetry: true,
-      };
+      return { label, detail: `${detail} Editing is paused.${lost}`, tone: "bad", canRetry };
     }
   }
 }

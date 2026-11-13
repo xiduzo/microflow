@@ -46,7 +46,17 @@ describe("session status copy", () => {
     const label = (reason: string, code: number) =>
       describe_({ kind: "access-lost", readOnly: true, accessLost: { reason, code } })?.label;
     expect(label("Unauthorized", 1008)).toBe("Signed out");
-    expect(label("Forbidden", 1008)).toBe("No access");
+    expect(label("Forbidden", 1008)).toBe("No access"); // an older server
+    expect(label("Forbidden", 4403)).toBe("No access");
     expect(label("Access revoked", 4401)).toBe("Access removed");
+    expect(label("Flow not found", 4404)).toBe("Flow deleted");
+  });
+
+  test("retry is offered only where it can help", () => {
+    const retry = (code: number) =>
+      describe_({ kind: "access-lost", readOnly: true, accessLost: { reason: "", code } })?.canRetry;
+    expect(retry(4404)).toBe(false);
+    expect(retry(4401)).toBe(false);
+    expect(retry(1008)).toBe(true);
   });
 });

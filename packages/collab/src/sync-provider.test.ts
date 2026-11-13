@@ -330,17 +330,17 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
-  test("1008 Forbidden is terminal: no retry, and the reason is surfaced", async () => {
+  test("4403 Forbidden is terminal: no retry, and the reason is surfaced", async () => {
     const { provider } = makeAuthedProvider(() => "token");
     const denied: Array<[string, number]> = [];
     provider.on("accessDenied", (reason, code) => denied.push([reason, code]));
 
     const first = lastSocket();
     first.open();
-    serverClose(first, 1008, "Forbidden");
+    serverClose(first, 4403, "Forbidden");
     await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
 
-    expect(denied).toEqual([["Forbidden", 1008]]);
+    expect(denied).toEqual([["Forbidden", 4403]]);
     expect(FakeSocket.instances.length).toBe(1);
     expect(provider.state).toBe("disconnected");
     provider.destroy();
@@ -433,10 +433,12 @@ describe("SyncProvider auth and access", () => {
   });
 
   test("close classification follows the server's codes", () => {
-    expect(classifyClose(1008, "Forbidden")).toBe("terminal");
-    expect(classifyClose(1008, "Unauthorized")).toBe("reauth");
-    expect(classifyClose(4401, "Access revoked")).toBe("terminal");
-    expect(classifyClose(4401, "")).toBe("terminal");
+    // 1008 is "Unauthorized", or an older server's ambiguous "Forbidden"
+    // (denial or DB error): bounded retries either way.
+    expect(classifyClose(1008)).toBe("reauth");
+    expect(classifyClose(4401)).toBe("terminal"); // revoked
+    expect(classifyClose(4403)).toBe("terminal"); // denied
+    expect(classifyClose(4404)).toBe("terminal"); // flow deleted
     for (const code of [1000, 1005, 1006, 1011, 1012, 1013, 4500]) {
       expect(classifyClose(code)).toBe("retry");
     }
