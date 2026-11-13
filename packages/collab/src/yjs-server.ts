@@ -794,6 +794,49 @@ export class YjsServer {
   }
 
   /**
+   * Write flow meta (e.g. a rename) into the document, as the server.
+   *
+   * The flow row and the document both carry the name; the server owns the
+   * document's copy (ADR-0022's pattern: a server-side change reaches the live
+   * doc, not just the row). A live room takes the write directly — it
+   * broadcasts to every client and `RoomPersistence` saves it. With no room,
+   * the change goes straight to the store, which merges (see `RoomStore.save`),
+   * so a room that loads meanwhile cannot be clobbered; if one did load during
+   * the store round trip, the change is applied to it too.
+   */
+  async writeMeta(flowId: string, meta: Record<string, unknown>): Promise<void> {
+    if (this.droppedFlows.has(flowId)) return;
+    // `FlowDocument.setMeta`'s write, without building a `FlowDocument` (and
+    // its undo manager) around a live room's doc.
+    const apply = (doc: Y.Doc) =>
+      doc.transact(() => {
+        const map = doc.getMap("meta");
+        for (const [key, value] of Object.entries(meta)) map.set(key, value);
+        map.set("updatedAt", Date.now());
+      }, "server");
+
+    const live = this.rooms.get(flowId) ?? (await this.roomsLoading.get(flowId)?.catch(() => null));
+    if (live && !live.destroyed) {
+      apply(live.doc);
+      return;
+    }
+
+    const doc = new Y.Doc();
+    try {
+      const stored = await this.store.load(flowId);
+      if (stored) Y.applyUpdate(doc, stored);
+      const before = Y.encodeStateVector(doc);
+      apply(doc);
+      const change = Y.encodeStateAsUpdate(doc, before);
+      await this.store.save(flowId, Y.encodeStateAsUpdate(doc));
+      const raced = this.rooms.get(flowId);
+      if (raced && !raced.destroyed) Y.applyUpdate(raced.doc, change);
+    } finally {
+      doc.destroy();
+    }
+  }
+
+  /**
    * Stop taking edits and write every room to the store, for process exit.
    *
    * Every connection is closed first with `CLOSE_SERVICE_RESTART` (retryable:

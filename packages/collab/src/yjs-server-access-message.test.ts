@@ -194,3 +194,78 @@ describe("YjsServer durability signals", () => {
     expect(writer.signals().slice(before)).toEqual(["unsaved:failed"]);
   });
 });
+
+// ----------------------------------------------------------------------------
+// Server-written meta: a rename reaches the document, live or stored.
+// ----------------------------------------------------------------------------
+
+describe("YjsServer.writeMeta", () => {
+  /** Replay a peer's received sync frames into a mirror and read its name. */
+  function mirroredName(received: Uint8Array[]): unknown {
+    const doc = new Y.Doc();
+    for (const frame of received) {
+      const decoder = decoding.createDecoder(frame);
+      if (decoding.readVarUint(decoder) !== MESSAGE_SYNC) continue;
+      syncProtocol.readSyncMessage(decoder, encoding.createEncoder(), doc, null);
+    }
+    return doc.getMap("meta").get("name");
+  }
+
+  async function storedDoc(store: MemoryRoomStore, flowId: string): Promise<Y.Doc> {
+    const doc = new Y.Doc();
+    const state = await store.load(flowId);
+    if (state) Y.applyUpdate(doc, state);
+    return doc;
+  }
+  const storedName = async (store: MemoryRoomStore, flowId: string) =>
+    (await storedDoc(store, flowId)).getMap("meta").get("name");
+
+  test("with a live room: every client sees the rename, and the room saves it", async () => {
+    const store = new MemoryRoomStore();
+    const server = new YjsServer({ store, persistDebounce: 5, persistMaxWait: 20 });
+    const received: Uint8Array[] = [];
+    await server.join("flow-1", { send: (d) => received.push(d), close: () => {} }, "ada", true);
+
+    await server.writeMeta("flow-1", { name: "Renamed" });
+    expect(mirroredName(received)).toBe("Renamed");
+
+    await tick(40);
+    expect(await storedName(store, "flow-1")).toBe("Renamed");
+  });
+
+  test("with no room: the stored document is updated, merged with what is there", async () => {
+    const store = new MemoryRoomStore();
+    const seed = new Y.Doc();
+    seed.getMap("meta").set("name", "Old");
+    seed.getMap("nodes").set("n1", 1);
+    await store.save("flow-1", Y.encodeStateAsUpdate(seed));
+    const server = new YjsServer({ store });
+
+    await server.writeMeta("flow-1", { name: "Renamed" });
+
+    expect(await storedName(store, "flow-1")).toBe("Renamed");
+    expect((await storedDoc(store, "flow-1")).getMap("nodes").get("n1")).toBe(1);
+
+    // The next room to open the flow starts from the renamed document.
+    const received: Uint8Array[] = [];
+    const connection = await server.join(
+      "flow-1",
+      { send: (d) => received.push(d), close: () => {} },
+      "ada",
+      true,
+    );
+    const step1 = encoding.createEncoder();
+    encoding.writeVarUint(step1, MESSAGE_SYNC);
+    syncProtocol.writeSyncStep1(step1, new Y.Doc());
+    connection.receive(encoding.toUint8Array(step1)); // "send me everything"
+    expect(mirroredName(received)).toBe("Renamed");
+  });
+
+  test("a deleted flow is left alone", async () => {
+    const store = new MemoryRoomStore();
+    const server = new YjsServer({ store });
+    server.dropRoom("flow-1");
+    await server.writeMeta("flow-1", { name: "Renamed" });
+    expect(store.saves.length).toBe(0);
+  });
+});

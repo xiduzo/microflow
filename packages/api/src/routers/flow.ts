@@ -362,6 +362,13 @@ export const flowRouter = router({
         .where(eq(flow.id, input.id))
         .returning();
 
+      // The document carries the name too (export and sketch filenames read
+      // it). The row write alone left it stale: push the rename into the live
+      // room, or the stored document when none is open.
+      if (input.name !== undefined) {
+        await yjsServer.writeMeta(input.id, { name: input.name });
+      }
+
       return updatedFlow;
     }),
 
