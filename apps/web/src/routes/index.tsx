@@ -11,6 +11,7 @@ import { compareDesc } from "date-fns";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
+import { reportError } from "@/lib/report-error";
 import { authClient } from "@/account/auth-client";
 import {
   FlowCard,
@@ -91,7 +92,15 @@ function HomeComponent() {
           edges: data.data.edges,
         });
       } else {
-        await saveLocalFlow(data.data.nodes, data.data.edges);
+        try {
+          await saveLocalFlow(data.data.nodes, data.data.edges);
+        } catch (error) {
+          reportError(error, { source: "action", route: Route.id });
+          toast.error("Couldn't import the flow", {
+            description: error instanceof Error ? error.message : undefined,
+          });
+          return;
+        }
         setActiveFlowId("local");
         toast.success("Flow imported", {
           description: `${data.data.nodes.length} nodes, ${data.data.edges.length} edges`,
@@ -112,7 +121,8 @@ function HomeComponent() {
   useEffect(() => {
     loadLocalFlow()
       .then(setLocalContents)
-      .catch((e) => console.error("[HOME] Failed to load local flow:", e));
+      // The preview stays empty; the failure itself is already reported by the adapter.
+      .catch((e) => reportError(e, { source: "action", route: Route.id }));
   }, []);
 
   const localFlow = useMemo<OverviewFlow>(

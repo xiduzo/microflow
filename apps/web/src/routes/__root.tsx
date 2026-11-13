@@ -29,6 +29,7 @@ import { useBackendLogs } from "@/devtools/use-backend-logs";
 import ReactConfetti from "react-confetti";
 import { useFirstArduinoConnection } from "@/board/use-first-arduino-connection";
 import { useSidebarStore } from "@/shell/sidebar";
+import { RootErrorComponent } from "@/shell/failure-screens";
 
 export interface RouterAppContext {
   trpc: typeof trpc;
@@ -37,6 +38,9 @@ export interface RouterAppContext {
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
+  // The root component is the shell: when it throws, the error screen takes
+  // the viewport instead of rendering inside a sidebar that is gone.
+  errorComponent: RootErrorComponent,
   head: () => ({
     meta: [
       {
