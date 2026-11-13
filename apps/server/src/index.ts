@@ -5,23 +5,47 @@ import { getPublicSupportersCached } from "@microflow/api/routers/supporters";
 import { requireFlowAccess } from "@microflow/api/routers/flow-access";
 import { auth } from "@microflow/auth";
 import { env } from "@microflow/env/server";
-import { createYjsHandler } from "@microflow/collab/server";
+import { createYjsHandler, yjsServer } from "@microflow/collab/server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { createBunWebSocket } from "hono/bun";
 import type { WSContext } from "hono/ws";
+import { redactSecrets } from "./log-redaction";
+import { installShutdownHook, type Drain } from "./shutdown";
 
 const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 const app = new Hono();
 
-app.use(logger());
+// The logger prints the full URL; the desktop app's `/yjs` upgrade carries its
+// bearer token in the query string.
+app.use(logger((line, ...rest) => console.log(redactSecrets(line), ...rest)));
 
 app.onError((err, c) => {
-  console.error("[error]", err);
-  return c.json({ error: err.message, stack: err.stack }, 500);
+  if (err instanceof HTTPException) return err.getResponse();
+  // The stack stays in the server log. Clients get no internals: file paths,
+  // dependency versions and query shapes are reconnaissance, not diagnostics.
+  console.error(`[error] ${c.req.method} ${c.req.path}`, err);
+  return c.json({ error: "Internal Server Error" }, 500);
 });
+
+// Save live collaboration rooms before a deploy or Ctrl-C ends the process.
+// 8 s sits inside Docker's default 10 s stop grace period.
+//
+// Under `bun --hot` this module re-evaluates on every edit: the listeners are
+// installed once per process and always drain the latest room server.
+const SHUTDOWN_DRAIN = Symbol.for("microflow.server.shutdownDrain");
+const hookHost = globalThis as { [SHUTDOWN_DRAIN]?: Drain };
+const firstEvaluation = !hookHost[SHUTDOWN_DRAIN];
+hookHost[SHUTDOWN_DRAIN] = (timeoutMs) => yjsServer.shutdown(timeoutMs);
+if (firstEvaluation) {
+  installShutdownHook((timeoutMs) => hookHost[SHUTDOWN_DRAIN]!(timeoutMs), process, {
+    timeoutMs: 8_000,
+    exit: (code) => process.exit(code),
+  });
+}
 const allowedOrigins = [
   ...env.CORS_ORIGINS,
   "tauri://localhost",
