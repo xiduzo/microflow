@@ -64,5 +64,6 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
 [dev-dependencies]
 proptest = "1"
+# `sim-board`: test what the desktop writes against a firmware model.
 # `test-nodes`: the supervision tests run a node that panics in dispatch.
-microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js", "cloud", "test-nodes"] }
+microflow-core = { path = "../../../crates/microflow-core", features = ["runtime", "js", "cloud", "sim-board", "test-nodes"] }

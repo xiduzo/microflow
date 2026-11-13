@@ -30,7 +30,7 @@ mod firmata;
 mod port_monitor;
 mod types;
 
-pub use board_link::{FlashAnswer, SessionId};
+pub use board_link::{FlashAnswer, OfferId, SessionId};
 pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
@@ -234,6 +234,10 @@ impl LinkIo for DesktopLinkIo {
     fn now(&self) -> Instant {
         Instant::now()
     }
+
+    fn device_at(&mut self, port: &str) -> Option<SerialPortInfo> {
+        PortMonitor::get_ports().ok()?.into_iter().find(|p| p.port_name == port)
+    }
 }
 
 // ============================================================================
@@ -247,17 +251,28 @@ pub fn get_available_serial_ports() -> Result<Vec<SerialPortInfo>, String> {
 }
 
 /// The user said yes to the `confirmFlash` board state: flash the offered board.
+/// `port`/`vid`/`pid` name the offer answered; a stale answer is ignored.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-pub fn confirm_board_flash(state: tauri::State<'_, crate::AppState>) -> Result<(), String> {
-    answer_board_flash(&state, FlashAnswer::Confirm)
+pub fn confirm_board_flash(
+    state: tauri::State<'_, crate::AppState>,
+    port: String,
+    vid: u16,
+    pid: u16,
+) -> Result<(), String> {
+    answer_board_flash(&state, FlashAnswer::Confirm(OfferId { port, vid, pid }))
 }
 
 /// The user said no to the `confirmFlash` board state: leave the device alone.
 #[tauri::command]
 #[allow(clippy::needless_pass_by_value)]
-pub fn decline_board_flash(state: tauri::State<'_, crate::AppState>) -> Result<(), String> {
-    answer_board_flash(&state, FlashAnswer::Decline)
+pub fn decline_board_flash(
+    state: tauri::State<'_, crate::AppState>,
+    port: String,
+    vid: u16,
+    pid: u16,
+) -> Result<(), String> {
+    answer_board_flash(&state, FlashAnswer::Decline(OfferId { port, vid, pid }))
 }
 
 fn answer_board_flash(state: &crate::AppState, answer: FlashAnswer) -> Result<(), String> {

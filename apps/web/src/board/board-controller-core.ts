@@ -127,6 +127,9 @@ type Attempt = {
   flashToast?: string | number;
 };
 
+/** Which device a flash offer is about, as the board store shows it. */
+export type FlashOfferIdentity = { port: string; vid: number; pid: number };
+
 /** A reconnect sequence in progress after a lost link. */
 type Retry = { attempt: number; timer: TimerHandle | null };
 
@@ -152,6 +155,10 @@ export class BoardController {
   private queue: Promise<unknown> = Promise.resolve();
   private attempt: Attempt | null = null;
   private retry: Retry | null = null;
+  /** A "Flash as <board>?" offer is open (the machine is awaiting the answer).
+   *  It is stable: no background attempt starts until it is answered or
+   *  withdrawn, so the offer shown is always the offer held. */
+  private offering = false;
 
   constructor(private readonly deps: BoardControllerDeps) {}
 
@@ -435,6 +442,7 @@ export class BoardController {
   /** Map a machine phase onto the board store + toasts (presentation only). */
   private async applyPhase(phase: BringUpPhase): Promise<void> {
     const a = this.attempt;
+    this.offering = phase.kind === "confirmFlash";
     switch (phase.kind) {
       case "connecting":
         this.publish({ state: "connecting" });
@@ -490,6 +498,8 @@ export class BoardController {
           state: "confirmFlash",
           port: a ? this.deps.serial.portLabel(a.port.getInfo()) : "Serial port",
           board: phase.board,
+          vid: a?.port.getInfo().usbVendorId ?? 0,
+          pid: a?.port.getInfo().usbProductId ?? 0,
         });
         break;
       case "error":
@@ -601,7 +611,9 @@ export class BoardController {
 
   /** Whether a background path may open a port right now. */
   private mayAutoConnect(): boolean {
-    return this.link === null && this.engineFault === null && !this.pageHidden;
+    return (
+      this.link === null && this.engineFault === null && !this.pageHidden && !this.offering
+    );
   }
 
   /**
@@ -627,25 +639,43 @@ export class BoardController {
       const { port } = await picked;
       if (!port) {
         // Picker dismissed — not an error.
-        if (!this.link) this.publish({ state: "disconnected" });
+        if (!this.link && !this.offering) this.publish({ state: "disconnected" });
         return;
       }
       if (this.link) return; // auto-reconnect won the race
       // The user is choosing now; a background rescan must not race them.
       this.cancelRetry();
+      // Picking a port answers an open offer with "no": the machine holds an
+      // offer stable and would ignore the new port otherwise.
+      if (this.offering) await this.dispatch({ type: "flashDeclined" });
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
   }
 
-  /** The user said yes to the "Flash as <board>?" offer. The machine ignores
-   *  it unless an offer is open, so a stale click is harmless. */
-  confirmFlash(): Promise<void> {
-    return this.run(() => this.dispatch({ type: "flashConfirmed" }));
+  /** The user said yes to the "Flash as <board>?" offer `offer`. Acts only if
+   *  it is the offer still open, so a stale click can never flash another device. */
+  confirmFlash(offer: FlashOfferIdentity): Promise<void> {
+    return this.run(async () => {
+      if (this.isOpenOffer(offer)) await this.dispatch({ type: "flashConfirmed" });
+    });
   }
 
   /** The user said no to the offer: leave the device alone. */
-  declineFlash(): Promise<void> {
-    return this.run(() => this.dispatch({ type: "flashDeclined" }));
+  declineFlash(offer: FlashOfferIdentity): Promise<void> {
+    return this.run(async () => {
+      if (this.isOpenOffer(offer)) await this.dispatch({ type: "flashDeclined" });
+    });
+  }
+
+  private isOpenOffer(offer: FlashOfferIdentity): boolean {
+    const a = this.attempt;
+    if (!this.offering || !a) return false;
+    const info = a.port.getInfo();
+    return (
+      offer.port === this.deps.serial.portLabel(info) &&
+      offer.vid === info.usbVendorId &&
+      offer.pid === info.usbProductId
+    );
   }
 
   disconnect(): Promise<void> {
@@ -724,6 +754,9 @@ export class BoardController {
       onDisconnect: (port) =>
         void this.run(async () => {
           if (this.link && this.link.port === port) {
+            await this.dispatch({ type: "portGone" });
+          } else if (this.offering && this.attempt?.port === port) {
+            // The offered device left: withdraw the offer.
             await this.dispatch({ type: "portGone" });
           }
         }),

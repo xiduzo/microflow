@@ -124,6 +124,29 @@ impl HardwareComponent for Led {
         ctx.board().digital_write(self.config.pin, false)?;
         Ok(())
     }
+
+    /// An LED is a plain output: light it again as it was. 1.0 is on (a
+    /// digital HIGH), a fraction is a PWM duty. Mirrors `turn_on` /
+    /// `brightness` without their `set_value` emit.
+    fn restore_output(
+        &mut self,
+        last: &ComponentValue,
+        ctx: &mut RuntimeContext,
+    ) -> Result<(), RuntimeError> {
+        let Some(level) = last.as_number().filter(|l| *l > 0.0) else { return Ok(()) };
+        if level >= 1.0 {
+            ctx.board().digital_write(self.config.pin, true)?;
+        } else {
+            let duty = (level * 255.0).round() as u8;
+            ctx.board().set_pin_mode(self.config.pin, pin_mode::PWM)?;
+            ctx.board().analog_write(self.config.pin, u16::from(duty))?;
+            self.pwm = true;
+            self.brightness_value = duty;
+        }
+        self.is_on = true;
+        self.set_value(last.clone());
+        Ok(())
+    }
 }
 
 impl ComponentBuilder for Led {

@@ -121,7 +121,7 @@ export function DockPanel() {
 
   return (
     <Dock direction="middle">
-      <DockIcon onClick={handleAddNode}>
+      <DockIcon onClick={handleAddNode} data-testid="add-node">
         <PlusIcon />
       </DockIcon>
       <Separator orientation="vertical" className="h-full" />

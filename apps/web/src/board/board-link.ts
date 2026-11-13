@@ -90,38 +90,12 @@ export const MAX_QUEUED_CHUNKS = 4096;
 export const TEARDOWN_STEP_MS = 500;
 
 /**
- * Firmata `SYSTEM_RESET` (0xFF). StandardFirmata answers it by turning reporting
- * off, detaching servos, disabling I2C and driving PWM pins low. It is a single
- * unframed byte with no codec encoder (`FirmataSession` has none), so it is
- * named here.
+ * Firmata `SYSTEM_RESET` (0xFF), the middle of the safe state the link writes
+ * before a healthy close. The bytes come from core's one encoder
+ * (`FirmataSession.encodeSafeState`, `microflow_core::firmata::encode_safe_state`),
+ * shared with the desktop host.
  */
 export const FIRMATA_SYSTEM_RESET = 0xff;
-
-/**
- * The best-effort safe state written before a healthy link closes.
- *
- * `SYSTEM_RESET` alone is not enough: it re-asserts `OUTPUT` on digital pins
- * without touching their latch, so a pin left HIGH stays HIGH. So first every
- * digital port is written to 0 — StandardFirmata applies a port write only to
- * pins in OUTPUT (or INPUT, where 0 changes nothing), never to PWM/servo/analog
- * pins — and then the reset handles PWM and servos. The port messages come from
- * the codec's own encoder; driving all eight pins of a port to 0 leaves the
- * eighth call's message at port value 0 regardless of what the session had
- * decoded for that port.
- */
-export function safeStateBytes(session: Pick<FirmataSession, "pinsJson" | "encodeDigitalWrite">): Uint8Array {
-  const out: number[] = [];
-  const pinCount = (JSON.parse(session.pinsJson()) as unknown[]).length;
-  for (let first = 0; first < pinCount; first += 8) {
-    let message: Uint8Array = new Uint8Array(0);
-    for (let pin = first; pin < first + 8; pin += 1) {
-      message = session.encodeDigitalWrite(pin, false);
-    }
-    out.push(...message);
-  }
-  out.push(FIRMATA_SYSTEM_RESET);
-  return Uint8Array.from(out);
-}
 
 /** Resolve with the promise's outcome, or `"timeout"` after `ms`. Never rejects. */
 async function within(clock: Clock, ms: number, promise: Promise<unknown>): Promise<"ok" | "timeout"> {
@@ -246,7 +220,7 @@ export class SerialBoardLink implements BoardConnection {
     this.queue = [];
     if (healthy) {
       try {
-        await within(this.clock, TEARDOWN_STEP_MS, this.writer.write(safeStateBytes(this.session)));
+        await within(this.clock, TEARDOWN_STEP_MS, this.writer.write(this.session.encodeSafeState()));
       } catch (error) {
         console.warn("[board-link] could not encode the safe state:", error);
       }

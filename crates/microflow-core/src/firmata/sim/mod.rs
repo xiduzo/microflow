@@ -88,8 +88,13 @@ pub struct SimPin {
     /// for a pin with no capability, like the Uno's serial pins).
     mode: Option<u8>,
     /// Firmata's pin state: the OUTPUT level, the PWM duty, the servo value, or
-    /// 1 when an input's pull-up is on.
+    /// 1 when an input's pull-up is on. `setPinModeCallback` zeroes it.
     state: i32,
+    /// The AVR output latch (`PORTx` bit): the level an OUTPUT pin drives, or the
+    /// pull-up of an input. Unlike `state` it survives a mode change — only
+    /// `pinMode(INPUT)`, `INPUT_PULLUP` and leaving PWM rewrite it — so a pin
+    /// left HIGH stays HIGH through `SYSTEM_RESET`, as on the real board.
+    latch: bool,
     /// Level driven onto the pin from outside; `None` = floating.
     external: Option<bool>,
     /// What `analogRead` returns on this pin.
@@ -113,12 +118,12 @@ impl SimPin {
         self.state
     }
 
-    /// The level `digitalRead` sees: what the board drives on an OUTPUT pin,
-    /// otherwise the external level, else the pull-up, else low.
+    /// The level `digitalRead` sees: what the board drives on an OUTPUT pin (its
+    /// latch), otherwise the external level, else the pull-up, else low.
     #[must_use]
     pub fn level(&self) -> bool {
         match self.mode {
-            Some(MODE_OUTPUT) => self.state != 0,
+            Some(MODE_OUTPUT) => self.latch,
             Some(MODE_PWM) => self.state >= 255,
             _ => self.external.unwrap_or(self.pullup()),
         }
@@ -127,7 +132,7 @@ impl SimPin {
     /// Whether the board drives this pin high as a digital OUTPUT.
     #[must_use]
     pub fn is_high(&self) -> bool {
-        self.mode == Some(MODE_OUTPUT) && self.state != 0
+        self.mode == Some(MODE_OUTPUT) && self.latch
     }
 
     /// The PWM duty, if the pin is in PWM mode.
@@ -143,7 +148,7 @@ impl SimPin {
     }
 
     fn pullup(&self) -> bool {
-        matches!(self.mode, Some(MODE_INPUT | MODE_PULLUP)) && self.state == 1
+        matches!(self.mode, Some(MODE_INPUT | MODE_PULLUP)) && self.latch
     }
 }
 
@@ -664,10 +669,18 @@ impl SimBoard {
             return;
         }
         let p = &mut self.pins[pin as usize];
-        p.mode = Some(mode);
-        if mode == MODE_PULLUP {
-            p.state = 1;
+        match mode {
+            // `pinMode(INPUT)` clears the latch; `analogWrite(pin, 0)` and the
+            // `digitalWrite(LOW)` on leaving PWM drive it low.
+            MODE_INPUT | MODE_ANALOG | MODE_PWM => p.latch = false,
+            MODE_OUTPUT if p.mode == Some(MODE_PWM) => p.latch = false,
+            MODE_PULLUP => {
+                p.latch = true;
+                p.state = 1;
+            }
+            _ => {}
         }
+        p.mode = Some(mode);
         let now_high = p.level();
         if was_high != now_high {
             self.notify_edge(pin, now_high);
@@ -686,7 +699,14 @@ impl SimBoard {
             }
             match p.mode {
                 Some(MODE_OUTPUT) => self.set_output(pin as u8, level),
-                Some(MODE_INPUT) if level && p.state != 1 => self.pins[pin].state = 1,
+                Some(MODE_INPUT) => {
+                    // Legacy pull-up: writing 1 to an INPUT runs `pinMode(INPUT_PULLUP)`.
+                    let p = &mut self.pins[pin];
+                    if level && p.state != 1 {
+                        p.latch = true;
+                    }
+                    p.state = i32::from(level);
+                }
                 _ => {}
             }
         }
@@ -694,7 +714,8 @@ impl SimBoard {
 
     fn set_output(&mut self, pin: u8, level: bool) {
         let p = &mut self.pins[pin as usize];
-        let was = p.state != 0;
+        let was = p.latch;
+        p.latch = level;
         p.state = i32::from(level);
         if was != level {
             self.notify_edge(pin, level);
@@ -872,11 +893,22 @@ impl SimBoard {
         self.tx.extend(frame);
     }
 
+    /// `CAPABILITY_RESPONSE`. An installed extension advertises its mode on
+    /// every digital pin, as Microflow's `StandardFirmata` does for Pixel and
+    /// `AccelStepperFirmata::handleCapability` does for steppers.
     fn send_capabilities(&mut self) {
         let mut frame = vec![START_SYSEX, CAPABILITY_RESPONSE];
         for pin in &self.pins {
             for (mode, resolution) in pin.caps.modes() {
                 frame.extend([mode, resolution]);
+            }
+            if pin.caps.digital {
+                for extension in &self.extensions {
+                    frame.extend(match extension {
+                        Extension::Pixel => [super::PIN_MODE_PIXEL, 1],
+                        Extension::AccelStepper => [super::PIN_MODE_STEPPER, 21],
+                    });
+                }
             }
             frame.push(127);
         }

@@ -199,6 +199,8 @@ export class SyncProvider {
   /** A re-auth attempt is waiting (backoff + refresh); cancelled by any explicit connect. */
   private reauthTimer: ReturnType<typeof setTimeout> | null = null;
   private reauthGeneration = 0;
+  /** Caps how long a re-auth waits on `refreshAuth`; cleared once settled or cancelled. */
+  private refreshTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly refreshAuth: (() => Promise<unknown>) | undefined;
   private readonly reauthBaseMs: number;
 
@@ -412,11 +414,17 @@ export class SyncProvider {
   private scheduleReauth(attempt: number): void {
     const generation = ++this.reauthGeneration;
     const backoff = this.reauthBaseMs * 2 ** (attempt - 1);
+    this.clearRefreshTimeout();
     const refreshed = this.refreshAuth
       ? Promise.race([
           this.refreshAuth().catch(() => {}),
-          new Promise((resolve) => setTimeout(resolve, REAUTH_REFRESH_TIMEOUT_MS)),
-        ])
+          new Promise((resolve) => {
+            this.refreshTimeout = setTimeout(resolve, REAUTH_REFRESH_TIMEOUT_MS);
+          }),
+        ]).finally(() => {
+          // Only ours: a newer attempt may have armed its own since.
+          if (generation === this.reauthGeneration) this.clearRefreshTimeout();
+        })
       : Promise.resolve();
     this.reauthTimer = setTimeout(() => {
       void refreshed.then(() => {
@@ -427,10 +435,22 @@ export class SyncProvider {
     }, backoff);
   }
 
+  /** Also run by `destroy()`. */
   private cancelReauth(): void {
     this.reauthGeneration++;
     if (this.reauthTimer !== null) clearTimeout(this.reauthTimer);
     this.reauthTimer = null;
+    this.clearRefreshTimeout();
+  }
+
+  private clearRefreshTimeout(): void {
+    if (this.refreshTimeout !== null) clearTimeout(this.refreshTimeout);
+    this.refreshTimeout = null;
+  }
+
+  /** Test seam: whether a refresh-timeout timer is still armed. */
+  get hasPendingRefreshTimeout(): boolean {
+    return this.refreshTimeout !== null;
   }
 
   /** What the server last said this connection may do; `null` until it says. */

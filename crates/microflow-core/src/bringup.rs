@@ -147,6 +147,13 @@ impl BringUp {
         self.state == State::Connected
     }
 
+    /// True while a "flash as <board>?" offer waits for the user's answer. The
+    /// host must not start another attempt meanwhile (it would be ignored).
+    #[must_use]
+    pub fn is_offering(&self) -> bool {
+        matches!(self.state, State::AwaitingConfirm(_))
+    }
+
     /// Advance the machine. Returns the actions the host must perform, in
     /// order. Events that don't apply to the current state (stale probe
     /// results, a port appearing while already connected) return no actions.
@@ -229,10 +236,10 @@ impl BringUp {
                 (Event::FlashConfirmed, Some(board)) => self.flash(attempt, board),
                 // The probe already closed the port: nothing to close.
                 (Event::FlashDeclined, _) => vec![notify(Phase::Disconnected)],
-                // Another port came up: it supersedes the open offer.
-                (Event::PortReady { board, auto_flash, explicit }, _) => {
-                    self.start(Attempt { board, auto_flash, explicit })
-                }
+                // An open offer is stable: another port must wait until it is
+                // answered or withdrawn, or "yes" could flash a different
+                // device than the one the user was asked about. Hosts hold new
+                // candidates back while `is_offering()`.
                 (other, _) => stay(&mut self.state, State::AwaitingConfirm(attempt), &other),
             },
             State::Flashing(attempt) => match event {
@@ -494,15 +501,22 @@ mod tests {
     }
 
     #[test]
-    fn new_port_supersedes_the_offer() {
+    fn new_port_waits_for_the_open_offer() {
         let mut m = BringUp::new();
         let _ = m.handle(port_ready(Some("nano"), false, true));
         let _ = m.handle(Event::ProbeFailed);
+        assert!(m.is_offering());
+        // Another device must not replace the offer the user is reading.
+        assert_eq!(m.handle(port_ready(Some("nano"), false, true)), vec![]);
+        assert!(m.is_offering());
         assert_eq!(
-            m.handle(port_ready(Some("uno"), true, true)),
-            vec![notify(Phase::Connecting), Action::Probe { after_flash: false }]
+            m.handle(Event::FlashConfirmed),
+            vec![
+                notify(Phase::Flashing { board: "nano".into() }),
+                Action::Flash { board: "nano".into() }
+            ]
         );
-        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+        assert!(!m.is_offering());
     }
 
     #[test]

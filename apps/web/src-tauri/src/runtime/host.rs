@@ -241,16 +241,39 @@ pub struct SessionEnded;
 /// session id the board link minted for it. The first real I/O failure is
 /// reported — once, by id — to the board link, which decides what it means;
 /// the caller drops the session.
+///
+/// Dropping a healthy session writes the board's **safe state** first
+/// ([`microflow_core::firmata::encode_safe_state`], the encoder the browser
+/// link uses too), so nothing the flow drove stays driven. Drop is the one
+/// place every end passes through: a deliberate disconnect (`ActorMsg::Disconnect`),
+/// app exit (`Shutdown` drops the actor), a replacing `Connect`, and a panic
+/// that escapes the actor's supervision and unwinds the thread. A panic the
+/// supervisor catches keeps the session for the respawned runtime and writes
+/// the safe state through [`BoardSession::write_safe_state`] instead. A
+/// session that ended on an I/O failure skips it: the link that failed cannot
+/// carry the reset.
 pub struct BoardSession {
     id: SessionId,
     port: Box<dyn SerialIo>,
     ended: Sender<SessionId>,
+    /// Written on drop while the link is healthy; empty = nothing to write.
+    safe_state: Vec<u8>,
+    /// An I/O failure was reported; the port is not written again.
+    failed: bool,
 }
 
 impl BoardSession {
     #[must_use]
     pub fn new(id: SessionId, port: Box<dyn SerialIo>, ended: Sender<SessionId>) -> Self {
-        Self { id, port, ended }
+        Self { id, port, ended, safe_state: Vec::new(), failed: false }
+    }
+
+    /// Write `bytes` (the board's safe state) when this session is dropped
+    /// while healthy.
+    #[must_use]
+    pub fn with_safe_state(mut self, bytes: Vec<u8>) -> Self {
+        self.safe_state = bytes;
+        self
     }
 
     /// Read whatever arrived; `Ok(0)` when nothing did within the port timeout.
@@ -277,11 +300,49 @@ impl BoardSession {
         self.port.write_all(bytes).map_err(|e| self.end("write", &e))
     }
 
-    fn end(&self, op: &str, error: &std::io::Error) -> SessionEnded {
+    fn end(&mut self, op: &str, error: &std::io::Error) -> SessionEnded {
         log::warn!("[actor] serial {op} error on session {}: {error}; dropping board", self.id);
+        self.failed = true;
         let _ = self.ended.send(self.id);
         SessionEnded
     }
+}
+
+impl BoardSession {
+    /// Write the safe state now and keep the session — the actor's answer to a
+    /// panic, where the board stays connected for the respawned runtime. A
+    /// no-op on a session without one.
+    ///
+    /// # Errors
+    /// [`SessionEnded`] on an I/O failure, after reporting it.
+    pub fn write_safe_state(&mut self) -> Result<(), SessionEnded> {
+        if self.failed || self.safe_state.is_empty() {
+            return Ok(());
+        }
+        let bytes = self.safe_state.clone();
+        self.write(&bytes)
+    }
+}
+
+impl Drop for BoardSession {
+    /// Best effort: a failure here is not reported — the session is already
+    /// over, and the board link learns about a gone port from the port scan.
+    fn drop(&mut self) {
+        if self.failed || self.safe_state.is_empty() {
+            return;
+        }
+        match self.port.write_all(&self.safe_state) {
+            Ok(()) => log::info!("[actor] wrote the safe state to session {}", self.id),
+            Err(e) => log::debug!("[actor] safe state not written to session {}: {e}", self.id),
+        }
+    }
+}
+
+/// The safe state for the board a `pins_json` describes: sized to its pin
+/// table, as the browser sizes it to its detection codec's.
+fn safe_state_for(pins_json: &str) -> Vec<u8> {
+    let pins = serde_json::from_str::<Vec<serde_json::Value>>(pins_json).map_or(0, |p| p.len());
+    microflow_core::firmata::encode_safe_state(pins)
 }
 
 /// Builds a fresh runtime: `FlowRuntime::new` in the app; tests add a node.
@@ -529,13 +590,16 @@ impl<E: HostEvents> Actor<E> {
         }
     }
 
-    /// Put the board in a safe state before a new runtime (or none) drives it.
+    /// Put the board in its safe state before a new runtime (or none) drives
+    /// it: whatever the panicked flow drove — a motor, a relay — goes low,
+    /// and the respawn's re-applied flow starts from a reset board. The
+    /// session stays open; a write failure ends it like any other.
     fn safe_state(&mut self) {
-        // TODO(track J): write core's safe-state encoder here —
-        // `microflow_core::firmata::encode_safe_state(pin_count)` over the
-        // session's pin table, through `self.write_bytes`. Until it lands the
-        // respawn's re-applied flow re-inits every pin mode, and a halt leaves
-        // outputs as the panicked runtime drove them.
+        if let Some(session) = self.session.as_mut() {
+            if session.write_safe_state().is_err() {
+                self.session = None;
+            }
+        }
     }
 
     /// A board connected: hold its port, and — unless halted — build a fresh
@@ -547,7 +611,11 @@ impl<E: HostEvents> Actor<E> {
         // "analog mapping never parsed" (no pin analog) from "A0 is not
         // pin 14 on this board" (some other pin carries the analog flag).
         log::info!("[actor] seeded pins_json: {pins_json}");
-        self.session = Some(BoardSession::new(session, port, self.session_ended.clone()));
+        // Replacing a live session drops it, which writes its safe state.
+        self.session = Some(
+            BoardSession::new(session, port, self.session_ended.clone())
+                .with_safe_state(safe_state_for(&pins_json)),
+        );
         self.pins_json = Some(pins_json);
         log::info!("[actor] board connected (session {session})");
         if self.halted {
@@ -570,6 +638,7 @@ impl<E: HostEvents> Actor<E> {
                 self.connect(Box::new(port), pins_json, session);
             }
             ActorMsg::Disconnect => {
+                // Dropping the session writes the safe state (see `BoardSession`).
                 self.session = None;
                 log::info!("[actor] board disconnected");
             }
@@ -845,6 +914,14 @@ mod tests {
     struct ScriptedPort {
         reads: std::collections::VecDeque<std::io::Result<Vec<u8>>>,
         write_error: Option<ErrorKind>,
+        /// Every successful write, shared so a test can read it after the drop.
+        written: Arc<std::sync::Mutex<Vec<u8>>>,
+    }
+
+    impl ScriptedPort {
+        fn new(reads: Vec<std::io::Result<Vec<u8>>>, write_error: Option<ErrorKind>) -> Self {
+            Self { reads: reads.into(), write_error, written: Arc::default() }
+        }
     }
 
     impl Read for ScriptedPort {
@@ -862,10 +939,11 @@ mod tests {
 
     impl Write for ScriptedPort {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            match self.write_error {
-                Some(kind) => Err(kind.into()),
-                None => Ok(buf.len()),
+            if let Some(kind) = self.write_error {
+                return Err(kind.into());
             }
+            self.written.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
         }
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
@@ -879,10 +957,8 @@ mod tests {
 
     #[test]
     fn session_read_timeout_is_no_data_not_an_end() {
-        let (mut s, ended) = session(ScriptedPort {
-            reads: [Err(ErrorKind::TimedOut.into()), Ok(vec![0xF9, 2, 5])].into(),
-            write_error: None,
-        });
+        let (mut s, ended) =
+            session(ScriptedPort::new(vec![Err(ErrorKind::TimedOut.into()), Ok(vec![0xF9, 2, 5])], None));
         let mut buf = [0u8; 8];
         assert_eq!(s.read(&mut buf).unwrap(), 0);
         assert_eq!(s.read(&mut buf).unwrap(), 3);
@@ -892,10 +968,7 @@ mod tests {
 
     #[test]
     fn session_read_error_reports_its_id() {
-        let (mut s, ended) = session(ScriptedPort {
-            reads: [Err(ErrorKind::BrokenPipe.into())].into(),
-            write_error: None,
-        });
+        let (mut s, ended) = session(ScriptedPort::new(vec![Err(ErrorKind::BrokenPipe.into())], None));
         assert!(s.read(&mut [0u8; 8]).is_err());
         assert_eq!(ended.try_iter().collect::<Vec<_>>(), vec![7]);
     }
@@ -905,12 +978,54 @@ mod tests {
         // A write failure mid-session used to clear a shared flag the monitor
         // only noticed if the port was tagged `has_firmata`; now it is a fact
         // the board link receives by session id.
-        let (mut s, ended) = session(ScriptedPort {
-            reads: std::collections::VecDeque::new(),
-            write_error: Some(ErrorKind::BrokenPipe),
-        });
+        let (mut s, ended) = session(ScriptedPort::new(vec![], Some(ErrorKind::BrokenPipe)));
         assert!(s.write(&[0x90, 0, 0]).is_err());
         assert_eq!(ended.try_iter().collect::<Vec<_>>(), vec![7]);
+    }
+
+    /// The pins JSON both hosts seed from: `[{ pin, supportedModes, analogChannel }]`.
+    fn pins_json(count: usize) -> String {
+        let pins: Vec<_> = (0..count)
+            .map(|pin| serde_json::json!({ "pin": pin, "supportedModes": [0, 1], "analogChannel": -1 }))
+            .collect();
+        serde_json::Value::Array(pins).to_string()
+    }
+
+    #[test]
+    fn dropping_a_healthy_session_writes_the_safe_state() {
+        // Disconnect, app exit, a replacing connect and an unwinding actor all
+        // end a session by dropping it.
+        let port = ScriptedPort::new(vec![], None);
+        let written = Arc::clone(&port.written);
+        let (s, _ended) = session(port);
+        drop(s.with_safe_state(safe_state_for(&pins_json(20))));
+        assert_eq!(*written.lock().unwrap(), microflow_core::firmata::encode_safe_state(20));
+    }
+
+    #[test]
+    fn a_session_that_failed_is_not_written_on_drop() {
+        let port = ScriptedPort::new(vec![Err(ErrorKind::BrokenPipe.into())], None);
+        let written = Arc::clone(&port.written);
+        let (s, _ended) = session(port);
+        let mut s = s.with_safe_state(safe_state_for(&pins_json(20)));
+        assert!(s.read(&mut [0u8; 8]).is_err());
+        drop(s);
+        assert!(written.lock().unwrap().is_empty(), "a lost link cannot carry the reset");
+    }
+
+    /// The safe state, applied by a simulated board, leaves every output low —
+    /// what the desktop now sends where it used to send nothing.
+    #[test]
+    fn the_desktop_safe_state_lowers_a_flow_driven_output_on_the_sim_board() {
+        use microflow_core::firmata::sim::{BoardLayout, SimBoard};
+        use microflow_core::firmata::{FirmataClient, MODE_OUTPUT};
+        let mut board = SimBoard::new(BoardLayout::uno());
+        let mut codec = FirmataClient::new();
+        board.receive(&codec.encode_set_pin_mode(13, MODE_OUTPUT));
+        board.receive(&codec.encode_digital_write(13, true));
+        assert!(board.pin(13).is_high());
+        board.receive(&safe_state_for(&pins_json(20)));
+        assert!(!board.pin(13).is_high());
     }
 
     #[tokio::test]
@@ -1180,7 +1295,7 @@ mod tests {
                 make_runtime,
             );
             let written = Arc::new(Mutex::new(Vec::new()));
-            actor.connect(Box::new(RecordingPort(Arc::clone(&written))), pins_json(), 7);
+            actor.connect(Box::new(RecordingPort(Arc::clone(&written))), analog_pins_json(), 7);
             Self { actor, events, written, starts, _tokio: tokio }
         }
 
@@ -1215,7 +1330,8 @@ mod tests {
         )
     }
 
-    fn pins_json() -> String {
+    /// 20 pins; 14–19 are analog channels 0–5.
+    fn analog_pins_json() -> String {
         let pins: Vec<serde_json::Value> = (0..20)
             .map(|p| {
                 let channel = if p >= 14 { p - 14 } else { -1 };
@@ -1268,7 +1384,10 @@ mod tests {
         assert!(rig.actor.epoch > epoch, "the runtime was rebuilt");
         assert_eq!(rig.starts.get(), 2, "the flow was re-applied");
         assert!(rig.actor.session.is_some(), "the board session survives");
-        assert!(contains(&rig.take_written(), &REPORT_A0), "the pin table was re-seeded");
+        let written = rig.take_written();
+        let safe = microflow_core::firmata::encode_safe_state(20);
+        assert!(written.starts_with(&safe), "the safe state goes out first: {written:02X?}");
+        assert!(contains(&written[safe.len()..], &REPORT_A0), "then the re-seeded pins are re-inited");
         assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings(), "subscriptions unchanged");
 
         // And it keeps working.
@@ -1291,7 +1410,9 @@ mod tests {
         assert!(rig.actor.halted, "the third panic in the window halts");
         let starts = rig.starts.get();
         assert_eq!(starts, 3, "halting does not re-apply the flow");
-        rig.take_written();
+        let written = rig.take_written();
+        let safe = microflow_core::firmata::encode_safe_state(20);
+        assert!(written.ends_with(&safe), "a halt leaves the board in its safe state: {written:02X?}");
 
         // Halted: flow turns are dropped, and a flow update is kept for the
         // restart while the subscriptions stay as they were.
@@ -1309,6 +1430,32 @@ mod tests {
         assert!(contains(&rig.take_written(), &REPORT_A0));
         rig.call("boom");
         assert_eq!(rig.events.crashes().last().unwrap()["recovered"], true, "the restart reset the guard");
+    }
+
+    #[test]
+    fn a_panic_lowers_what_the_flow_drove_on_the_sim_board() {
+        use microflow_core::firmata::sim::{BoardLayout, SimBoard};
+        let mut rig = Rig::connected();
+        let (reply, _rx) = oneshot::channel();
+        let flow = FlowUpdate {
+            nodes: vec![
+                node("p", "Panicker", serde_json::json!({})),
+                node("led", "Led", serde_json::json!({ "instance": "Led", "pin": 13 })),
+            ],
+            edges: vec![],
+        };
+        assert!(rig.actor.step(ActorMsg::FlowUpdate { flow, reply }));
+        rig.actor.step(ActorMsg::Call { id: "led".into(), method: "true".into(), value: ComponentValue::Bool(true) });
+
+        let mut board = SimBoard::new(BoardLayout::uno());
+        board.receive(&rig.take_written());
+        assert!(board.pin(13).is_high(), "the flow drove the LED");
+
+        rig.call("boom");
+        // Everything the actor wrote since: the safe state, then the respawned
+        // flow's init — which sets the LED pin up again but does not drive it.
+        board.receive(&rig.take_written());
+        assert!(!board.pin(13).is_high(), "the panic left the LED off");
     }
 
     #[test]
