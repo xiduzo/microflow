@@ -24,6 +24,11 @@ cloud = ["runtime"]
 # opt-in and excluded from the wasm build until its size is vetted. Implies
 # `runtime`.
 js = ["runtime", "dep:boa_engine"]
+# The simulated Firmata board (`firmata::sim`): a scripted device at the board
+# byte seam, plus — with `runtime` — the `SimRig` test host. Always compiled
+# under `cfg(test)`; this feature exposes it to other crates' tests (the wasm
+# runtime crate, the desktop app) as a dev-dependency feature.
+sim-board = []
 
 [dependencies]
 # `rc` enables serializing the `Arc<str>` fields on `ComponentEvent` (the
