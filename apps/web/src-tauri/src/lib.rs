@@ -268,6 +268,8 @@ pub fn run() {
         .manage(mcp::McpState::default())
         .invoke_handler(tauri::generate_handler![
             hardware::get_available_serial_ports,
+            hardware::confirm_board_flash,
+            hardware::decline_board_flash,
             flasher::commands::flash_firmware,
             flasher::commands::flash_standard_firmata,
             flasher::commands::auto_flash_firmata,
