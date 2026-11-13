@@ -332,4 +332,78 @@ mod tests {
         }
         assert!(saw_setbaud, "expected a baud fallback after repeated sync failures");
     }
+
+    /// A fake `STK500v1` bootloader that only answers at `listen_baud`, like a
+    /// real board whose bootloader runs at one fixed rate. At any other baud it
+    /// stays silent (every read times out with zero bytes). It acts as the
+    /// transport executor too: it tracks the open baud through `SetBaud` and
+    /// drives the driver to its end.
+    ///
+    /// Returns the terminal step and the baud the programming happened at.
+    fn flash_against_bootloader(guess: BoardType, listen_baud: u32) -> (FlashStep, Option<u32>) {
+        let config = BoardConfig::find(guess);
+        let mut d = Stk500v1Driver::new(vec![0x55u8; 300], &config);
+        let mut open_baud = config.baud_rate;
+        let mut programmed_at = None;
+        let mut step = d.start();
+        for _ in 0..10_000 {
+            step = match &step {
+                FlashStep::Done | FlashStep::Error { .. } => return (step, programmed_at),
+                FlashStep::SetBaud { baud } => {
+                    open_baud = *baud;
+                    d.advance(&[])
+                }
+                FlashStep::Transact { write, .. } => {
+                    let reply: Vec<u8> = if open_baud != listen_baud {
+                        Vec::new()
+                    } else if write[0] == STK_READ_SIGN {
+                        vec![STK_INSYNC, 0x1E, 0x95, 0x0F, STK_OK]
+                    } else {
+                        if write[0] == STK_PROG_PAGE {
+                            programmed_at = Some(open_baud);
+                        }
+                        vec![STK_INSYNC, STK_OK]
+                    };
+                    d.advance(&reply)
+                }
+                _ => d.advance(&[]),
+            };
+        }
+        panic!("driver did not terminate");
+    }
+
+    /// A CH340 Nano is guessed as the old-bootloader `nano` (57600). Many ship
+    /// with Optiboot at 115200: the sync must fall back and the flash succeed.
+    #[test]
+    fn nano_guess_flashes_an_optiboot_nano_at_115200() {
+        assert_eq!(BoardConfig::find(BoardType::Nano).baud_rate, 57600);
+        let (end, baud) = flash_against_bootloader(BoardType::Nano, 115_200);
+        assert_eq!(end, FlashStep::Done);
+        assert_eq!(baud, Some(115_200));
+    }
+
+    /// The reverse: a board guessed at 115200 that runs the old 57600 bootloader.
+    #[test]
+    fn nano_new_guess_flashes_an_old_bootloader_nano_at_57600() {
+        let (end, baud) = flash_against_bootloader(BoardType::NanoNew, 57600);
+        assert_eq!(end, FlashStep::Done);
+        assert_eq!(baud, Some(57600));
+    }
+
+    /// The guessed baud is tried first: a board at the guessed rate never
+    /// sees a baud switch.
+    #[test]
+    fn matching_guess_programs_at_the_guessed_baud() {
+        let (end, baud) = flash_against_bootloader(BoardType::Nano, 57600);
+        assert_eq!(end, FlashStep::Done);
+        assert_eq!(baud, Some(57600));
+    }
+
+    /// A silent board exhausts every fallback baud and errors out.
+    #[test]
+    fn silent_bootloader_fails_after_every_baud() {
+        let (end, baud) = flash_against_bootloader(BoardType::Nano, 9600);
+        assert!(matches!(end, FlashStep::Error { .. }), "got {end:?}");
+        assert_eq!(baud, None);
+    }
 }
