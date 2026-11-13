@@ -279,6 +279,9 @@ impl HardwareMonitorLoop {
                 // The desktop always flashes recognised boards with no Firmata,
                 // and surfaces their failures (a recognised board that won't
                 // connect is worth an error; a random serial device is not).
+                // "Recognised" means an official Arduino VID: a generic
+                // USB-serial chip (CH340, CP210x, FTDI) is probed quietly and
+                // never flashed.
                 auto_flash: board_type.is_some(),
                 explicit: board_type.is_some(),
             });
@@ -377,6 +380,12 @@ impl HardwareMonitorLoop {
                 None => self.events.board_error("probe succeeded but produced no board state"),
             },
             Phase::Disconnected => self.events.board_disconnected(),
+            // Unreached today: the desktop passes only positively identified
+            // boards (`detect_from_usb`), and has no confirm channel yet.
+            Phase::ConfirmFlash { board } => self.events.board_error(&format!(
+                "No Firmata answered. This device may be an Arduino {board}, but it uses a \
+                 generic USB-serial chip, so Microflow did not flash it automatically."
+            )),
             Phase::Error { detail } => self.events.board_error(detail),
         }
     }

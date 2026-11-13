@@ -4,4 +4,4 @@
  * UI-facing bring-up phase. Hosts map this onto their `BoardState` payload
  * (the desktop fills in port/pins/firmware from its probe result).
  */
-export type BringUpPhase = { "kind": "disconnected" } | { "kind": "connecting" } | { "kind": "flashing", board: string, } | { "kind": "connected" } | { "kind": "error", detail: string, };
+export type BringUpPhase = { "kind": "disconnected" } | { "kind": "connecting" } | { "kind": "flashing", board: string, } | { "kind": "confirmFlash", board: string, } | { "kind": "connected" } | { "kind": "error", detail: string, };

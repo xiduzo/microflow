@@ -3,4 +3,4 @@
 /**
  * What happened in the host, fed into [`BringUp::handle`].
  */
-export type BringUpEvent = { "type": "portReady", board: string | null, autoFlash: boolean, explicit: boolean, } | { "type": "probeOk" } | { "type": "probeFailed" } | { "type": "flashProgress", done: number, total: number, } | { "type": "flashOk" } | { "type": "flashFailed", detail: string, } | { "type": "connectionLost" } | { "type": "portGone" } | { "type": "disconnectRequested" };
+export type BringUpEvent = { "type": "portReady", board: string | null, autoFlash: boolean, explicit: boolean, } | { "type": "probeOk" } | { "type": "probeFailed" } | { "type": "flashProgress", done: number, total: number, } | { "type": "flashOk" } | { "type": "flashFailed", detail: string, } | { "type": "flashConfirmed" } | { "type": "connectionLost" } | { "type": "portGone" } | { "type": "disconnectRequested" };
