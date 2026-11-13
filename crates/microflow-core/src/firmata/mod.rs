@@ -599,6 +599,9 @@ enum Step {
     Incomplete,
 }
 
+mod safe_state;
+pub use safe_state::{encode_safe_state, SYSTEM_RESET};
+
 #[cfg(any(test, feature = "sim-board"))]
 pub mod sim;
 #[cfg(test)]

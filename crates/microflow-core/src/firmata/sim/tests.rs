@@ -117,6 +117,50 @@ fn reports_survive_any_chunking() {
     assert_eq!(codec.pending_bytes(), 0);
 }
 
+/// Drive one of everything HIGH: an OUTPUT, a PWM duty, a servo and a pull-up
+/// input (whose latch the reset would turn into a driven-high output).
+fn drive_everything(board: &mut SimBoard) {
+    let mut codec = FirmataClient::new();
+    board.receive(&codec.encode_set_pin_mode(13, MODE_OUTPUT));
+    board.receive(&codec.encode_digital_write(13, true));
+    board.receive(&codec.encode_set_pin_mode(9, MODE_PWM));
+    board.receive(&codec.encode_analog_write(9, 200));
+    board.receive(&codec.encode_set_pin_mode(3, crate::firmata::MODE_SERVO));
+    board.receive(&codec.encode_analog_write(3, 90));
+    board.receive(&codec.encode_set_pin_mode(6, crate::firmata::MODE_PULLUP));
+    assert!(board.pin(13).is_high() && board.pin(9).pwm() == Some(200) && board.pin(6).level());
+}
+
+/// `StandardFirmata`'s reset re-asserts OUTPUT without touching the latch
+/// (StandardFirmata.ino `setPinModeCallback` / `systemResetCallback`): a pin
+/// left HIGH stays HIGH, and a pull-up becomes an output driven HIGH.
+#[test]
+fn system_reset_alone_leaves_latched_pins_high() {
+    let mut board = SimBoard::new(BoardLayout::uno());
+    drive_everything(&mut board);
+    board.receive(&[crate::firmata::SYSTEM_RESET]);
+    assert!(board.pin(13).is_high(), "the OUTPUT latch survives the reset");
+    assert!(board.pin(6).is_high(), "the pull-up latch becomes a HIGH output");
+    assert!(!board.pin(9).is_high(), "PWM is driven low by the reset");
+}
+
+#[test]
+fn safe_state_leaves_every_pin_low_on_every_layout() {
+    for layout in [BoardLayout::uno(), BoardLayout::mega2560(), BoardLayout::leonardo()] {
+        let mut board = SimBoard::new(layout.clone());
+        let pins = probe(&mut board).pins.len();
+        drive_everything(&mut board);
+        board.receive(&crate::firmata::encode_safe_state(pins));
+        for pin in 0..layout.pin_count() as u8 {
+            let p = board.pin(pin);
+            assert!(!p.level(), "{} pin {pin} still HIGH in mode {:?}", layout.name(), p.mode());
+            assert_eq!(p.servo(), None, "{} pin {pin} still a servo", layout.name());
+            assert_eq!(p.pwm(), None, "{} pin {pin} still PWM", layout.name());
+        }
+        assert!(!board.is_reporting_digital(0) && !board.is_reporting_analog(0));
+    }
+}
+
 #[cfg(feature = "runtime")]
 mod through_the_runtime {
     use super::super::rig::{node, SimRig};
