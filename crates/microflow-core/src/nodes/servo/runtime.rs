@@ -122,3 +122,60 @@ impl ComponentBuilder for Servo {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_SERVO;
+    use serde_json::json;
+
+    fn servo_on(layout: BoardLayout, data: serde_json::Value) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(layout));
+        rig.apply_flow(vec![node("servo", "Servo", data)], vec![]);
+        rig
+    }
+
+    #[test]
+    fn initialize_attaches_the_servo_and_centres_it() {
+        let rig = servo_on(BoardLayout::uno(), json!({ "pin": 3, "range": { "min": 20, "max": 160 } }));
+        assert_eq!(rig.board.pin(3).mode(), Some(MODE_SERVO));
+        assert_eq!(rig.board.pin(3).servo(), Some(90));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    #[test]
+    fn value_min_and_max_move_within_the_range() {
+        let mut rig = servo_on(BoardLayout::uno(), json!({ "pin": 3, "range": { "min": 20, "max": 160 } }));
+        rig.dispatch("servo", "value", 45.0);
+        assert_eq!(rig.board.pin(3).servo(), Some(45));
+        rig.dispatch("servo", "value", 170.0);
+        assert_eq!(rig.board.pin(3).servo(), Some(160), "clamped to range.max");
+        rig.dispatch("servo", "min", true);
+        assert_eq!(rig.board.pin(3).servo(), Some(20));
+        rig.dispatch("servo", "max", true);
+        assert_eq!(rig.board.pin(3).servo(), Some(160));
+    }
+
+    #[test]
+    fn continuous_servo_maps_speed_onto_the_pulse_and_stops_at_90() {
+        let mut rig = servo_on(BoardLayout::uno(), json!({ "pin": 5, "type": "continuous" }));
+        rig.dispatch("servo", "rotate", 1.0);
+        assert_eq!(rig.board.pin(5).servo(), Some(180));
+        rig.dispatch("servo", "value", -0.5);
+        assert_eq!(rig.board.pin(5).servo(), Some(45));
+        rig.dispatch("servo", "stop", true);
+        assert_eq!(rig.board.pin(5).servo(), Some(90));
+    }
+
+    /// `encode_analog_write` puts the pin in the status byte's low nibble, so a
+    /// servo on a Mega pin past 15 writes to `pin & 0x0F` instead (44 → 12);
+    /// pins ≥ 16 need `EXTENDED_ANALOG`.
+    #[test]
+    #[ignore = "track I: analog writes to pins >= 16 need EXTENDED_ANALOG; the codec aliases them onto pin & 0x0F"]
+    fn servo_on_a_mega_pin_past_15_moves() {
+        let mut rig = servo_on(BoardLayout::mega2560(), json!({ "pin": 44 }));
+        rig.dispatch("servo", "value", 30.0);
+        assert_eq!(rig.board.pin(44).servo(), Some(30), "{:?}", rig.board.violations());
+    }
+}
