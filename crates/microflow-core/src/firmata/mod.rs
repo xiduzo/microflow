@@ -588,12 +588,15 @@ impl FirmataClient {
                 // dropping it, so the target node sees a short read and can
                 // surface the fault. The old `len < 8` guard silently discarded
                 // every empty reply, hiding the NACK entirely.
-                let [addr_lsb, addr_msb, reg_lsb, reg_msb, bytes @ ..] = data else {
+                let Some(([address, register], bytes)) = data.split_first_chunk::<4>().map(|(head, bytes)| {
+                    ([[head[0], head[1]], [head[2], head[3]]], bytes)
+                }) else {
                     return Step::Skipped;
                 };
+                let seven = |[low, high]: [u8; 2]| i32::from(low) | (i32::from(high) << 7);
                 self.i2c_data.push(I2cReply {
-                    address: i32::from(*addr_lsb) | (i32::from(*addr_msb) << 7),
-                    register: i32::from(*reg_lsb) | (i32::from(*reg_msb) << 7),
+                    address: seven(address),
+                    register: seven(register),
                     data: bytes.chunks_exact(2).map(|pair| pair[0] | (pair[1] << 7)).collect(),
                 });
                 Step::Parsed(Message::I2cReply)

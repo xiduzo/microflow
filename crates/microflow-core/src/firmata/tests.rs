@@ -431,7 +431,7 @@ fn an_unterminated_sysex_is_given_up_past_the_bound() {
     assert_eq!(c.pins[2].value, 1);
 }
 
-/// `F0 6F F7` — an EXTENDED_ANALOG with no channel — sliced `buf[3..2]` and
+/// `F0 6F F7` — an `EXTENDED_ANALOG` with no channel — sliced `buf[3..2]` and
 /// panicked; any line noise could take down the runtime that way.
 #[test]
 fn a_bare_extended_analog_frame_is_skipped_not_a_panic() {
