@@ -299,6 +299,10 @@ impl BoardConfig {
     }
 }
 
+// Positively identified vendors: only the official Arduino VIDs below. A vendor
+// that ships boards under its own USB VID (e.g. SparkFun 0x1B4F) is a candidate
+// for future positive identification; a generic bridge-chip VID never is.
+
 /// Arduino LLC's USB vendor id.
 const ARDUINO_VID: u16 = 0x2341;
 /// Arduino SRL's (arduino.org) USB vendor id.
