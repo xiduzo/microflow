@@ -2,7 +2,18 @@ import { describe, expect, test } from "bun:test";
 import "fake-indexeddb/auto";
 import * as Y from "yjs";
 import { FlowDocument } from "@microflow/collab";
-import { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
+import { configureErrorReporting, type ErrorReport } from "@/lib/report-error";
+import { IndexeddbSyncAdapter, LocalPersistenceError } from "./indexeddb-sync-adapter";
+
+/** Replace the global `indexedDB` (installed by fake-indexeddb) for one test. */
+function swapIndexedDb(replacement: unknown): () => void {
+  const scope = globalThis as { indexedDB?: unknown };
+  const original = scope.indexedDB;
+  scope.indexedDB = replacement;
+  return () => {
+    scope.indexedDB = original;
+  };
+}
 
 /** A fresh IndexedDB store per test, so cases cannot leak into each other. */
 let storeCounter = 0;
@@ -60,6 +71,91 @@ describe("IndexeddbSyncAdapter", () => {
     // Readable through the normal path, with no compatibility branch in it.
     expect(doc.getNode("old")!.data).toEqual({ label: "LED" });
     expect(doc.nodes.get("old")).toBeInstanceOf(Y.Map);
+    adapter.destroy();
+  });
+
+  test("whenSynced rejects with open-failed when IndexedDB will not open", async () => {
+    const reports: ErrorReport[] = [];
+    const restoreReporting = configureErrorReporting({ local: [(r) => reports.push(r)], remote: [] });
+    // An `indexedDB` whose open fails the way private mode or blocked site data does.
+    const denied = new DOMException("denied", "UnknownError");
+    const restoreIdb = swapIndexedDb({
+      open() {
+        const request: { error?: DOMException; onerror?: () => void } = {};
+        setTimeout(() => {
+          request.error = denied;
+          request.onerror?.();
+        });
+        return request;
+      },
+    });
+    try {
+      const adapter = new IndexeddbSyncAdapter(FlowDocument.createEmpty(), freshStore());
+      const error = await adapter.whenSynced.then(
+        () => null,
+        (e: unknown) => e,
+      );
+
+      expect(error).toBeInstanceOf(LocalPersistenceError);
+      expect(error).toMatchObject({ reason: "open-failed", cause: denied });
+      expect(adapter.error).toBe(error as LocalPersistenceError);
+      // Learned about even though the editor never awaits `whenSynced`.
+      expect(reports.map((r) => [r.source, r.name])).toEqual([["local-persistence", "LocalPersistenceError"]]);
+      expect(() => adapter.destroy()).not.toThrow();
+    } finally {
+      restoreIdb();
+      restoreReporting();
+    }
+  });
+
+  test("whenSynced rejects with open-failed when there is no IndexedDB at all", async () => {
+    const restoreReporting = configureErrorReporting({ local: [], remote: [] });
+    const restoreIdb = swapIndexedDb(undefined);
+    try {
+      const adapter = new IndexeddbSyncAdapter(FlowDocument.createEmpty(), freshStore());
+      await expect(adapter.whenSynced).rejects.toMatchObject({ reason: "open-failed" });
+      adapter.destroy();
+    } finally {
+      restoreIdb();
+      restoreReporting();
+    }
+  });
+
+  test("whenSynced rejects with timeout when the open never completes", async () => {
+    const restoreReporting = configureErrorReporting({ local: [], remote: [] });
+    // A blocked open: no success, no error, ever.
+    const restoreIdb = swapIndexedDb({ open: () => ({}) });
+    try {
+      const adapter = new IndexeddbSyncAdapter(FlowDocument.createEmpty(), freshStore(), {
+        syncTimeoutMs: 20,
+      });
+      await expect(adapter.whenSynced).rejects.toMatchObject({ reason: "timeout" });
+      adapter.destroy();
+    } finally {
+      restoreIdb();
+      restoreReporting();
+    }
+  });
+
+  test("destroy before the load settles whenSynced instead of leaving it pending", async () => {
+    const reports: ErrorReport[] = [];
+    const restoreReporting = configureErrorReporting({ local: [(r) => reports.push(r)], remote: [] });
+    try {
+      const adapter = new IndexeddbSyncAdapter(FlowDocument.createEmpty(), freshStore());
+      adapter.destroy();
+      await expect(adapter.whenSynced).rejects.toMatchObject({ reason: "destroyed" });
+      await settle();
+      // Closing early is not a failure worth reporting.
+      expect(reports).toEqual([]);
+    } finally {
+      restoreReporting();
+    }
+  });
+
+  test("a successful load leaves no error", async () => {
+    const adapter = new IndexeddbSyncAdapter(FlowDocument.createEmpty(), freshStore());
+    await adapter.whenSynced;
+    expect(adapter.error).toBeNull();
     adapter.destroy();
   });
 
