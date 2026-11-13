@@ -8,11 +8,12 @@ import {
   stackFrames,
   umamiSink,
   type ErrorReport,
+  type LocalErrorReport,
 } from "./report-error";
 
 /** Captures what each sink kind receives; restores the real sinks after the test. */
 function capture(clock?: () => number) {
-  const local: ErrorReport[] = [];
+  const local: LocalErrorReport[] = [];
   const remote: ErrorReport[] = [];
   restore = configureErrorReporting({
     local: [(r) => local.push(r)],
@@ -78,14 +79,33 @@ describe("errorName", () => {
 });
 
 describe("reportError", () => {
-  test("sends every sink the report; the remote payload carries no message", () => {
+  test("remote sinks get only the summary: no raw error, no message, nowhere in the object", () => {
     const { local, remote } = capture();
-    const error = errorWithStack("flow 'My secret robot' broke");
+    const secret = "alice@example.com token=s3cr3t 'My secret robot'";
+    const error = errorWithStack(secret);
+    // Content in a cause or in extra properties must not ride along either.
+    Object.assign(error, { cause: new Error(secret), config: { password: secret } });
     reportError(error, { source: "route-boundary", route: "/flow/$flowId" });
 
-    expect(local).toHaveLength(1);
     expect(remote).toHaveLength(1);
-    expect(remote[0]).toMatchObject({ name: "TypeError", source: "route-boundary", route: "/flow/$flowId" });
+    const [sent] = remote;
+    expect(Object.keys(sent!).sort()).toEqual(["fingerprint", "name", "route", "source"]);
+    expect(sent).not.toHaveProperty("error");
+    expect(Object.isFrozen(sent)).toBe(true);
+    const serialized = JSON.stringify(sent);
+    for (const fragment of ["alice", "s3cr3t", "secret robot", "password"]) {
+      expect(serialized).not.toContain(fragment);
+    }
+    expect(sent).toEqual({
+      fingerprint: errorFingerprint(error, "route-boundary"),
+      name: "TypeError",
+      source: "route-boundary",
+      route: "/flow/$flowId",
+    });
+
+    // The raw error reaches only the local sinks, which opted in.
+    expect(local).toHaveLength(1);
+    expect(local[0]!.error).toBe(error);
   });
 
   test("the Umami adapter sends only the summary fields", () => {
@@ -94,12 +114,7 @@ describe("reportError", () => {
     const previous = globalWindow.window;
     globalWindow.window = { umami: { track: (event: string, data: unknown) => sent.push({ event, data }) } };
     try {
-      umamiSink({
-        fingerprint: "deadbeef",
-        name: "TypeError",
-        source: "window-error",
-        error: new Error("alice@example.com"),
-      });
+      umamiSink({ fingerprint: "deadbeef", name: "TypeError", source: "window-error" });
     } finally {
       globalWindow.window = previous;
     }

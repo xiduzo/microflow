@@ -1,16 +1,23 @@
 // The app's failure surface: one module every caught or uncaught error goes
 // through, so "we learn about it" has a single seam.
 //
-// `reportError` turns an error into an `ErrorReport` and hands it to the
-// configured sinks. A sink is the adapter: today a console sink and an Umami
-// sink; a real crash reporter (Sentry or similar) is one more `ErrorSink`
+// `reportError` turns an error into a report and hands it to the configured
+// sinks. A sink is the adapter: today a console sink and an Umami sink; a
+// real crash reporter (Sentry or similar) is one more remote `ErrorSink`
 // passed to `configureErrorReporting`, with no call site changing.
 //
-// What leaves the device is deliberately thin. The Umami payload carries a
-// fingerprint, the error's class name, where it was caught and the route id —
-// never the message, which can contain flow content, node config values,
-// emails or tokens. The fingerprint hashes the stack frames (code locations)
-// only, so the same bug groups together across users without the message.
+// The privacy guarantee is structural, not a per-adapter convention. There
+// are two kinds of sink:
+// - remote (`ErrorSink`) receives an `ErrorReport`: a fresh, frozen object
+//   with only a fingerprint, the error's class name, where it was caught and
+//   the route id. It never holds the raw error, so no adapter can forward the
+//   message (which can contain flow content, node config values, emails or
+//   tokens), even by accident.
+// - local (`LocalErrorSink`) additionally receives the raw error. This is the
+//   explicit opt-in, and it is for sinks that stay on the device (console,
+//   devtools).
+// The fingerprint hashes the stack frames (code locations) only, so the same
+// bug groups together across users without the message.
 import { track } from "./analytics";
 
 /** Where an error was caught. Low-cardinality on purpose: it is an analytics dimension. */
@@ -28,22 +35,27 @@ export type ErrorContext = {
   route?: string;
 };
 
-export type ErrorReport = {
+/** The non-PII summary: everything a remote sink may see. */
+export type ErrorReport = Readonly<{
   /** Stable, non-PII hash of the error's class and code locations. */
   fingerprint: string;
   /** The error's class name (`TypeError`), or `NonError:<typeof>` for thrown non-errors. */
   name: string;
   source: ErrorSource;
   route?: string;
-  /** The original value, for sinks that stay on the device (console, devtools). */
-  error: unknown;
-};
+}>;
 
-/** An adapter that receives reports. Must not assume it is the only sink. */
+/** The summary plus the raw error, for sinks that stay on the device. */
+export type LocalErrorReport = ErrorReport & Readonly<{ error: unknown }>;
+
+/** An adapter whose reports may leave the device. Must not assume it is the only sink. */
 export type ErrorSink = (report: ErrorReport) => void;
 
+/** An adapter that stays on the device and opts in to the raw error. */
+export type LocalErrorSink = (report: LocalErrorReport) => void;
+
 /** Logs locally with the full error; nothing leaves the device. */
-export const consoleSink: ErrorSink = (report) => {
+export const consoleSink: LocalErrorSink = (report) => {
   console.error(`[report-error] ${report.source} ${report.name} #${report.fingerprint}`, report.error);
 };
 
@@ -61,7 +73,7 @@ export const umamiSink: ErrorSink = (report) => {
 /** Sinks whose reports leave the device are throttled per fingerprint, so a render loop cannot flood them. */
 const REMOTE_THROTTLE_MS = 60_000;
 
-let sinks: { local: ErrorSink[]; remote: ErrorSink[] } = {
+let sinks: { local: LocalErrorSink[]; remote: ErrorSink[] } = {
   local: [consoleSink],
   remote: [umamiSink],
 };
@@ -75,7 +87,7 @@ let now: () => number = () => Date.now();
  * `configureErrorReporting({ remote: [umamiSink, sentrySink] })`.
  */
 export function configureErrorReporting(options: {
-  local?: ErrorSink[];
+  local?: LocalErrorSink[];
   remote?: ErrorSink[];
   clock?: () => number;
 }): () => void {
@@ -95,7 +107,7 @@ export function configureErrorReporting(options: {
 /**
  * Report an error. Never throws, and reports the same error object once even
  * when several layers see it (a caller's catch, then a boundary, then a
- * global handler). Returns the report, or `null` when it was a duplicate.
+ * global handler). Returns the summary, or `null` when it was a duplicate.
  */
 export function reportError(error: unknown, context: ErrorContext): ErrorReport | null {
   try {
@@ -104,23 +116,24 @@ export function reportError(error: unknown, context: ErrorContext): ErrorReport 
       markSeen(error);
     }
 
-    const report: ErrorReport = {
+    // Built field by field, so nothing else from `context` or `error` can ride along.
+    const summary: ErrorReport = Object.freeze({
       fingerprint: errorFingerprint(error, context.source),
       name: errorName(error),
       source: context.source,
-      route: context.route,
-      error,
-    };
+      ...(context.route ? { route: context.route } : {}),
+    });
 
-    for (const sink of sinks.local) safely(sink, report);
+    const local: LocalErrorReport = Object.freeze({ ...summary, error });
+    for (const sink of sinks.local) safely(sink, local);
 
     const at = now();
-    const last = lastRemote.get(report.fingerprint);
+    const last = lastRemote.get(summary.fingerprint);
     if (last === undefined || at - last >= REMOTE_THROTTLE_MS) {
-      lastRemote.set(report.fingerprint, at);
-      for (const sink of sinks.remote) safely(sink, report);
+      lastRemote.set(summary.fingerprint, at);
+      for (const sink of sinks.remote) safely(sink, summary);
     }
-    return report;
+    return summary;
   } catch {
     // Reporting must never become the failure.
     return null;
@@ -140,7 +153,7 @@ function markSeen(error: object): void {
   }
 }
 
-function safely(sink: ErrorSink, report: ErrorReport): void {
+function safely<R>(sink: (report: R) => void, report: R): void {
   try {
     sink(report);
   } catch {
