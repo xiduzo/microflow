@@ -18,6 +18,9 @@ export const MUTATORS = new Set<PropertyKey>([
   "setEdge",
   "updateEdge",
   "removeEdge",
+  "pruneDanglingEdges",
+  // Writes later, from a transaction listener — a Viewer must never prune.
+  "startEdgePruning",
   "setFlowData",
   "clear",
   "setMeta",

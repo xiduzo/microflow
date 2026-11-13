@@ -76,6 +76,37 @@ describe("createNodeDataCommitter — opening a node", () => {
   });
 });
 
+describe("createNodeDataCommitter — a key leaving the doc", () => {
+  it("resets the control to its default when undo removes the key the first edit added", () => {
+    // The doc has no `speed`; Leva shows the default 1.
+    const { committer, fake, flush } = make({ label: "a" }, false, { label: "a", speed: 1 });
+    committer.commit({ label: "a", speed: 1 }); // mount
+    flush();
+    committer.commit({ label: "a", speed: 2 }); // the first edit adds the key
+    flush();
+    expect(fake.writes).toEqual([{ speed: 2 }]);
+
+    // Ctrl+Z: the key is gone from the doc again.
+    const patch = committer.reconcile({ label: "a" }, { label: "a", speed: 2 });
+    expect(patch).toEqual({ speed: 1 }); // the control shows what the runtime will use
+
+    committer.commit({ label: "a", speed: 1 }); // Leva replays the reset
+    flush();
+    expect(fake.writes).toHaveLength(1); // not written back
+
+    // Round trip: entering 2 again is a real edit and reaches the doc.
+    committer.commit({ label: "a", speed: 2 });
+    flush();
+    expect(fake.writes).toEqual([{ speed: 2 }, { speed: 2 }]);
+  });
+
+  it("leaves a control at its default alone while the doc lacks the key", () => {
+    const { committer } = make({ label: "a" }, false, { label: "a", speed: 1 });
+    committer.commit({ label: "a", speed: 1 });
+    expect(committer.reconcile({ label: "b" }, { label: "a", speed: 1 })).toEqual({ label: "b" });
+  });
+});
+
 describe("createNodeDataCommitter — pending edits versus a doc change", () => {
   it("does not replay a peer's value over a key the user has an unflushed edit on", () => {
     const { committer, fake, flush } = make({ label: "a", speed: 1 });
