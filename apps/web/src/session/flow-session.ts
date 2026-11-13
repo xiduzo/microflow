@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { FlowDocument, SyncProvider, upgradeLegacyNodes } from "@microflow/collab";
+import { FlowDocument, SyncProvider } from "@microflow/collab";
 import { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
 import { readOnlyDocument } from "./read-only-document";
 import type { RemoteSyncAdapter, SyncAdapter } from "./sync-adapter";
@@ -57,13 +57,13 @@ export function createCloudSession(options: CreateCloudSessionOptions): FlowSess
   const doc = FlowDocument.createEmpty();
   if (options.meta) doc.setMeta(options.meta);
   // Seed before the socket syncs, and keep the seed out of the undo history
-  // so ctrl-Z cannot unwind into an empty document. The seed is a load
-  // boundary like IndexedDB and the room store: a snapshot persisted before
-  // ADR-0019 holds plain-object nodes `FlowDocument` cannot read, so it is
-  // brought forward here, before anything materialises a node.
+  // so ctrl-Z cannot unwind into an empty document. A seed persisted before
+  // ADR-0019 is deliberately NOT upgraded here: the server upgrades the room
+  // when it loads it and syncs that down, and a second, client-side upgrade
+  // would race it (two maps per node; the loser's pre-sync edits dropped).
+  // `FlowDocument` reads the old shape until the server's upgrade arrives.
   if (options.initialData) {
     Y.applyUpdate(doc.doc, options.initialData);
-    upgradeLegacyNodes(doc.doc);
     doc.clearHistory();
   }
   // `SyncProvider` satisfies the adapter port directly; the annotation is the

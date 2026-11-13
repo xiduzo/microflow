@@ -3,7 +3,7 @@ import * as Y from "yjs";
 import { createCloudSession } from "./flow-session";
 
 describe("createCloudSession", () => {
-  test("a seed persisted before ADR-0019 is upgraded before anything reads it", () => {
+  test("a seed persisted before ADR-0019 is readable, and the client writes no upgrade into it", () => {
     // A server snapshot in the pre-ADR-0019 shape: nodes as plain objects.
     const legacy = new Y.Doc();
     legacy.getMap<unknown>("nodes").set("old", {
@@ -25,9 +25,14 @@ describe("createCloudSession", () => {
       expect(node?.type).toBe("Led");
       expect(node?.position).toEqual({ x: 1, y: 2 });
       expect(node?.data).toEqual({ pin: 13 });
-      expect(session.doc.nodes.get("old")).toBeInstanceOf(Y.Map);
-      // The upgrade is part of the seed, not an undoable edit.
-      expect(session.doc.undoManager.undoStack).toHaveLength(0);
+
+      // The server owns the upgrade of a cloud room: the seed is left as it
+      // was persisted, with nothing written by this client to race it.
+      expect(session.doc.nodes.get("old")).not.toBeInstanceOf(Y.Map);
+      const ownClock = Y.decodeStateVector(Y.encodeStateVector(session.doc.doc)).get(
+        session.doc.doc.clientID,
+      );
+      expect(ownClock).toBeUndefined();
     } finally {
       session.destroy();
     }
