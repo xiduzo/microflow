@@ -42,6 +42,14 @@ describe("surfaceRuntimeCrash", () => {
     expect(remote).toEqual([{ fingerprint: "1a2b3c4d", name: "RuntimeCrash", source: "desktop-runtime" }]);
   });
 
+  test("a replayed halt is shown but not reported twice", () => {
+    const remote = capture();
+    const { value, toasts } = ui();
+    surfaceRuntimeCrash(crash(false), async () => {}, value, { replayed: true });
+    expect(remote).toEqual([]);
+    expect(toasts).toHaveLength(1);
+  });
+
   test("a recovered crash is a passing notice", () => {
     capture();
     const { value, toasts } = ui();

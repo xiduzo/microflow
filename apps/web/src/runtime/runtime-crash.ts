@@ -38,8 +38,16 @@ const TOAST_ID = "desktop-runtime-crash";
  * a halt (the crash-loop guard tripped) is a persistent error whose action
  * restarts the runtime and reloads the page, which re-sends the flow.
  */
-export function surfaceRuntimeCrash(crash: RuntimeCrash, restart: () => Promise<void>, ui: CrashUi): void {
-  reportError(new RuntimeCrashError(crash), { source: "desktop-runtime", fingerprint: crash.fingerprint });
+export function surfaceRuntimeCrash(
+  crash: RuntimeCrash,
+  restart: () => Promise<void>,
+  ui: CrashUi,
+  options: { replayed?: boolean } = {},
+): void {
+  // A halt found on start was reported when it happened.
+  if (!options.replayed) {
+    reportError(new RuntimeCrashError(crash), { source: "desktop-runtime", fingerprint: crash.fingerprint });
+  }
 
   if (crash.recovered) {
     ui.error("The flow runtime crashed and was restarted", {

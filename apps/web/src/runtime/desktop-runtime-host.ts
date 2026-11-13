@@ -21,6 +21,7 @@
 import type { ComponentEvent } from "@/lib/bindings/ComponentEvent";
 import type { CloudRequest } from "@/lib/bindings/CloudRequest";
 import type { RuntimeCrash } from "@/lib/bindings/RuntimeCrash";
+import type { RuntimeStatus } from "@/lib/bindings/RuntimeStatus";
 import type { NodeDiagnostic } from "@/runtime/effects-sink";
 import type { EdgeLike } from "@/runtime/ingest/edge-index";
 import type { AudioEnded, AudioSrcResolver } from "@/runtime/audio/audio-performer";
@@ -59,9 +60,31 @@ export type DesktopRuntimeHostDeps = {
   createAudio: (resolveSrc: AudioSrcResolver, onEnded: AudioEnded) => HostAudio;
   /** Dispatch a value on a node's port (a finished record's `stop`). */
   dispatchPort: (nodeId: string, port: string, value: boolean) => void;
-  /** Tell the user and the error reporter; `restart` leaves a crash-loop halt. */
-  onCrash: (crash: RuntimeCrash, restart: () => Promise<void>) => void;
+  /**
+   * Tell the user (and, unless `replayed`, the error reporter); `restart`
+   * leaves a crash-loop halt. `replayed`: the crash happened before this
+   * webview started — a halt found on start, already reported once.
+   */
+  onCrash: (crash: RuntimeCrash, restart: () => Promise<void>, replayed: boolean) => void;
 };
+
+/** Where the app's one host lives, so a re-evaluated module finds the last. */
+export const HOST_SLOT = "__microflowDesktopRuntimeHost";
+export type HostScope = { [HOST_SLOT]?: DesktopRuntimeHost };
+
+/**
+ * The app's one host: `create` a new one and retire whatever `scope` held.
+ * A hot-reloaded module re-runs with its own module state empty; without this
+ * the old host keeps listening beside the new one and every `llm-request` is
+ * performed twice. A started predecessor hands over its running state.
+ */
+export function claimHost(scope: HostScope, create: () => DesktopRuntimeHost): DesktopRuntimeHost {
+  const fresh = create();
+  const previous = scope[HOST_SLOT];
+  if (previous) fresh.takeOver(previous);
+  scope[HOST_SLOT] = fresh;
+  return fresh;
+}
 
 export class DesktopRuntimeHost {
   private started = false;
@@ -111,14 +134,37 @@ export class DesktopRuntimeHost {
     this.on<CloudRequest>("llm-request", (request) => {
       if (request.kind === "llmGenerate") void this.llm?.perform(request);
     });
+    const restart = async () => {
+      await deps.invoke("runtime_restart");
+    };
     this.on<RuntimeCrash>("runtime-crashed", (crash) => {
       // The badges belong to the runtime that panicked; a respawned one
       // re-reports what is still true as it re-applies the flow.
       deps.clearDiagnostics();
-      deps.onCrash(crash, async () => {
-        await deps.invoke("runtime_restart");
-      });
+      deps.onCrash(crash, restart, false);
     });
+
+    // A halt outlives the webview: a reload, or a dismissed error, must not
+    // leave a halted runtime with nothing on screen. Show it again rather
+    // than restart on our own — a reload is not a decision to drive the
+    // board with a flow that just crashed three times.
+    deps
+      .invoke("runtime_status")
+      .then((status) => {
+        const { halted, crash } = (status ?? {}) as Partial<RuntimeStatus>;
+        if (this.started && halted && crash) deps.onCrash(crash, restart, true);
+      })
+      .catch((error: unknown) => console.error("[desktop-runtime-host] runtime_status failed:", error));
+  }
+
+  /** Retire `previous` (see {@link claimHost}), taking over its running state. */
+  takeOver(previous: DesktopRuntimeHost): void {
+    if (previous === this) return;
+    const { started, doc } = previous;
+    previous.stop();
+    if (!started) return;
+    this.start();
+    if (doc) this.attach(doc);
   }
 
   /** Stop listening and abort in-flight work. Only for app teardown (HMR). */
