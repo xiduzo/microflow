@@ -18,6 +18,7 @@ import { Pin, pinDisplayValue } from "@/board/pin-label";
 import { Icon, type IconName } from "@/ui/icon";
 import { Badge } from "@/ui/badge";
 import { DesktopOnlyBadge } from "./desktop-only-badge";
+import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 
 // Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.
 // Hook implementations live in their own modules to keep the layout file focused.
@@ -155,8 +156,14 @@ export function NodeContainer(
 ) {
   // `children` is a new element every render and the presentational props are
   // not part of the context shape — neither belongs in the provider value.
-  const { children, error, warning, badge, className, ...rest } = props;
+  const { children, error: ownError, warning: ownWarning, badge, className, ...rest } = props;
   const value = useStableNode(rest);
+  // The runtime's per-node diagnostic (a node that failed to build or start,
+  // a rejected input, a paused runaway loop) shows on every node's badge. A
+  // node that passes its own `error` / `warning` keeps precedence.
+  const diagnostic = useNodeDiagnosticsStore((state) => state.diagnostics[rest.id]);
+  const error = ownError ?? (diagnostic?.level === "error" ? diagnostic.message : undefined);
+  const warning = ownWarning ?? (diagnostic?.level === "warning" ? diagnostic.message : undefined);
 
   return (
     <NodeContainerContext.Provider value={value}>
