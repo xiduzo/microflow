@@ -81,7 +81,7 @@ Every custom component in the collaboration path, and why it exists.
 | `schema.ts` (`FlowDocument`) | `syncedstore`, `valtio-yjs`, `zustand-middleware-yjs` | **Kept the seam, fixed the shape.** Those libraries impose a state-management paradigm on a codebase that already has one, and none would have fixed the actual problem: nodes were stored as plain objects, so Yjs could not merge them. [ADR-0019](0019-nested-node-fields-for-concurrent-edits.md) nested the fields instead — concurrent edits now merge, and the wrapper stayed. |
 | `react-flow-bridge.ts` | a ReactFlow↔Yjs binding, if one exists | **Keep.** No maintained binding is known to us. *Not verified* — registry lookups were unavailable in the environment where this was written, so this row is based on absence of knowledge, not evidence of absence. Worth ten minutes with a working npm search before anyone extends this file substantially. |
 | `flow-update-dispatcher.ts`, senders | — | **Keep.** The Tauri/wasm runtime seam; nothing to do with Yjs. |
-| `use-flow-sync.ts`, `use-remote-drag.ts`, hooks | — | **Keep.** App-specific React glue over the adapters. |
+| `session-status.ts`, `use-remote-drag.ts`, hooks | — | **Keep.** App-specific React glue over the adapters. |
 | `local-storage-sync-adapter.ts` | **`y-indexeddb`** | **Replaced.** Deleted; see below. |
 | `recording-sync-adapter.ts` | — | **Keep.** Test double. |
 
@@ -119,8 +119,14 @@ interacts with the server's authority over the document) and is not done.
 **Gained, beyond deleted code.** `y-websocket` brings behaviour we did not
 have: a "no message in 30 seconds" watchdog that reconnects a silently-dead
 socket, cross-tab `BroadcastChannel` relay so two tabs on one flow sync
-directly, and a terminal-close convention (codes 4400–4499) we now use so a
-revoked collaborator stops reconnecting.
+directly, and a terminal-close convention (codes 4400–4499) that stops a
+revoked or refused client from reconnecting. Our close handling builds on that
+convention rather than replacing it: `classifyClose` (`protocol.ts`) sorts every
+close into terminal (4400–4499: 4401 revoked, 4403 forbidden, 4404 flow gone),
+re-authenticate (1008, a bounded number of token refreshes) and retry
+(everything else, including 1011 and 1012), and the provider's `shouldReconnect`
+follows it. The table and the server side are in
+[ADR-0015](0015-room-connection-owns-access.md).
 
 **A constraint we did not have before.** Message numbering is no longer ours.
 `MESSAGE_ACK` was 2, which collides with y-websocket's `messageAuth`; the

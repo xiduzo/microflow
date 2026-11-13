@@ -1,6 +1,6 @@
 # ADR-0018 — Two Firmata decoders on one stream: the handshake's and the flow's
 
-- **Status:** accepted (2026-08-26)
+- **Status:** accepted (2026-08-26); amended (2026-11-13)
 - **Date:** 2026-08-26
 - **Deciders:** sander
 
@@ -8,18 +8,19 @@
 > instances of the same `microflow-core` codec. `FirmataSession` decodes to answer
 > the **handshake** — is there Firmata here, what firmware, which pins. The wasm
 > `FlowRuntime` decodes to run the **flow**. They are kept consistent by
-> construction: `pumpReader` hands both the identical chunk sequence, unfiltered,
-> and `FlowReactor.attach` seeds the runtime from the session for the bytes that
-> arrived before it existed. Merging them is not on the table until something
+> construction: the board link hands both the identical chunk sequence,
+> unfiltered, and `FlowReactor.attach` seeds the runtime from the link's pin
+> seed for the bytes that arrived before it existed. Merging them is not on the table until something
 > other than the handshake needs the session's decode.
 
 ## Context
 
-`apps/web/src/board/web-serial.ts`'s `pumpReader` is the browser's one
+`pumpReader` in `apps/web/src/board/board-link.ts` is the browser's one
 inbound serial loop. Per chunk it calls `session.feed(value)` (the
-`microflow-firmata-wasm` `FirmataSession`) and then `hooks.onBytes(value)`, which
-the board controller wires to `reactor.feedBytes` (the `microflow-runtime-wasm`
-`FlowRuntime`). Two Firmata parsers and two pin tables per chunk.
+`microflow-firmata-wasm` `FirmataSession`) and then hands the chunk on to the
+link's inbound sink, which the board controller wires to `reactor.feedBytes`
+(the `microflow-runtime-wasm` `FlowRuntime`). Two Firmata parsers and two pin
+tables per chunk.
 
 This reads like accidental duplication, and the obvious response — one decoder,
 its pin observations carried to the flow as `Effects` — is a large change with a
@@ -34,10 +35,10 @@ handling of `CAPABILITY_RESPONSE` / `ANALOG_MAPPING_RESPONSE`. Fed the same byte
 they reach the same state, so "two pin tables" is two copies of one derivation,
 not two opinions.
 
-**The handshake needs a decoder before a runtime can exist.** `tryConnectAtBaud`
-writes `encodeQueryFirmware` and then polls `session.firmwareName()` until the
-board answers; on success it writes the capability + analog-mapping queries and
-polls `pinCount(session)`. Those polls only advance because the pump is feeding
+**The handshake needs a decoder before a runtime can exist.** The probe
+(`probeBoard` in `board-link.ts`) writes `encodeQueryFirmware` and then polls
+`session.firmwareName()` until the board answers; on success it writes the
+capability + analog-mapping queries and polls `pinCount(session)`. Those polls only advance because the pump is feeding
 the session. There is no `FlowReactor` yet — `FlowReactor.attach` runs from the
 bring-up machine's `connected` phase, after the probe returns a connection. A
 single-decoder design must therefore still start with this one; the duplication
@@ -61,29 +62,36 @@ and is read at connect; the flow's answer is needed on every chunk for as long a
 the board is attached. One decoder each.
 
 **D2 — Consistency comes from an identical stream, not from synchronisation.**
-`pumpReader` gives both decoders every chunk, in order, with no filter and no
-lifecycle gate. Any state either derives from the wire, the other derives too. The
+The board link gives both decoders every chunk, in order, with no filter. The
+session gets each chunk as it arrives; chunks that arrive between the handshake
+and the runtime attaching wait in the link's inbound queue and are replayed to
+the runtime in order once the first flow is applied. Any state either derives from the wire, the other derives too. The
 one asymmetry is deliberate: the runtime records pin *modes* as it encodes
 `PIN_MODE` writes, so it correctly ignores digital port reports for pins it drives
 as outputs, while the session — which writes nothing after the handshake — keeps
 every pin at the default `MODE_INPUT` and tracks the board's reported level.
 
-`__tests__/inbound-stream.test.ts` pins the property: both receive the same chunks
-in the same order.
+`apps/web/src/board/inbound-stream.test.ts` pins the property: both receive the
+same chunks in the same order.
 
 **D3 — `setPins` is a one-shot catch-up, and one shot is enough.**
-`FlowReactor.attach` calls `rt.setPins(connection.session.pinsJson())` once. Its
-job is the bytes the runtime was not alive for — the capability response the
-session consumed during the handshake. Everything after attach arrives on the
-shared stream, so a capability or analog-mapping response that lands late is
-parsed by *both* codecs and the runtime converges without a re-seed. Nothing
-re-queries capabilities mid-session: `encodeQueryCapabilities` is written only
-from `tryConnectAtBaud`, before a reactor exists. A board that re-enumerates
-(native-USB boards on reset) drops the reader, which is `onClosed` →
-`connectionLost` ([ADR-0017](0017-wasm-fault-seam.md)) → `closePort` disposes the
-reactor, and the next probe builds a fresh session, a fresh runtime and a fresh
-seed. There is no path on which the session's pin table advances past the
-runtime's.
+`FlowReactor.attach` calls `setPins(connection.pinSeed)` once. The seed is
+`link.pinSeed`: the session's pin table as `PinInfo[]`, snapshotted in the same
+synchronous step that starts the inbound queue, so seed plus replayed queue is
+exactly the stream the session saw. Its job is the bytes the runtime was not
+alive for — the capability response the session consumed during the handshake.
+Everything after the snapshot reaches the runtime on the shared stream, so a
+capability or analog-mapping response that lands late is parsed by *both*
+codecs and the runtime converges without a re-seed. Nothing re-queries
+capabilities mid-session: `encodeQueryCapabilities` is written only by the
+probe, before a reactor exists. A board that re-enumerates (native-USB boards
+on reset) ends the reader; the link reports the loss, the bring-up machine
+hears `connectionLost` ([ADR-0017](0017-wasm-fault-seam.md)) and closes the
+port, which disposes the reactor, and the next probe builds a fresh session, a
+fresh runtime and a fresh seed. A board that reboots *without* re-enumerating
+is a re-announce, which the runtime handles from its own decode (see the
+amendment). There is no path on which the session's pin table advances past
+the runtime's.
 
 Accordingly `FeedResult.capabilitiesUpdated` and `firmwareUpdated` have no host
 consumer. They are the codec reporting what it saw; the host does not act on them,
@@ -111,14 +119,6 @@ from it. Reach for it when one of these becomes true:
 - **A browser surface needs live pin values.** Today none does; the canvas gets
   them as component events. A pin monitor would want them from the decoder that
   owns the pin table, i.e. the runtime, and that means a new `Effects` field.
-- **The host must react to a mid-session re-announce.** An AVR board reset over an
-  external USB-serial chip keeps the port open: `onClosed` never fires, the board
-  reboots having forgotten its pin modes and reporting-enables, and the flow goes
-  quiet with nothing to notice. The signal is a `REPORT_FIRMWARE` on an already
-  connected board — and it must come from the runtime's decode, since the runtime
-  is what has to re-apply the flow. Watching the session's `firmwareUpdated`
-  instead would put the detection codec back in the steady-state path for a
-  decision it cannot carry out.
 - **The handshake stops needing its own codec** — a probe that answers from
   something other than a live Firmata conversation.
 
@@ -152,8 +152,8 @@ exist yet.
 
 - `FeedResult` still reports `pinChanges`, `i2cReplies`, `firmwareUpdated` and
   `capabilitiesUpdated`. The browser host reads none of them; they are the codec's
-  full report, and the flags are the natural hook if the re-announce case above
-  ever lands.
+  full report. The re-announce is read from the runtime's decode, not from
+  `firmwareUpdated` (see the amendment).
 
 ## Glossary
 
@@ -166,11 +166,51 @@ Terms for `CONTEXT.md`:
 
 ## References
 
-- `apps/web/src/board/web-serial.ts` — `tryConnectAtBaud` (the handshake), `pumpReader` (the fan-out).
+- `apps/web/src/board/board-link.ts` — `probeBoard` (the handshake), `pumpReader` (the fan-out), `pinSeed` and `attachInbound` (the seed and the inbound queue).
 - `apps/web/src/runtime/flow-reactor.ts` — `attach`: the pin seed; `feedBytes`: the flow's decode.
-- `apps/web/src/board/board-controller.ts` — `probeHooks`: `onBytes` → the reactor.
+- `apps/web/src/board/board-controller-core.ts` — attaches the reactor, applies the flow, then `link.attachInbound(reactor.feedBytes)`.
+- `crates/microflow-core/src/firmata/profile.rs` — `PinProfile`, `PinInfo`: the one pin model both decoders and both hosts share.
+- `crates/microflow-core/src/runtime/session.rs` — the re-announce.
 - `crates/microflow-core/src/firmata/mod.rs` — the one codec both instances wrap.
 - `crates/microflow-core/src/runtime/mod.rs` — `seed_pins`, `feed_bytes`, `detect_pin_changes`.
 - `apps/web/src/board/inbound-stream.test.ts` — both decoders get the same chunks.
 - [ADR-0008](0008-effects-apply-policy.md) — the `Effects` seam a merge would have to widen.
 - [ADR-0017](0017-wasm-fault-seam.md) — `onClosed` means the reader ended; per-chunk fault containment.
+
+---
+
+## Amendment (2026-11-13): one pin profile, the re-announce, and sysex resync
+
+**The seed is a `PinProfile`, carried as `PinInfo[]`.** What each pin of the
+board can do — its capability response and its analog-mapping response — is one
+type in core, `PinProfile` (`firmata/profile.rs`). The codec decodes an analog
+report onto the pin its channel maps to and encodes analog reporting by channel
+through it; the `BoardWriter`, a node resolving `"A<n>"`, the live pin check and
+the safe state all ask it. Both hosts project it into the seed as `PinInfo[]`
+(`{ pin, supportedModes, analogChannel }`, ts-rs generated): the browser's
+`link.pinSeed`, the desktop probe's `pins_json`. The runtime rebuilds the
+profile from that seed, modes included, so the two decoders and the two hosts
+share one model of the board instead of each guessing (an Uno-shaped `14 + n`
+for `A<n>` is now only the fallback when no board has described itself).
+
+**The re-announce is read from the runtime's decode.** A board can reboot
+without its port closing — a reset over an external USB-serial chip, a DTR
+pulse, a brown-out — and come back having forgotten its pin modes, reporting
+and I2C queries. It announces itself again with `REPORT_FIRMWARE`. The detection
+codec saw its own answer during the handshake, before the runtime existed, so a
+`REPORT_FIRMWARE` in the runtime's decode can only be the board announcing
+itself again. The runtime (`runtime/session.rs`) then resets what it believed
+about the pins, rebuilds every hardware node, replays the board setup against an
+empty board and restores the outputs that are safe to restore. The session's
+`firmwareUpdated` is not used: that would put the detection codec back in the
+steady-state path for a decision only the runtime can carry out. This is the
+case listed above as a reason to merge the decoders; it landed without merging,
+and `Effects` gained no field for it. Three re-announces within 30 s are a
+**reset storm**: the flow is still re-applied, but restored outputs are held at
+the safe state until the board is quiet for 30 s or the flow changes, so an
+output that browns the board out does not reset it forever.
+
+**A sysex ends at a status byte.** Both decoders end a sysex frame at the next
+byte with its high bit set, not only at `END_SYSEX`. A frame cut short — by a
+reset mid-sysex, or line noise — then costs that frame only, and the frame after
+it (the boot announcement, typically) is decoded rather than swallowed.

@@ -165,7 +165,7 @@ that `no-cycle` resolves the `@/` alias.
   `nodes/node-types.generated.ts`, and finds a node's host adapter by the presence of
   `nodes/<node>/<node>.adapter.ts`.
 - **The LLM provider store, the Llm node's transport (`llm-client.ts`) and
-  `use-llm-requests.ts` live in `ai/`**, next to `ai/adapter.ts`, which Ask AI and
+  its performer (`llm-performer.ts`) live in `ai/`**, next to `ai/adapter.ts`, which Ask AI and
   the provider transport share
   ([ADR-0021](0021-one-llm-transport-in-the-webview.md)). `cloud/` imports `ai/`;
   `ai/` does not import `cloud/`.

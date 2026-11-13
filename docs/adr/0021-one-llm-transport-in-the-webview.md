@@ -35,8 +35,14 @@ sidestepped it, and that is the whole reason the second implementation existed.
 **The LLM transport is TypeScript, and the webview performs it in both hosts.**
 
 - `ai/adapter.ts` turns a stored `LlmProviderConfig` into a TanStack AI
-  adapter. `ai/llm-client.ts` is the one transport, used by the
-  browser `CloudPerformer` and — via `ai/use-llm-requests.ts` — by desktop.
+  adapter. `ai/llm-client.ts` is the one transport, and `ai/llm-performer.ts`
+  (`LlmPerformer`) the one performer around it: resolve the provider, cancel the
+  node's previous generation (latest wins), stream deltas onto `value`, settle
+  `thinking`/`done` or `error`. The browser `CloudPerformer` and the desktop's
+  app-lifetime `DesktopRuntimeHost` each hold one; they differ only in how a
+  result re-enters their runtime (the wasm `injectEvent`, or the `llm_result`
+  command). Because the desktop performer lives for the whole app, a generation
+  in flight survives navigating away from the flow.
 - **The desktop actor stops performing LLM I/O.** `Actor::perform_cloud`
   forwards an `LlmGenerate` request to the webview as an `llm-request` event and
   returns, exactly as it already did for `AudioPlay`/`AudioStop`. Results

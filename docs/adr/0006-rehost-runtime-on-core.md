@@ -136,3 +136,14 @@ New terms recorded in `CONTEXT.md`:
 - `apps/web/src/runtime/flow-reactor.ts` — browser reactor adapter.
 - Commit `2f5a4ce` — "refactor(desktop): delete the duplicate runtime, re-host on microflow-core".
 - ADR-0001, ADR-0002 (router), ADR-0025 (per-capability) — superseded paths.
+
+---
+
+## Amendment (2026-11-13): the runtime reads codegen's pin table
+
+D1 keeps `codegen` ungated so codegen-only consumers compile without the
+runtime. The runtime now also *reads* from it: the live pin check judges each
+Node against the board using `codegen::validate::pin_demands`, the same table
+sketch validation reads ([ADR-0013](0013-handle-aware-sketch-wiring.md),
+amendment). The dependency runs from `runtime` to `codegen` only, so D1 holds:
+the codegen wasm build still pulls in nothing from the runtime.

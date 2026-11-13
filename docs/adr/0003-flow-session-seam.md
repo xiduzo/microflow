@@ -187,10 +187,10 @@ backwards-compatibility shims):
 1. **Phase 1** — Add `session/` module: `sync-adapter.ts` (interfaces),
    `local-storage-sync-adapter.ts`, `websocket-sync-adapter.ts`,
    `recording-sync-adapter.ts`, `flow-session.ts` (factories),
-   `session-registry.ts`. Vitest unit tests against the recording
+   `session-registry.ts`. Unit tests (`bun test`) against the recording
    adapter from day one.
 2. **Phase 2** — Add React surface: `flow-session-context.tsx`,
-   `use-flow-session.ts`, `use-flow-sync.ts`, `use-local-session.ts`,
+   `use-flow-session.ts`, `use-local-session.ts`,
    `use-cloud-session.ts`, `use-react-flow-bridge.ts` (moves logic
    from current `useFlowState` — no deepening, that is candidate 2),
    `use-flow-history.ts`, `use-flow-meta.ts`,
@@ -198,7 +198,7 @@ backwards-compatibility shims):
 3. **Phase 3** — Migrate call sites: 15 files now reading
    `useFlowStore` / `useFlowDocument` / `useCollabFlow` / `useLocalFlow`
    / `useSyncProvider`. Re-point to `useFlowSession()`,
-   `useFlowSync()`, `useClipboardStore()`, `useReactFlowBridge(session)`,
+   `useClipboardStore()`, `useReactFlowBridge(session)`,
    `useFlowHistory(session.doc)`.
 4. **Phase 4** — Delete: `hooks/use-collab-flow.ts`,
    `hooks/use-sync-provider.ts`, `hooks/use-flow-document.ts`,
@@ -213,7 +213,7 @@ Each phase compiles. Final phase is the rip.
 **Positive**
 
 - **Editing is testable without React or a WebSocket server.** Two
-  `RecordingSyncAdapter`s in the same vitest file replay updates between
+  `RecordingSyncAdapter`s in the same test file replay updates between
   one another; assert convergence on the underlying `FlowDocument`.
   Strict Mode bugs, awareness round-trip, disconnect/reconnect, clipboard
   paste across sessions — all unit-testable.
@@ -221,9 +221,10 @@ Each phase compiles. Final phase is the rip.
   `flowDoc?.addNode(...)` chains at call sites. `useFlowSession()`
   returns `FlowSession`, not `FlowSession | null`. Throws outside the
   provider — bug surfaces immediately, not as a silent no-op.
-- **No more `useSyncStateStore`.** Sync state read via
-  `useFlowSync()` selector subscribing to `session.sync` events.
-  One less mirror.
+- **No more `useSyncStateStore`.** Connection and save state are read
+  through the session's **Flow Session Status** (`session.status`,
+  `useFlowSessionStatus()`), derived from `session.sync` events. One less
+  mirror.
 - **Local vs remote is type-honest.** UI components can switch on
   `session.mode === "cloud"` to render the sync chip / collaborator
   panel, with full type narrowing on `session.sync` as
