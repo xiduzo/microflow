@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
@@ -6,6 +6,7 @@ import * as decoding from "lib0/decoding";
 
 import { YjsServer, type Connection, type RoomConnection } from "./yjs-server";
 import { MemoryRoomStore, type RoomStore } from "./room-store";
+import { ManualClock } from "./manual-clock";
 
 /**
  * Room lifecycle under concurrency — the failure modes that only appear when
@@ -174,11 +175,20 @@ describe("YjsServer concurrent joins", () => {
 });
 
 describe("YjsServer persist ceiling", () => {
+  // These run on a `ManualClock`: time moves only when the test steps it, so
+  // the assertions are about the policy, not about how busy the machine is.
+
   test("continuous edits still persist once the max wait elapses", async () => {
     const store = new MemoryRoomStore();
+    const clock = new ManualClock();
     // Debounce longer than the ceiling: without a ceiling the timer re-arms on
     // every edit and the room is never written.
-    const server = new YjsServer({ store, persistDebounce: 10_000, persistMaxWait: 20 });
+    const server = new YjsServer({
+      store,
+      persistDebounce: 10_000,
+      persistMaxWait: 20,
+      persistClock: clock,
+    });
 
     const peer = newPeer();
     peer.connection = await server.join("flow-busy", socketFor(peer), "user-a", true);
@@ -186,31 +196,41 @@ describe("YjsServer persist ceiling", () => {
     // An edit every 5ms for 60ms: the debounce never gets its quiet period.
     for (let i = 0; i < 12; i++) {
       peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set(`n${i}`, i)));
-      await new Promise((r) => setTimeout(r, 5));
+      await clock.advance(5);
     }
 
-    // The ceiling wrote the room mid-stream, more than once.
-    expect(store.saves.length).toBeGreaterThanOrEqual(2);
+    // The ceiling wrote the room every 20ms mid-stream: t=20, 40 and 60.
+    expect(store.saves.length).toBe(3);
     const persisted = new Y.Doc();
     Y.applyUpdate(persisted, store.saves[0]!.state);
     expect(persisted.getMap("nodes").get("n0")).toBe(0);
+    // No timer was ever armed past the ceiling.
+    expect(Math.max(...clock.armed)).toBeLessThanOrEqual(20);
   });
 
   test("the ceiling holds even when the room goes quiet right after an edit", async () => {
     const store = new MemoryRoomStore();
-    const server = new YjsServer({ store, persistDebounce: 10_000, persistMaxWait: 20 });
+    const clock = new ManualClock();
+    const server = new YjsServer({
+      store,
+      persistDebounce: 10_000,
+      persistMaxWait: 20,
+      persistClock: clock,
+    });
 
     const peer = newPeer();
     peer.connection = await server.join("flow-quiet", socketFor(peer), "user-a", true);
 
     // One edit, then silence: no later edit arrives to notice the ceiling.
     peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
-    await new Promise((r) => setTimeout(r, 40));
+    expect(clock.armed).toEqual([20]);
+    await clock.advance(20);
 
     expect(store.saves.length).toBe(1);
   });
 
   test("a failed persist leaves the room dirty so the next attempt retries", async () => {
+    const consoleError = spyOn(console, "error").mockImplementation(() => {});
     let failNext = true;
     const inner = new MemoryRoomStore();
     const store: RoomStore = {
@@ -223,24 +243,29 @@ describe("YjsServer persist ceiling", () => {
         return inner.save(flowId, state);
       },
     };
+    const clock = new ManualClock();
     const server = new YjsServer({
       store,
       persistDebounce: 5,
       persistMaxWait: 10_000,
       persistRetryBase: 25,
+      persistClock: clock,
     });
 
     const peer = newPeer();
     peer.connection = await server.join("flow-flaky", socketFor(peer), "user-a", true);
 
-    // Saved at ~5ms and fails; the backoff retry is due at ~30ms.
+    // Saved at t=5 and fails; the backoff retry is due at t=30.
     peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
-    await new Promise((r) => setTimeout(r, 20));
+    await clock.advance(20);
     expect(inner.saves.length).toBe(0);
+    expect(clock.armed).toEqual([5, 25]);
 
-    // An edit during the backoff rides along with the pending retry.
+    // An edit during the backoff rides along with the pending retry rather
+    // than re-arming the debounce.
     peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n2", 2)));
-    await new Promise((r) => setTimeout(r, 40));
+    expect(clock.armed).toEqual([5, 25]);
+    await clock.advance(10);
 
     // The retry carries both edits — the first was never dropped.
     expect(inner.saves.length).toBe(1);
@@ -248,6 +273,8 @@ describe("YjsServer persist ceiling", () => {
     Y.applyUpdate(persisted, inner.saves[0]!.state);
     expect(persisted.getMap("nodes").get("n1")).toBe(1);
     expect(persisted.getMap("nodes").get("n2")).toBe(2);
+    expect(consoleError).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 });
 

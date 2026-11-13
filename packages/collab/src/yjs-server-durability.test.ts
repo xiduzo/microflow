@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
@@ -6,12 +6,27 @@ import * as encoding from "lib0/encoding";
 import { RoomGone, RoomServerShuttingDown, YjsServer, type Connection } from "./yjs-server";
 import { MemoryRoomStore, mergeDocumentStates, type RoomStore } from "./room-store";
 import { CLOSE_SERVICE_RESTART } from "./protocol";
+import { ManualClock } from "./manual-clock";
 
 /**
  * Room durability: an edit the room accepted must reach the store. These
  * tests drive the room through `RoomConnection` handles with
  * `MemoryRoomStore` as the persistence adapter.
+ *
+ * Debounce, ceiling and backoff run on a `ManualClock`: the tests step time
+ * and assert exact delays rather than sleeping and hoping the machine kept
+ * up. Only `shutdown()` deadlines still use real time.
  */
+
+// Failed saves are logged loudly by design; here they are expected. Silence
+// them (the cost of printing stacks also skewed timing before the clock seam).
+let consoleError: ReturnType<typeof spyOn>;
+beforeEach(() => {
+  consoleError = spyOn(console, "error").mockImplementation(() => {});
+});
+afterEach(() => {
+  consoleError.mockRestore();
+});
 
 const MESSAGE_SYNC = 0;
 
@@ -41,12 +56,13 @@ function persisted(state: Uint8Array): Y.Doc {
 describe("YjsServer durability: sync step 2", () => {
   test("offline edits sent as sync step 2 are persisted", async () => {
     const store = new MemoryRoomStore();
-    const server = new YjsServer({ store, persistDebounce: 5, persistMaxWait: 10_000 });
+    const clock = new ManualClock();
+    const server = new YjsServer({ store, persistDebounce: 5, persistClock: clock });
 
     const connection = await server.join("flow-offline", socket(), "user-a", true);
     connection.receive(syncStep2Message((doc) => doc.getMap("nodes").set("n1", "offline")));
 
-    await Bun.sleep(30);
+    await clock.advance(5);
 
     expect(store.saves.length).toBe(1);
     expect(persisted(store.saves[0]!.state).getMap("nodes").get("n1")).toBe("offline");
@@ -54,12 +70,15 @@ describe("YjsServer durability: sync step 2", () => {
 
   test("a step 2 that brings nothing new does not persist", async () => {
     const store = new MemoryRoomStore();
-    const server = new YjsServer({ store, persistDebounce: 5, persistMaxWait: 10_000 });
+    const clock = new ManualClock();
+    const server = new YjsServer({ store, persistDebounce: 5, persistClock: clock });
 
     const connection = await server.join("flow-noop", socket(), "user-a", true);
     connection.receive(syncStep2Message(() => {}));
 
-    await Bun.sleep(30);
+    // Nothing changed, so nothing was even scheduled.
+    expect(clock.pendingCount).toBe(0);
+    await clock.advance(60_000);
 
     expect(store.saves.length).toBe(0);
   });
@@ -72,15 +91,10 @@ describe("YjsServer durability: sync step 2", () => {
 class FailingRoomStore implements RoomStore {
   readonly inner: MemoryRoomStore;
   failing = true;
-  /** When each failed save happened, to measure the backoff between them. */
-  readonly failedAt: number[] = [];
+  failedSaves = 0;
 
   constructor(seed?: Record<string, Uint8Array>) {
     this.inner = new MemoryRoomStore(seed);
-  }
-
-  get failedSaves(): number {
-    return this.failedAt.length;
   }
 
   load(flowId: string): Promise<Uint8Array | null> {
@@ -89,7 +103,7 @@ class FailingRoomStore implements RoomStore {
 
   save(flowId: string, state: Uint8Array): Promise<void> {
     if (this.failing) {
-      this.failedAt.push(performance.now());
+      this.failedSaves++;
       return Promise.reject(new Error("store unavailable"));
     }
     return this.inner.save(flowId, state);
@@ -139,65 +153,82 @@ function nodesOf(state: Uint8Array | null): Y.Map<unknown> {
 describe("YjsServer durability: failed saves", () => {
   test("a failed save is retried with backoff without waiting for another edit", async () => {
     const store = new FailingRoomStore();
-    const server = new YjsServer({ store, persistDebounce: 1, persistRetryBase: 5 });
+    const clock = new ManualClock();
+    const server = new YjsServer({
+      store,
+      persistDebounce: 1,
+      persistRetryBase: 5,
+      persistClock: clock,
+    });
 
     const connection = await server.join("flow-retry", socket(), "user-a", true);
     connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
 
-    // Failing saves at ~1ms, ~6ms, ~16ms (backoff 5, 10, ...).
-    await Bun.sleep(20);
-    expect(store.failedSaves).toBeGreaterThanOrEqual(2);
+    await clock.advance(1); // debounce: first save, fails
+    await clock.advance(5); // first retry, fails
+    expect(store.failedSaves).toBe(2);
     expect(store.inner.saves.length).toBe(0);
 
+    // No further edit arrives; the pending retry alone carries the change.
     store.failing = false;
-    await Bun.sleep(60);
+    await clock.advance(10);
 
     expect(store.inner.saves.length).toBe(1);
     expect(nodesOf(store.inner.saves[0]!.state).get("n1")).toBe(1);
+    expect(clock.pendingCount).toBe(0);
     await settle(server);
   });
 
   test("the delay between retries doubles, up to the cap", async () => {
     const store = new FailingRoomStore();
+    const clock = new ManualClock();
     const server = new YjsServer({
       store,
       persistDebounce: 1,
       persistRetryBase: 10,
       persistRetryMax: 40,
+      persistClock: clock,
     });
 
     const connection = await server.join("flow-backoff", socket(), "user-a", true);
     connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
 
-    // Saves at ~1, 11, 31, 71, 111ms: gaps 10, 20, 40, then capped at 40.
-    await Bun.sleep(130);
-    const gaps = store.failedAt.slice(1).map((t, i) => t - store.failedAt[i]!);
-    expect(gaps.length).toBeGreaterThanOrEqual(4);
-    expect(gaps[1]!).toBeGreaterThan(gaps[0]! * 1.5);
-    expect(gaps[2]!).toBeGreaterThan(gaps[1]! * 1.5);
-    // Capped: the fourth wait is no longer than the third (timer slack aside).
-    expect(gaps[3]!).toBeLessThan(gaps[2]! * 1.5);
+    // Debounce, then one save attempt per timer: each failure arms the next wait.
+    const waited: Array<number | null> = [];
+    for (let i = 0; i < 6; i++) waited.push(await clock.runNext());
+
+    expect(waited).toEqual([1, 10, 20, 40, 40, 40]);
+    expect(store.failedSaves).toBe(6);
+    // Every failure is still reported loudly, with its attempt number.
+    expect(consoleError).toHaveBeenCalledTimes(6);
+    expect(String(consoleError.mock.calls[5]![0])).toContain("attempt 6");
 
     await settle(server, store);
   });
 
   test("an idle room whose final save fails is kept, not destroyed", async () => {
     const store = new FailingRoomStore();
-    const server = new YjsServer({ store, persistDebounce: 60_000, persistRetryBase: 5 });
+    const clock = new ManualClock();
+    const server = new YjsServer({
+      store,
+      persistDebounce: 60_000,
+      persistRetryBase: 5,
+      persistClock: clock,
+    });
 
     const connection = await server.join("flow-keep", socket(), "user-a", true);
     connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", "unsaved")));
     connection.close(); // last one out: final flush, which fails
 
-    await Bun.sleep(20);
-    expect(store.failedSaves).toBeGreaterThanOrEqual(1);
+    await clock.advance(5); // and its first retry fails too
+    expect(store.failedSaves).toBe(2);
     // Still in memory, edit intact.
     expect(server.getRoomCount()).toBe(1);
     expect(nodesOf(server.currentState("flow-keep")).get("n1")).toBe("unsaved");
 
     // The store recovers: the retry lands and only then is the room released.
     store.failing = false;
-    await Bun.sleep(60);
+    await clock.runNext();
     expect(store.inner.saves.length).toBe(1);
     expect(nodesOf(store.inner.saves[0]!.state).get("n1")).toBe("unsaved");
     expect(server.getRoomCount()).toBe(0);
@@ -207,12 +238,14 @@ describe("YjsServer durability: failed saves", () => {
     const seeded = new Y.Doc();
     seeded.getMap("nodes").set("n0", "stored");
     const store = new FailingRoomStore({ "flow-rejoin": Y.encodeStateAsUpdate(seeded) });
-    const server = new YjsServer({ store, persistDebounce: 60_000, persistRetryBase: 1_000 });
+    const clock = new ManualClock();
+    const server = new YjsServer({ store, persistDebounce: 60_000, persistClock: clock });
 
     const first = await server.join("flow-rejoin", socket(), "user-a", true);
     first.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", "unsaved")));
     first.close();
-    await Bun.sleep(5);
+    await clock.advance(0); // the final flush fails; the room is held
+    expect(store.failedSaves).toBe(1);
 
     await server.join("flow-rejoin", socket(), "user-b", true);
     const nodes = nodesOf(server.currentState("flow-rejoin"));
@@ -292,7 +325,8 @@ describe("YjsServer durability: shutdown", () => {
     const result = await server.shutdown(100);
 
     expect(result.unsaved).toEqual(["flow-exit-lost"]);
-    expect(Date.now() - started).toBeLessThan(500);
+    // Bounded by the timeout, not by the store: generous, as this is real time.
+    expect(Date.now() - started).toBeLessThan(2_000);
     await settle(server, store);
   });
 
