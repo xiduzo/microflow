@@ -23,7 +23,10 @@ pub struct PinCaps {
     pub analog_channel: Option<u8>,
     /// `IS_PIN_PWM`.
     pub pwm: bool,
-    /// `IS_PIN_SERVO`.
+    /// SERVO. Microflow's bundled `StandardFirmata` advertises and accepts it
+    /// on every digital pin (`setPinModeCallback` checks only
+    /// `IS_PIN_DIGITAL`; the limit is `MAX_SERVOS` attached at once, not
+    /// which pin), so the layouts set it wherever `digital` is.
     pub servo: bool,
     /// `IS_PIN_I2C` (SDA/SCL).
     pub i2c: bool,
@@ -70,7 +73,8 @@ pub struct BoardLayout {
 
 impl BoardLayout {
     /// Arduino Uno / Nano (`ATmega328P`): 20 pins, A0..A5 = pins 14..19, PWM on
-    /// 3/5/6/9/10/11, I2C on A4/A5 (18/19), servos on 2..13, serial on 0/1.
+    /// 3/5/6/9/10/11, I2C on A4/A5 (18/19), servos on every digital pin, serial
+    /// on 0/1.
     #[must_use]
     pub fn uno() -> Self {
         let pins = (0u8..20)
@@ -78,7 +82,7 @@ impl BoardLayout {
                 digital: (2..=19).contains(&p),
                 analog_channel: (14..20).contains(&p).then(|| p - 14),
                 pwm: matches!(p, 3 | 5 | 6 | 9 | 10 | 11),
-                servo: (2..14).contains(&p),
+                servo: (2..=19).contains(&p),
                 i2c: matches!(p, 18 | 19),
             })
             .collect();
@@ -86,7 +90,7 @@ impl BoardLayout {
     }
 
     /// Arduino Mega 2560: 70 pins, A0..A15 = pins 54..69, PWM on 2..13 and
-    /// 44..46, I2C on 20/21, servos on 2..49, serial on 0/1.
+    /// 44..46, I2C on 20/21, servos on every digital pin, serial on 0/1.
     #[must_use]
     pub fn mega2560() -> Self {
         let pins = (0u8..70)
@@ -94,7 +98,7 @@ impl BoardLayout {
                 digital: p >= 2,
                 analog_channel: (p >= 54).then(|| p - 54),
                 pwm: (2..=13).contains(&p) || (44..=46).contains(&p),
-                servo: (2..50).contains(&p),
+                servo: p >= 2,
                 i2c: matches!(p, 20 | 21),
             })
             .collect();
@@ -102,7 +106,7 @@ impl BoardLayout {
     }
 
     /// Arduino Leonardo (`ATmega32U4`): 30 pins, A0..A11 = pins 18..29, PWM on
-    /// 3/5/6/9/10/11/13, I2C on 2/3, servos on 0..11.
+    /// 3/5/6/9/10/11/13, I2C on 2/3, servos on every pin.
     #[must_use]
     pub fn leonardo() -> Self {
         let pins = (0u8..30)
@@ -110,7 +114,7 @@ impl BoardLayout {
                 digital: true,
                 analog_channel: (p >= 18).then(|| p - 18),
                 pwm: matches!(p, 3 | 5 | 6 | 9 | 10 | 11 | 13),
-                servo: p < 12,
+                servo: true,
                 i2c: matches!(p, 2 | 3),
             })
             .collect();
@@ -174,7 +178,8 @@ mod tests {
         assert!(uno.caps(9).supports(MODE_PWM));
         assert!(!uno.caps(13).supports(MODE_PWM));
         assert!(uno.caps(18).supports(MODE_I2C));
-        assert!(!uno.caps(14).supports(MODE_SERVO));
+        assert!(uno.caps(14).supports(MODE_SERVO), "servo on any digital pin");
+        assert!(!uno.caps(0).supports(MODE_SERVO));
         assert_eq!(uno.port_count(), 3);
         assert_eq!(BoardLayout::mega2560().port_count(), 9);
     }
