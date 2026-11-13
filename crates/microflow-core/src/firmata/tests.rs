@@ -430,3 +430,58 @@ fn an_unterminated_sysex_is_given_up_past_the_bound() {
     assert_eq!(c.feed(&[DIGITAL_MESSAGE, 0x04, 0x00]), vec![Message::Digital]);
     assert_eq!(c.pins[2].value, 1);
 }
+
+/// `F0 6F F7` — an EXTENDED_ANALOG with no channel — sliced `buf[3..2]` and
+/// panicked; any line noise could take down the runtime that way.
+#[test]
+fn a_bare_extended_analog_frame_is_skipped_not_a_panic() {
+    let mut c = FirmataClient::new();
+    assert!(c.feed(&[START_SYSEX, EXTENDED_ANALOG, END_SYSEX]).is_empty());
+    assert!(c.feed(&[START_SYSEX, REPORT_FIRMWARE, END_SYSEX]).is_empty());
+    assert!(c.feed(&[START_SYSEX, I2C_REPLY, 1, END_SYSEX]).is_empty());
+    assert_eq!(c.feed(&[PROTOCOL_VERSION, 2, 5]), vec![Message::ProtocolVersion]);
+}
+
+/// Nothing the wire can deliver panics the decoder: every known message cut
+/// at every byte (and followed by every other), plus thousands of seeded
+/// random streams, fed whole, a byte at a time and in random chunks, to a
+/// codec with no board described and to one describing a Mega.
+#[test]
+fn no_byte_stream_panics_the_decoder() {
+    use super::sim::noise::{hostile_streams, Noise};
+    use super::sim::{BoardLayout, SimBoard};
+
+    let mut mega = SimBoard::new(BoardLayout::mega2560());
+    let mut described = FirmataClient::new();
+    described.feed(&mega.take_output());
+    mega.receive(&described.encode_query_capabilities());
+    mega.receive(&described.encode_query_analog_mapping());
+    described.feed(&mega.take_output());
+    let profile = described.profile.clone();
+
+    let mut noise = Noise::new(0x5EED_F1A7);
+    for stream in hostile_streams(0xC0DE_C0DE, 4000) {
+        for describe in [false, true] {
+            let fresh = || {
+                let mut c = FirmataClient::new();
+                if describe {
+                    c.set_profile(profile.clone());
+                }
+                c
+            };
+            fresh().feed(&stream);
+            let mut bytewise = fresh();
+            for b in &stream {
+                bytewise.feed(std::slice::from_ref(b));
+            }
+            let mut chunked = fresh();
+            let mut rest = stream.as_slice();
+            while !rest.is_empty() {
+                let (chunk, tail) = rest.split_at(1 + noise.below(rest.len()));
+                chunked.feed(chunk);
+                rest = tail;
+            }
+            assert!(chunked.pending_bytes() <= MAX_PENDING_BYTES + stream.len());
+        }
+    }
+}

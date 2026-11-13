@@ -35,7 +35,7 @@
 use serde::{Deserialize, Serialize};
 
 mod profile;
-pub use profile::{mode_name, PinCaps, PinInfo, PinLabel, PinProfile, UNO_FIRST_ANALOG_PIN};
+pub use profile::{mode_name, PinCaps, PinInfo, PinLabel, PinProfile, MAX_PINS, UNO_FIRST_ANALOG_PIN};
 
 // --- Protocol constants (mirrors firmata-rs) --------------------------------
 
@@ -449,40 +449,39 @@ impl FirmataClient {
 
         match cmd {
             PROTOCOL_VERSION => {
-                if avail < 3 {
+                let Some(&[major, minor]) = self.rx.get(p + 1..p + 3) else {
                     return Step::Incomplete;
-                }
-                self.protocol_version = format!("{:o}.{:o}", self.rx[p + 1], self.rx[p + 2]);
+                };
+                self.protocol_version = format!("{major:o}.{minor:o}");
                 self.consume(3);
                 Step::Parsed(Message::ProtocolVersion)
             }
             ANALOG_MESSAGE..=ANALOG_MESSAGE_BOUND => {
-                if avail < 3 {
+                let Some(&[lsb, msb]) = self.rx.get(p + 1..p + 3) else {
                     return Step::Incomplete;
-                }
-                let value = i32::from(self.rx[p + 1]) | (i32::from(self.rx[p + 2]) << 7);
+                };
+                let value = i32::from(lsb) | (i32::from(msb) << 7);
                 self.set_analog_value(cmd & 0x0F, value);
                 self.consume(3);
                 Step::Parsed(Message::Analog)
             }
             DIGITAL_MESSAGE..=DIGITAL_MESSAGE_BOUND => {
-                if avail < 3 {
+                let Some(&[lsb, msb]) = self.rx.get(p + 1..p + 3) else {
                     return Step::Incomplete;
-                }
-                let port = i32::from(cmd) & 0x0F;
-                let value = i32::from(self.rx[p + 1]) | (i32::from(self.rx[p + 2]) << 7);
+                };
+                let port = usize::from(cmd & 0x0F);
+                let value = i32::from(lsb) | (i32::from(msb) << 7);
                 for i in 0..8 {
-                    let pin = (8 * port) + i;
                     // Update input pins from the port report; skip OUTPUT/PWM/etc
                     // so a digital-write echo can't clobber the host's cached
                     // output state. A pull-up button reports in MODE_PULLUP — the
                     // common, correct wiring for a simple button — so it must be
                     // accepted here too, not just bare MODE_INPUT, or its value
                     // never updates and the node looks dead.
-                    if (self.pins.len() as i32) > pin
-                        && matches!(self.pins[pin as usize].mode, MODE_INPUT | MODE_PULLUP)
-                    {
-                        self.pins[pin as usize].value = (value >> (i & 0x07)) & 0x01;
+                    if let Some(pin) = self.pins.get_mut(8 * port + i) {
+                        if matches!(pin.mode, MODE_INPUT | MODE_PULLUP) {
+                            pin.value = (value >> i) & 0x01;
+                        }
                     }
                 }
                 self.consume(3);
@@ -531,13 +530,18 @@ impl FirmataClient {
     /// desktop reader loop which logs and ignores `UnknownSysEx`.
     fn parse_sysex(&mut self, buf: &[u8]) -> Step {
         // buf[0] == START_SYSEX, buf[last] == END_SYSEX, buf[1] == sysex command.
+        // Every branch reads `data` — the bytes between the command and the
+        // END_SYSEX, possibly none — through checked access only: a frame is
+        // whatever the wire delivered (line noise, a cut reply), and a panic
+        // here takes down the browser runtime or the desktop actor.
         let Some(&sub) = buf.get(1) else {
             return Step::Skipped;
         };
+        let data = buf.get(2..buf.len().saturating_sub(1)).unwrap_or_default();
         match sub {
             END_SYSEX => Step::Parsed(Message::EmptyResponse),
             ANALOG_MAPPING_RESPONSE => {
-                self.profile.apply_analog_mapping(&buf[2..buf.len() - 1]);
+                self.profile.apply_analog_mapping(data);
                 if self.pins.len() < self.profile.len() {
                     self.pins.resize_with(self.profile.len(), Pin::default);
                 }
@@ -548,14 +552,14 @@ impl FirmataClient {
                 // separate ANALOG_MAPPING_RESPONSE (which trails a large
                 // capability dump and is easily missed during detection) never
                 // arrives: the profile numbers those channels in pin order.
-                self.profile = PinProfile::from_capability_response(&buf[2..buf.len() - 1]);
+                self.profile = PinProfile::from_capability_response(data);
                 self.pins = vec![Pin::default(); self.profile.len()];
                 Step::Parsed(Message::CapabilityResponse)
             }
             EXTENDED_ANALOG => {
                 // `sendAnalog` for a channel past 15: [channel, value 7-bit LSB first..].
-                let Some(&channel) = buf.get(2) else { return Step::Skipped };
-                let value = buf[3..buf.len() - 1]
+                let Some((&channel, value)) = data.split_first() else { return Step::Skipped };
+                let value = value
                     .iter()
                     .take(4)
                     .enumerate()
@@ -564,20 +568,19 @@ impl FirmataClient {
                 Step::Parsed(Message::Analog)
             }
             REPORT_FIRMWARE => {
-                let (Some(&major), Some(&minor)) = (buf.get(2), buf.get(3)) else {
+                let [major, minor, name @ ..] = data else {
                     return Step::Skipped;
                 };
                 self.firmware_version = format!("{major:o}.{minor:o}");
-                if 4 < buf.len() - 1 {
+                if !name.is_empty() {
                     // `printFirmwareVersion` sends the name as 7-bit (lsb, msb)
                     // pairs, like STRING_DATA (`firmata-rs` sliced the raw
                     // bytes, so every name read "S\0t\0a\0…").
-                    self.firmware_name = decode_seven_bit_text(&buf[4..buf.len() - 1]);
+                    self.firmware_name = decode_seven_bit_text(name);
                 }
                 Step::Parsed(Message::ReportFirmware)
             }
             I2C_REPLY => {
-                let len = buf.len();
                 // Minimum is `F0 77 addrLSB addrMSB regLSB regMSB END_SYSEX` (7
                 // bytes, zero data): a device that never ACKs a read makes the
                 // board stream exactly this empty reply alongside its "I2C: Too
@@ -585,23 +588,14 @@ impl FirmataClient {
                 // dropping it, so the target node sees a short read and can
                 // surface the fault. The old `len < 8` guard silently discarded
                 // every empty reply, hiding the NACK entirely.
-                if len < 7 {
+                let [addr_lsb, addr_msb, reg_lsb, reg_msb, bytes @ ..] = data else {
                     return Step::Skipped;
-                }
-                let mut reply = I2cReply {
-                    address: i32::from(buf[2]) | (i32::from(buf[3]) << 7),
-                    register: i32::from(buf[4]) | (i32::from(buf[5]) << 7),
-                    data: Vec::new(),
                 };
-                let mut i = 6;
-                while i + 1 < len {
-                    if buf[i] == END_SYSEX {
-                        break;
-                    }
-                    reply.data.push(buf[i] | (buf[i + 1] << 7));
-                    i += 2;
-                }
-                self.i2c_data.push(reply);
+                self.i2c_data.push(I2cReply {
+                    address: i32::from(*addr_lsb) | (i32::from(*addr_msb) << 7),
+                    register: i32::from(*reg_lsb) | (i32::from(*reg_msb) << 7),
+                    data: bytes.chunks_exact(2).map(|pair| pair[0] | (pair[1] << 7)).collect(),
+                });
                 Step::Parsed(Message::I2cReply)
             }
             STRING_DATA => {
@@ -610,7 +604,7 @@ impl FirmataClient {
                 // pair; skip embedded NULs. This is the board's own diagnostic
                 // channel — e.g. "I2C: Too few bytes received" when a device
                 // never ACKs, which otherwise vanished silently.
-                self.strings.push(decode_seven_bit_text(&buf[2..buf.len() - 1]));
+                self.strings.push(decode_seven_bit_text(data));
                 Step::Parsed(Message::StringData)
             }
             _ => Step::Skipped,

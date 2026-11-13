@@ -656,4 +656,22 @@ mod tests {
         let json = s.feed(&[0x90, 0b0000_0101, 0]).expect("feed ok");
         assert_eq!(json, "", "an unchanged chunk must not serialize a result");
     }
+
+    /// The detection session's decode never panics, whatever the port
+    /// delivers: every known message cut at every byte and seeded random
+    /// streams, each fed whole and a byte at a time to one long-lived session
+    /// (so a capability table from an earlier stream shapes the later ones).
+    #[test]
+    fn no_byte_stream_panics_the_session() {
+        use microflow_core::firmata::sim::noise::hostile_streams;
+        let mut long_lived = FirmataSession::new();
+        for stream in hostile_streams(0xF1A7_5E55, 3000) {
+            FirmataSession::new().feed(&stream).expect("feed ok");
+            for b in &stream {
+                long_lived.feed(std::slice::from_ref(b)).expect("feed ok");
+            }
+            let _ = long_lived.pins_json().expect("pins json");
+            let _ = long_lived.encode_safe_state();
+        }
+    }
 }

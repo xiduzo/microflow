@@ -592,7 +592,7 @@ mod tests {
         };
         let mut rt = FlowRuntime::new();
         let pins: Vec<_> = (0..20)
-            .map(|p| serde_json::json!({ "pin": p, "analogChannel": if p >= 14 { p } else { -1 } }))
+            .map(|p| serde_json::json!({ "pin": p, "analogChannel": if p >= 14 { p - 14 } else { -1 } }))
             .collect();
         rt.seed_pins(&serde_json::Value::Array(pins).to_string()).unwrap();
         let bytes = rt
