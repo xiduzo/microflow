@@ -432,7 +432,7 @@ Live editing context wrapping a **FlowDocument** plus a **SyncAdapter**. Lives i
 
 ## Flow Session Status
 
-The one derived answer to "can I trust what I see, and will my edits keep?" — `apps/web/src/session/session-status.ts`, a pure reducer bound to the transport's events (a cloud `SyncProvider`) or to the local store's state (`IndexeddbSyncAdapter.state`). Its `kind` is one of `local`, `local-slow`, `local-unsaved`, `connecting`, `syncing`, `connected`, `saving`, `saved`, `read-only`, `offline`, `access-lost`, with the unsynced-change count, last save time, why access was lost and whether the server is restarting. The editor header's status indicator renders it (`editor/panels/session-status-indicator.tsx`, wording in `editor/session-status-copy.ts`).
+The one derived answer to "can I trust what I see, and will my edits keep?" — `apps/web/src/session/session-status.ts`, a pure reducer bound to the transport's events (a cloud `SyncProvider`) or to the local store's state (`IndexeddbSyncAdapter.state`). Its `kind` is one of `local`, `local-slow`, `local-unsaved`, `connecting`, `syncing`, `connected`, `saving`, `saved`, `read-only`, `offline`, `access-lost`, with the unsynced-change count, last save time, why access was lost and whether the server is restarting. The status indicator in the canvas's top-left panel renders it (`editor/panels/session-status-indicator.tsx`, wording in `editor/session-status-copy.ts`).
 
 ## Live access
 
