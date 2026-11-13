@@ -7,9 +7,32 @@
 //! drains the buffer to the wire when it applies `Effects`. One-to-one with the
 //! desktop `BoardConnection` encode bodies, minus all I/O.
 
-use crate::firmata::FirmataClient;
+use crate::firmata::{FirmataClient, PinProfile};
 use crate::runtime::error::{HardwareError, RuntimeError};
 use crate::runtime::pin_mode;
+
+/// Arduino's `analogWrite` on a pin without PWM drives it fully on from this
+/// value up, and off below it (`wiring_analog.c`).
+pub const ANALOG_WRITE_ON_THRESHOLD: u8 = 128;
+
+/// Write `value` the way `analogWrite(pin, value)` does on the board: a PWM duty
+/// where the pin has PWM, otherwise on/off at [`ANALOG_WRITE_ON_THRESHOLD`] —
+/// `StandardFirmata` drops an analog write to a pin without PWM, so the live
+/// runtime does the rounding the sketch's `analogWrite` does on the device.
+/// `has_pwm` is the node's answer from [`PinProfile::supports`]; unknown
+/// (`None`) is treated as PWM. The caller owns the pin's mode (PWM vs OUTPUT).
+pub fn analog_write_like_arduino(
+    board: &mut dyn BoardWriter,
+    pin: u8,
+    value: u8,
+    has_pwm: Option<bool>,
+) -> Result<(), RuntimeError> {
+    if has_pwm == Some(false) {
+        board.digital_write(pin, value >= ANALOG_WRITE_ON_THRESHOLD)
+    } else {
+        board.analog_write(pin, u16::from(value))
+    }
+}
 
 /// The I2C subset of the board write surface — the six Firmata operations an
 /// I2C device driver needs: bus config, one-shot and continuous reads, writes,
@@ -66,15 +89,10 @@ impl<'a> BufferBoardWriter<'a> {
         Self { client, out }
     }
 
-    /// Count of analog pins strictly before `pin` — the Firmata analog channel
-    /// number, matching the desktop `BoardConnection::analog_channel_for`.
-    fn analog_channel_for(&self, pin: u8) -> u8 {
-        self.client
-            .pins
-            .iter()
-            .take(pin as usize)
-            .filter(|p| p.analog)
-            .count() as u8
+    /// The board's pin profile, as the detection handshake described it.
+    #[must_use]
+    pub fn pins(&self) -> &PinProfile {
+        &self.client.profile
     }
 }
 
@@ -95,31 +113,23 @@ impl BoardWriter for BufferBoardWriter<'_> {
     }
 
     fn enable_analog_reporting(&mut self, pin: u8) -> Result<(), RuntimeError> {
-        let is_analog = self
-            .client
-            .pins
-            .get(pin as usize)
-            .ok_or_else(|| HardwareError::FirmataCommunication(format!("Pin not found: {pin}")))?
-            .analog;
-        if !is_analog {
-            return Err(HardwareError::UnsupportedPinMode { pin, mode: pin_mode::ANALOG }.into());
+        if self.client.profile.caps(pin).is_none() {
+            return Err(HardwareError::FirmataCommunication(format!("Pin not found: {pin}")).into());
         }
-        let channel = self.analog_channel_for(pin);
+        let Some(channel) = self.client.profile.analog_channel(pin) else {
+            return Err(HardwareError::UnsupportedPinMode { pin, mode: pin_mode::ANALOG }.into());
+        };
         self.out.extend_from_slice(&self.client.encode_report_analog(channel, true));
         Ok(())
     }
 
     fn disable_analog_reporting(&mut self, pin: u8) -> Result<(), RuntimeError> {
-        let is_analog = self
-            .client
-            .pins
-            .get(pin as usize)
-            .ok_or_else(|| HardwareError::FirmataCommunication(format!("Pin not found: {pin}")))?
-            .analog;
-        if !is_analog {
-            return Ok(());
+        if self.client.profile.caps(pin).is_none() {
+            return Err(HardwareError::FirmataCommunication(format!("Pin not found: {pin}")).into());
         }
-        let channel = self.analog_channel_for(pin);
+        let Some(channel) = self.client.profile.analog_channel(pin) else {
+            return Ok(());
+        };
         self.out.extend_from_slice(&self.client.encode_report_analog(channel, false));
         Ok(())
     }

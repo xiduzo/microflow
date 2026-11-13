@@ -20,16 +20,22 @@
 //!
 //! ## Parity with `firmata-rs`
 //!
-//! The value-level decode (analog pin = `(status & 0x0F) + 14`, digital pins
-//! only updated while in `INPUT` mode, analog-mapping / capability / firmware /
-//! I2C parsing, the octal version formatting) is replicated **exactly** so the
-//! desktop runtime behaves the same after migrating off `firmata-rs`. The one
-//! deliberate improvement is framing: `firmata-rs` blindly `read_exact(3)` for
-//! every message (relying on the stream staying aligned); this client is
-//! length-aware and re-syncs on a stray byte, which is strictly more robust on
-//! a real serial stream and identical for well-formed `StandardFirmata` output.
+//! The value-level decode (digital pins only updated while in an input mode,
+//! I2C parsing, the octal version formatting) follows `firmata-rs`. Where
+//! `firmata-rs` was wrong for real boards this client is not:
+//!
+//! - **Pins come from the board.** The capability and analog-mapping responses
+//!   build a [`PinProfile`]; an analog report for channel `n` lands on the pin
+//!   the board maps to `n` (`firmata-rs` hard-codes `n + 14`, the Uno layout).
+//! - **Framing.** `firmata-rs` blindly `read_exact(3)`s every message; this
+//!   client is length-aware, re-syncs on a stray byte, and ends a sysex frame
+//!   at any status byte, so a frame cut short costs that frame only.
+//! - **Text.** The firmware name is recombined from its 7-bit pairs.
 
 use serde::{Deserialize, Serialize};
+
+mod profile;
+pub use profile::{mode_name, PinCaps, PinInfo, PinLabel, PinProfile, UNO_FIRST_ANALOG_PIN};
 
 // --- Protocol constants (mirrors firmata-rs) --------------------------------
 
@@ -83,14 +89,11 @@ pub struct Mode {
     pub resolution: u8,
 }
 
-/// The cached state and configuration of a single pin. Mirrors `firmata-rs`'s
-/// `Pin` — `value` is the last value seen (incoming reports) or set (outgoing
-/// writes); `mode` is the last mode set; `modes` / `analog` come from the
-/// capability and analog-mapping responses.
+/// The cached live state of a single pin: `value` is the last value seen
+/// (incoming reports) or set (outgoing writes); `mode` is the last mode set.
+/// What the pin *can* do lives in the client's [`PinProfile`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Pin {
-    pub modes: Vec<Mode>,
-    pub analog: bool,
     pub value: i32,
     pub mode: u8,
 }
@@ -131,6 +134,9 @@ pub enum Message {
 #[derive(Debug, Default)]
 pub struct FirmataClient {
     pub pins: Vec<Pin>,
+    /// What each pin can do, from the capability and analog-mapping responses
+    /// (or a host's seed, [`set_profile`](Self::set_profile)).
+    pub profile: PinProfile,
     pub i2c_data: Vec<I2cReply>,
     /// Decoded `STRING_DATA` diagnostics from the board (e.g. I2C errors).
     /// Callers drain + surface these; the codec only accumulates.
@@ -153,6 +159,13 @@ impl FirmataClient {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Describe the board's pins (the runtime's seed from the host's detection
+    /// codec), sizing the live pin table to match.
+    pub fn set_profile(&mut self, profile: PinProfile) {
+        self.pins = vec![Pin::default(); profile.len()];
+        self.profile = profile;
     }
 
     /// Grow the pin table so `idx` is addressable. `firmata-rs` would panic on
@@ -197,16 +210,32 @@ impl FirmataClient {
         ]
     }
 
-    /// Analog (PWM) write to a pin in the low nibble (`pin < 16`). Mirrors
-    /// `firmata-rs::analog_write`.
+    /// Analog (PWM / servo) write. `ANALOG_MESSAGE` carries the pin in its
+    /// status byte's low nibble and 14 bits of value, so a pin past 15 (a Mega's
+    /// PWM pins 44..46, its servos up to 49) or a larger value goes out as
+    /// `EXTENDED_ANALOG` — the short form would land on `pin & 0x0F`.
     pub fn encode_analog_write(&mut self, pin: u8, value: u16) -> Vec<u8> {
         self.ensure_pin(pin as usize);
         self.pins[pin as usize].value = i32::from(value);
-        vec![
-            ANALOG_MESSAGE | pin,
+        if pin <= 0x0F && value <= 0x3FFF {
+            return vec![
+                ANALOG_MESSAGE | pin,
+                value as u8 & SYSEX_REALTIME,
+                (value >> 7) as u8 & SYSEX_REALTIME,
+            ];
+        }
+        let mut frame = vec![
+            START_SYSEX,
+            EXTENDED_ANALOG,
+            pin & SYSEX_REALTIME,
             value as u8 & SYSEX_REALTIME,
             (value >> 7) as u8 & SYSEX_REALTIME,
-        ]
+        ];
+        if value > 0x3FFF {
+            frame.push((value >> 14) as u8 & SYSEX_REALTIME);
+        }
+        frame.push(END_SYSEX);
+        frame
     }
 
     /// `[REPORT_DIGITAL | port, state]`.
@@ -409,10 +438,7 @@ impl FirmataClient {
                     return Step::Incomplete;
                 }
                 let value = i32::from(self.rx[p + 1]) | (i32::from(self.rx[p + 2]) << 7);
-                let pin = (i32::from(cmd) & 0x0F) + 14;
-                if (self.pins.len() as i32) > pin {
-                    self.pins[pin as usize].value = value;
-                }
+                self.set_analog_value(cmd & 0x0F, value);
                 self.consume(3);
                 Step::Parsed(Message::Analog)
             }
@@ -440,16 +466,24 @@ impl FirmataClient {
                 Step::Parsed(Message::Digital)
             }
             START_SYSEX => {
-                // A complete sysex message ends at the first END_SYSEX. Data
-                // bytes are 7-bit so none can equal 0xF7 — scanning is safe.
+                // A sysex frame ends at END_SYSEX. Its data bytes are 7-bit, so
+                // the first byte with the high bit set after the START_SYSEX is
+                // either that END_SYSEX or the status byte of the *next*
+                // message — the frame was cut short (its END_SYSEX lost). The
+                // cut frame is dropped and decoding resumes at that status byte,
+                // so a lost F7 costs one frame, never the intact one after it.
                 // The scan resumes at `sysex_scanned`, so a frame arriving in
                 // several reads is walked once in total, not once per read.
-                let from = p + self.sysex_scanned;
-                let Some(offset) = self.rx[from..].iter().position(|&b| b == END_SYSEX) else {
-                    self.sysex_scanned = avail;
+                let from = p + 1 + self.sysex_scanned;
+                let Some(offset) = self.rx[from..].iter().position(|&b| b & 0x80 != 0) else {
+                    self.sysex_scanned = avail - 1;
                     return Step::Incomplete;
                 };
                 let end = from + offset;
+                if self.rx[end] != END_SYSEX {
+                    self.consume(end - p);
+                    return Step::Skipped;
+                }
                 // Move `rx` aside so the frame can be borrowed while
                 // `parse_sysex` mutates the decoded state; it never touches
                 // `rx` itself, so putting the buffer back is lossless and the
@@ -480,47 +514,31 @@ impl FirmataClient {
         match sub {
             END_SYSEX => Step::Parsed(Message::EmptyResponse),
             ANALOG_MAPPING_RESPONSE => {
-                let mut i = 2;
-                let upper = (buf.len() - 1).min(self.pins.len() + 2);
-                while i < upper {
-                    if buf[i] != 127u8 {
-                        self.pins[i - 2].analog = true;
-                    }
-                    i += 1;
+                self.profile.apply_analog_mapping(&buf[2..buf.len() - 1]);
+                if self.pins.len() < self.profile.len() {
+                    self.pins.resize_with(self.profile.len(), Pin::default);
                 }
                 Step::Parsed(Message::AnalogMappingResponse)
             }
             CAPABILITY_RESPONSE => {
-                let mut pin = 0usize;
-                let mut i = 2;
-                self.pins = vec![Pin::default()];
-                while i < buf.len() - 1 {
-                    if buf[i] == 127u8 {
-                        pin += 1;
-                        i += 1;
-                        self.pins.push(Pin::default());
-                        continue;
-                    }
-                    // Guard the resolution byte against a truncated frame.
-                    let resolution = buf.get(i + 1).copied().unwrap_or(0);
-                    // A pin that advertises the ANALOG mode *is* an analog input.
-                    // Derive `.analog` from the capability here instead of relying
-                    // solely on the separate ANALOG_MAPPING_RESPONSE: that response
-                    // trails a large capability dump and is easily missed during
-                    // detection, leaving every pin `.analog = false` —
-                    // `enable_analog_reporting` then refuses every analog pin and
-                    // the UI can't label A0..An. The analog *channel* is derived by
-                    // counting analog pins (`BufferBoardWriter::analog_channel_for`),
-                    // never from the mapping's channel byte, so the capability mode
-                    // alone is enough. (The mapping handler still runs when present;
-                    // it only sets the same flag.)
-                    if buf[i] == MODE_ANALOG {
-                        self.pins[pin].analog = true;
-                    }
-                    self.pins[pin].modes.push(Mode { mode: buf[i], resolution });
-                    i += 2;
-                }
+                // A pin that advertises ANALOG is an analog input even when the
+                // separate ANALOG_MAPPING_RESPONSE (which trails a large
+                // capability dump and is easily missed during detection) never
+                // arrives: the profile numbers those channels in pin order.
+                self.profile = PinProfile::from_capability_response(&buf[2..buf.len() - 1]);
+                self.pins = vec![Pin::default(); self.profile.len()];
                 Step::Parsed(Message::CapabilityResponse)
+            }
+            EXTENDED_ANALOG => {
+                // `sendAnalog` for a channel past 15: [channel, value 7-bit LSB first..].
+                let Some(&channel) = buf.get(2) else { return Step::Skipped };
+                let value = buf[3..buf.len() - 1]
+                    .iter()
+                    .take(4)
+                    .enumerate()
+                    .fold(0i32, |acc, (i, &b)| acc | (i32::from(b) << (7 * i)));
+                self.set_analog_value(channel, value);
+                Step::Parsed(Message::Analog)
             }
             REPORT_FIRMWARE => {
                 let (Some(&major), Some(&minor)) = (buf.get(2), buf.get(3)) else {
@@ -528,11 +546,10 @@ impl FirmataClient {
                 };
                 self.firmware_version = format!("{major:o}.{minor:o}");
                 if 4 < buf.len() - 1 {
-                    // Mirror firmata-rs exactly: decode the raw slice (it does
-                    // not recombine the 7-bit name pairs). Lossy to avoid an
-                    // error path the desktop never hit.
-                    self.firmware_name =
-                        String::from_utf8_lossy(&buf[4..buf.len() - 1]).into_owned();
+                    // `printFirmwareVersion` sends the name as 7-bit (lsb, msb)
+                    // pairs, like STRING_DATA (`firmata-rs` sliced the raw
+                    // bytes, so every name read "S\0t\0a\0…").
+                    self.firmware_name = decode_seven_bit_text(&buf[4..buf.len() - 1]);
                 }
                 Step::Parsed(Message::ReportFirmware)
             }
@@ -570,23 +587,35 @@ impl FirmataClient {
                 // pair; skip embedded NULs. This is the board's own diagnostic
                 // channel — e.g. "I2C: Too few bytes received" when a device
                 // never ACKs, which otherwise vanished silently.
-                let body = &buf[2..buf.len() - 1];
-                let mut s = String::new();
-                let mut i = 0;
-                while i < body.len() {
-                    let hi = body.get(i + 1).copied().unwrap_or(0);
-                    let ch = body[i] | (hi << 7);
-                    if ch != 0 {
-                        s.push(ch as char);
-                    }
-                    i += 2;
-                }
-                self.strings.push(s);
+                self.strings.push(decode_seven_bit_text(&buf[2..buf.len() - 1]));
                 Step::Parsed(Message::StringData)
             }
             _ => Step::Skipped,
         }
     }
+}
+
+impl FirmataClient {
+    /// An analog report for `channel`: the value lands on the pin the board
+    /// maps that channel to. Before the board has described itself the Uno
+    /// layout applies (`14 + channel`).
+    fn set_analog_value(&mut self, channel: u8, value: i32) {
+        if let Some(pin) = self.profile.analog_pin(channel) {
+            if let Some(slot) = self.pins.get_mut(pin as usize) {
+                slot.value = value;
+            }
+        }
+    }
+}
+
+/// Text sent as 7-bit (lsb, msb) pairs (`Firmata.sendString`, the firmware
+/// name). Embedded NULs are skipped.
+fn decode_seven_bit_text(body: &[u8]) -> String {
+    body.chunks(2)
+        .map(|pair| pair[0] | (pair.get(1).copied().unwrap_or(0) << 7))
+        .filter(|&ch| ch != 0)
+        .map(char::from)
+        .collect()
 }
 
 /// Outcome of one `parse_one` attempt.

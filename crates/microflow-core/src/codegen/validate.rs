@@ -46,13 +46,19 @@
 //! Each problem names the offending Node and the constraint it violates, so the
 //! viewer can surface an actionable message.
 //!
+//! **Which pins a Node uses, and for what,** is one table — [`pin_demands`] —
+//! read both here (against a [`BoardTarget`]) and by the live runtime (against
+//! the connected board's `PinProfile`, `runtime::pin_check`), so a Node's pin
+//! requirements are written once.
+//!
 //! Like the rest of codegen this is a pure function of `(flow, target)`: no
 //! clock, no IO, deterministic ordering (Nodes in `id` order).
 
 use crate::codegen::board::{BoardCapability, BoardTarget, CoreFamily};
 use crate::codegen::emit::NodeToken;
 use crate::codegen::placeholder::CLOUD_NODE_TYPES;
-use crate::flow::{FlowNode, FlowUpdate};
+use crate::firmata::PinLabel;
+use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
 use crate::nodes;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -165,27 +171,95 @@ fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<Validation
     problems
 }
 
-/// The digital pins a Node will be emitted on, as `(label, pin)` pairs — the
-/// label names the pin field for multi-pin Nodes and is empty for single-pin
-/// ones. Each pin is resolved by the Node's own emitter, so validation and
-/// emission can never drift apart. Empty for Nodes without configurable
-/// digital pins (analog readers resolve through the analog checks instead;
-/// `I2cDevice` uses the board's fixed SDA/SCL).
-fn emitted_pins(node: &FlowNode, kind: &str) -> Vec<(&'static str, u8)> {
+/// What a Node does with one of its pins — the requirement a board must meet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PinUse {
+    /// Digital input or output (`pinMode` / `digitalRead` / `digitalWrite`).
+    Digital,
+    /// `analogWrite` brightness. Degrades to on/off (at 128) on a pin without
+    /// PWM rather than failing.
+    Pwm,
+    /// A servo pulse.
+    Servo,
+    /// `analogRead`.
+    AnalogIn,
+}
+
+/// One pin a Node uses: the pin field it came from (empty for single-pin
+/// Nodes), the pin as the Node names it, and what the Node needs from it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PinDemand {
+    pub field: &'static str,
+    pub pin: PinLabel,
+    pub uses: PinUse,
+}
+
+/// Every pin `node` uses and what it needs from each — the one pin table both
+/// the sketch validation here and the live runtime's pin check read. `edges`
+/// decides the wiring-dependent demands (a Led's `value` port drives PWM only
+/// when something feeds it). Pins are resolved by the Node's own emitter, so
+/// validation and emission cannot drift apart. Empty for Nodes without
+/// configurable pins (`I2cDevice` uses the board's fixed SDA/SCL).
+///
+/// An analog reader's pin keeps the Node's own label (`"A0"` or a pin number)
+/// for the live board to resolve; the sketch side reads it as an analog index
+/// through [`analog_reader_index`].
+#[must_use]
+pub fn pin_demands(node: &FlowNode, edges: &[FlowEdge]) -> Vec<PinDemand> {
+    let Some(kind) = node.node_type.as_deref() else {
+        return Vec::new();
+    };
+    let one = |pin: u8, uses: PinUse| PinDemand { field: "", pin: PinLabel::Pin(pin), uses };
+    let each = |pins: &[(&'static str, u8)], uses: PinUse| -> Vec<PinDemand> {
+        pins.iter().map(|&(field, pin)| PinDemand { field, pin: PinLabel::Pin(pin), uses }).collect()
+    };
     match kind {
-        "Led" | "Vibration" => vec![("", nodes::led::codegen::pin(node))],
-        "Relay" => vec![("", nodes::relay::codegen::pin(node))],
-        "Servo" => vec![("", nodes::servo::codegen::pin(node))],
-        "Button" => vec![("", nodes::button::codegen::pin(node))],
-        "Piezo" => vec![("", nodes::piezo::codegen::pin(node))],
-        "Pixel" => vec![("", nodes::pixel::codegen::pin(node))],
-        "Switch" => vec![("", nodes::switch::codegen::pin(node))],
-        "Motion" => vec![("", nodes::motion::codegen::pin(node))],
-        "Rgb" => nodes::rgb::codegen::pins(node).to_vec(),
-        "Matrix" => nodes::matrix::codegen::pins(node).to_vec(),
-        "Stepper" => nodes::stepper::codegen::pins(node),
+        "Led" | "Vibration" => {
+            let pin = nodes::led::codegen::pin(node);
+            let mut demands = vec![one(pin, PinUse::Digital)];
+            if edges.iter().any(|e| e.target == node.id && e.target_handle == "value") {
+                demands.push(one(pin, PinUse::Pwm));
+            }
+            demands
+        }
+        "Relay" => vec![one(nodes::relay::codegen::pin(node), PinUse::Digital)],
+        "Servo" => vec![one(nodes::servo::codegen::pin(node), PinUse::Servo)],
+        "Button" => vec![one(nodes::button::codegen::pin(node), PinUse::Digital)],
+        "Piezo" => vec![one(nodes::piezo::codegen::pin(node), PinUse::Digital)],
+        "Pixel" => vec![one(nodes::pixel::codegen::pin(node), PinUse::Digital)],
+        "Switch" => vec![one(nodes::switch::codegen::pin(node), PinUse::Digital)],
+        "Motion" => vec![one(nodes::motion::codegen::pin(node), PinUse::Digital)],
+        "Rgb" => each(&nodes::rgb::codegen::pins(node), PinUse::Pwm),
+        "Matrix" => each(&nodes::matrix::codegen::pins(node), PinUse::Digital),
+        "Stepper" => each(&nodes::stepper::codegen::pins(node), PinUse::Digital),
+        k if analog_reader_index(node, k).is_some() => {
+            let label = match node.data.get("pin") {
+                Some(serde_json::Value::String(s)) => PinLabel::parse(s),
+                Some(serde_json::Value::Number(n)) => n.as_u64().and_then(|n| u8::try_from(n).ok()).map(PinLabel::Pin),
+                _ => Some(PinLabel::Analog(0)),
+            };
+            label
+                .map(|pin| vec![PinDemand { field: "", pin, uses: PinUse::AnalogIn }])
+                .unwrap_or_default()
+        }
         _ => vec![],
     }
+}
+
+/// The digital pins a Node will be emitted on, as `(label, pin)` pairs — the
+/// label names the pin field for multi-pin Nodes and is empty for single-pin
+/// ones. Read from [`pin_demands`]; analog readers resolve through the analog
+/// checks instead.
+fn emitted_pins(node: &FlowNode, _kind: &str) -> Vec<(&'static str, u8)> {
+    let mut pins: Vec<(&'static str, u8)> = Vec::new();
+    for demand in pin_demands(node, &[]) {
+        if let (PinLabel::Pin(pin), false) = (demand.pin, demand.uses == PinUse::AnalogIn) {
+            if !pins.contains(&(demand.field, pin)) {
+                pins.push((demand.field, pin));
+            }
+        }
+    }
+    pins
 }
 
 /// The analog index an analog-reading Node consumes (`A0` => 0), or `None` for
@@ -349,10 +423,8 @@ fn led_brightness_pwm_problems(
             if !matches!(kind, "Led" | "Vibration") {
                 return None;
             }
-            let brightness_wired = flow
-                .edges
-                .iter()
-                .any(|e| e.target == node.id && e.target_handle == "value");
+            let brightness_wired =
+                pin_demands(node, &flow.edges).iter().any(|d| d.uses == PinUse::Pwm);
             if !brightness_wired {
                 return None;
             }

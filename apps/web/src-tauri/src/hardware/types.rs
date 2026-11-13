@@ -3,16 +3,9 @@
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-/// Pin information matching frontend Pin type
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export)]
-pub struct PinInfo {
-    #[ts(type = "number")]
-    pub pin: usize,
-    pub supported_modes: Vec<u8>,
-    pub analog_channel: i32, // -1 if not analog
-}
+/// One pin of the board's pin profile — defined once in core, shared with the
+/// browser's `FirmataSession.pinsJson` and the runtime's seed.
+pub use microflow_core::firmata::PinInfo;
 
 /// Board state for frontend events
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

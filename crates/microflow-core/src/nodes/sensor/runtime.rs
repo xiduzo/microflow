@@ -5,16 +5,12 @@
 //! `on_pin_change`), and analog reporting is no longer enabled here — the
 //! runtime's `update_flow` reconciles reporting centrally from `listener_wiring`.
 
+use crate::firmata::PinProfile;
 use crate::runtime::{
     pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
     HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
 };
 use serde::{Deserialize, Serialize};
-
-/// Firmata pin number of analog channel 0 on an `ATmega328` board (Uno/Nano):
-/// `A0 == pin 14`. The codec's analog decode hard-codes the same base
-/// (`pin = channel + 14`), so the two must agree.
-const ANALOG_PIN_BASE: u8 = 14;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
@@ -58,38 +54,35 @@ impl Default for SensorConfig {
 }
 
 impl SensorConfig {
-    /// Pin number for analog operations. Handles both the `"A0"` channel format
-    /// and the numeric pin format (e.g. `"14"` for A0 on an Uno).
-    ///
-    /// `"A0"` names analog *channel* 0, which is Firmata *pin* 14 on an
-    /// `ATmega328` board — matching the codec's analog decode (`pin = channel +
-    /// 14`) and [`BufferBoardWriter::analog_channel_for`]. Returning the bare
-    /// channel (0) here was a bug: reporting, pin-mode, and change-detection all
-    /// then targeted the wrong pin, so the sensor never updated. The frontend
-    /// leaves `data.pin` at its `"A0"` default until the pin is re-picked, so
-    /// this path is the common one.
+    /// The Firmata pin this sensor reads on `pins`. `data.pin` is either an
+    /// analog channel label (`"A0"`, the default the frontend keeps until the
+    /// pin is re-picked) or a pin number (`"54"`). `"A0"` is pin 14 on an Uno,
+    /// 54 on a Mega, 18 on a Leonardo — only the board's analog mapping knows,
+    /// so the label resolves through the [`PinProfile`] (the Uno layout when no
+    /// board is described). A label the board lacks reads as pin 0; the pin
+    /// check badges the node.
     #[must_use]
-    pub(crate) fn analog_pin(&self) -> u8 {
-        if self.pin.starts_with('A') || self.pin.starts_with('a') {
-            ANALOG_PIN_BASE.saturating_add(self.pin[1..].parse::<u8>().unwrap_or(0))
-        } else {
-            self.pin.parse().unwrap_or(0)
-        }
+    pub(crate) fn analog_pin(&self, pins: &PinProfile) -> u8 {
+        pins.resolve_label(&self.pin, 0)
     }
 }
 
 pub(crate) struct Sensor {
     base: ComponentBase,
     config: SensorConfig,
+    /// `config.pin` resolved against the connected board (`bind_pins`).
+    pin: u8,
     last_value: u16,
 }
 
 impl Sensor {
     #[must_use]
     pub(crate) fn new(id: String, config: SensorConfig) -> Self {
+        let pin = config.analog_pin(&PinProfile::default());
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
+            pin,
             last_value: 0,
         }
     }
@@ -124,7 +117,7 @@ impl Component for Sensor {
 
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         vec![ListenerWiring::AnalogPin {
-            pin: self.config.analog_pin(),
+            pin: self.pin,
             threshold: self.config.threshold,
         }]
     }
@@ -147,8 +140,12 @@ impl Component for Sensor {
 }
 
 impl HardwareComponent for Sensor {
+    fn bind_pins(&mut self, pins: &PinProfile) {
+        self.pin = self.config.analog_pin(pins);
+    }
+
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        ctx.board().set_pin_mode(self.config.analog_pin(), pin_mode::ANALOG)?;
+        ctx.board().set_pin_mode(self.pin, pin_mode::ANALOG)?;
         Ok(())
     }
 
@@ -205,20 +202,18 @@ mod sim_tests {
         assert_eq!(read(&mut rig, 14, 530), Some(ComponentValue::Number(530.0)));
     }
 
-    /// The "A0" label resolves to the Uno's pin 14 on every board; on a Mega
+    /// The "A0" label resolves through the board's analog mapping: on a Mega
     /// A0 is pin 54 and pin 14 is a plain digital pin.
     #[test]
-    #[ignore = "track I: the A<n> label resolves to 14 + n on every board (Mega A0 = 54, Leonardo A0 = 18)"]
     fn mega_a0_label_reads_pin_54() {
         let mut rig = sensor(BoardLayout::mega2560(), "A0", 1);
         assert!(rig.board.is_reporting_analog(0));
         assert_eq!(read(&mut rig, 54, 700), Some(ComponentValue::Number(700.0)));
     }
 
-    /// Even with the right pin number, the codec decodes analog channel n as
-    /// pin 14 + n, so a Mega/Leonardo reading lands on the wrong pin.
+    /// The codec decodes analog channel n onto the pin the board maps it to,
+    /// so a Mega/Leonardo reading reaches the sensor on that pin.
     #[test]
-    #[ignore = "track I: codec maps ANALOG_MESSAGE channel n to pin 14 + n regardless of the board's analog mapping"]
     fn mega_and_leonardo_analog_readings_reach_the_sensor() {
         for (layout, pin) in [(BoardLayout::mega2560(), 54u8), (BoardLayout::leonardo(), 18)] {
             let mut rig = sensor(layout, &pin.to_string(), 1);
@@ -238,14 +233,30 @@ mod tests {
 
     #[test]
     fn analog_pin_maps_channel_format_to_firmata_pin() {
-        // "A0" is channel 0 -> Firmata pin 14 (not the bare channel 0).
-        assert_eq!(cfg("A0").analog_pin(), 14);
-        assert_eq!(cfg("A1").analog_pin(), 15);
-        assert_eq!(cfg("a2").analog_pin(), 16);
+        // No board described: "A0" is channel 0 -> the Uno's pin 14 (not the
+        // bare channel 0).
+        let uno = PinProfile::default();
+        assert_eq!(cfg("A0").analog_pin(&uno), 14);
+        assert_eq!(cfg("A1").analog_pin(&uno), 15);
+        assert_eq!(cfg("a2").analog_pin(&uno), 16);
         // Numeric format is the pin number directly.
-        assert_eq!(cfg("14").analog_pin(), 14);
-        assert_eq!(cfg("20").analog_pin(), 20);
+        assert_eq!(cfg("14").analog_pin(&uno), 14);
+        assert_eq!(cfg("20").analog_pin(&uno), 20);
         // The default config (pin "A0") must resolve to pin 14, not 0.
-        assert_eq!(SensorConfig::default().analog_pin(), 14);
+        assert_eq!(SensorConfig::default().analog_pin(&uno), 14);
+    }
+
+    #[test]
+    fn analog_label_follows_the_board() {
+        let infos: Vec<crate::firmata::PinInfo> = (0..30)
+            .map(|pin| crate::firmata::PinInfo {
+                pin,
+                supported_modes: vec![],
+                analog_channel: if pin >= 18 { pin as i32 - 18 } else { -1 },
+            })
+            .collect();
+        let leonardo = PinProfile::from_pin_infos(&infos);
+        assert_eq!(cfg("A0").analog_pin(&leonardo), 18);
+        assert_eq!(cfg("A11").analog_pin(&leonardo), 29);
     }
 }

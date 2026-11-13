@@ -26,3 +26,7 @@ ts-rs = "10"
 # wasm32 target so host builds stay lean.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 console_error_panic_hook = "0.1"
+
+[dev-dependencies]
+# The simulated board answers the detection handshake in the session tests.
+microflow-core = { path = "../microflow-core", features = ["sim-board"] }

@@ -120,23 +120,12 @@ impl SimRig {
         }
     }
 
-    /// The `[{ pin, analogChannel }]` pin seed both hosts build from their
-    /// detection codec (`microflow-firmata-wasm` `pinsJson`, desktop
-    /// `hardware/firmata.rs`).
+    /// The `PinInfo[]` pin seed both hosts build from their detection codec
+    /// (`microflow-firmata-wasm` `pinsJson`, desktop `hardware/firmata.rs`):
+    /// the codec's [`PinProfile`](crate::firmata::PinProfile), projected.
     #[must_use]
     pub fn pin_seed_json(probe: &FirmataClient) -> String {
-        let pins: Vec<serde_json::Value> = probe
-            .pins
-            .iter()
-            .enumerate()
-            .map(|(index, pin)| {
-                serde_json::json!({
-                    "pin": index,
-                    "analogChannel": if pin.analog { index as i64 } else { -1 },
-                })
-            })
-            .collect();
-        serde_json::Value::Array(pins).to_string()
+        serde_json::to_string(&probe.profile.pin_infos()).expect("pin infos serialize")
     }
 
     // --- Stimuli -------------------------------------------------------------

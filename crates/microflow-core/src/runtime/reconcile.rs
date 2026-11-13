@@ -287,21 +287,23 @@ pub fn plan_board(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::firmata::{FirmataClient, Pin, I2C_MODE_READ_CONTINUOUS};
+    use crate::firmata::{FirmataClient, PinCaps, PinProfile, I2C_MODE_READ_CONTINUOUS};
     use crate::runtime::board::BufferBoardWriter;
 
     fn report(pins: &[(u8, bool)]) -> HashMap<u8, bool> {
         pins.iter().copied().collect()
     }
 
-    /// A 20-pin board whose `analog` pins are flagged, so `encode_setup` can
-    /// resolve an analog channel the way the live codec does.
+    /// A 20-pin board whose `analog` pins are analog inputs (channels in pin
+    /// order), so `encode_setup` can resolve an analog channel the way the
+    /// live codec does.
     fn client_with_analog(analog: &[u8]) -> FirmataClient {
-        let mut client = FirmataClient::new();
-        client.pins = vec![Pin::default(); 20];
-        for &pin in analog {
-            client.pins[pin as usize].analog = true;
+        let mut caps = vec![PinCaps::default(); 20];
+        for (channel, &pin) in analog.iter().enumerate() {
+            caps[pin as usize].analog_channel = Some(channel as u8);
         }
+        let mut client = FirmataClient::new();
+        client.set_profile(PinProfile::new(caps));
         client
     }
 

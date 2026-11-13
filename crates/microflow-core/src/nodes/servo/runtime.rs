@@ -168,11 +168,10 @@ mod sim_tests {
         assert_eq!(rig.board.pin(5).servo(), Some(90));
     }
 
-    /// `encode_analog_write` puts the pin in the status byte's low nibble, so a
-    /// servo on a Mega pin past 15 writes to `pin & 0x0F` instead (44 → 12);
-    /// pins ≥ 16 need `EXTENDED_ANALOG`.
+    /// `ANALOG_MESSAGE` carries the pin in its status byte's low nibble, so a
+    /// servo on a Mega pin past 15 must go out as `EXTENDED_ANALOG` or it lands
+    /// on `pin & 0x0F` (44 → 12).
     #[test]
-    #[ignore = "track I: analog writes to pins >= 16 need EXTENDED_ANALOG; the codec aliases them onto pin & 0x0F"]
     fn servo_on_a_mega_pin_past_15_moves() {
         let mut rig = servo_on(BoardLayout::mega2560(), json!({ "pin": 44 }));
         rig.dispatch("servo", "value", 30.0);
