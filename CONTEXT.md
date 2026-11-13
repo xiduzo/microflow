@@ -159,7 +159,7 @@ The runtime's own ledger of what is wrong with each node (`NodeHealth`, `crates/
 
 ## Detection codec
 
-The `FirmataSession` instance the probe drives, owned by the browser [Board Link](#board-link) (`apps/web/src/board/board-link.ts`, [ADR-0018](docs/adr/0018-two-firmata-decoders.md)). It answers the **handshake** questions — what firmware is this, what pins does it have — which is what `probeBoard` polls via `firmwareName()` and `pinsJson()`, and it is the only decoder alive during the probe, before any [Runtime Host](#runtime-host) exists. It supplies the runtime's [pin seed](#pin-seed) and keeps `connectedState` truthful.
+The `FirmataSession` instance the probe drives, owned by the browser [Board Link](#board-link) (`apps/web/src/board/board-link.ts`, [ADR-0018](docs/adr/0018-two-firmata-decoders.md)). It answers the **handshake** questions — what firmware is this, what pins does it have — which is what `probeBoard` polls via `firmwareName()` and `pinsJson()`, and it is the only decoder alive during the probe, before any [Runtime Host](#runtime-host) exists. It supplies the runtime's [pin seed](#pin-seed) and keeps `connectedState` truthful. Like every `FirmataClient`, it never panics on any byte stream: a malformed or truncated frame is dropped (`firmata::sim::noise` fuzzes this).
 
 In steady state the browser feeds each inbound chunk to **both** the detection codec and the runtime (through the [Inbound queue](#inbound-queue) until the runtime attaches), unfiltered and in the same order. That is not duplication to be eliminated: both wrap the same `microflow_core::firmata::FirmataClient`, so they are one codec answering two questions at two lifetimes, and consistency follows from the identical stream rather than from any synchronisation between them. The detection codec's per-chunk report is not decoded on the JS side — nothing consumes it once a flow is running.
 
@@ -575,7 +575,7 @@ Three [Re-announces](#re-announce) within 30 s. The flow is still re-applied, bu
 
 ## Pin Profile
 
-What each pin of the connected board can do: its `CAPABILITY_RESPONSE` (modes per pin) and `ANALOG_MAPPING_RESPONSE` (analog channel per pin), held once — `PinProfile` in `crates/microflow-core/src/firmata/profile.rs`. The codec, the [BoardWriter](#boardwriter), a node resolving `"A<n>"`, the live pin check and the [Safe state](#safe-state) all ask it. Both hosts seed the runtime with it as `PinInfo[]` (ts-rs generated). An empty profile means no board is described: every question answers *unknown*, and `"A<n>"` falls back to the Uno layout.
+What each pin of the connected board can do: its `CAPABILITY_RESPONSE` (modes per pin) and `ANALOG_MAPPING_RESPONSE` (analog channel per pin), held once — `PinProfile` in `crates/microflow-core/src/firmata/profile.rs`. The codec, the [BoardWriter](#boardwriter), a node resolving `"A<n>"`, the live pin check and the [Safe state](#safe-state) all ask it. Both hosts seed the runtime with it as `PinInfo[]` (ts-rs generated). An empty profile means no board is described: every question answers *unknown*, and `"A<n>"` falls back to the Uno layout. A profile holds at most 128 pins (`MAX_PINS`, Firmata's addressable range); an entry past that is dropped. A seed's `analogChannel` is always the board's channel for that pin, read as given: seeds are built fresh on every connect and never stored.
 
 ## Positively identified board
 

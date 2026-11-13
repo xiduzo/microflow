@@ -146,4 +146,7 @@ runtime. The runtime now also *reads* from it: the live pin check judges each
 Node against the board using `codegen::validate::pin_demands`, the same table
 sketch validation reads ([ADR-0013](0013-handle-aware-sketch-wiring.md),
 amendment). The dependency runs from `runtime` to `codegen` only, so D1 holds:
-the codegen wasm build still pulls in nothing from the runtime.
+the codegen wasm build still pulls in nothing from the runtime. Because the
+table is shared, so are its rules: a servo is allowed on any digital pin, and a
+numeric analog pin label is that pin, in the sketch and on the live board
+alike.

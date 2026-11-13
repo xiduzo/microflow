@@ -214,3 +214,19 @@ output that browns the board out does not reset it forever.
 byte with its high bit set, not only at `END_SYSEX`. A frame cut short — by a
 reset mid-sysex, or line noise — then costs that frame only, and the frame after
 it (the boot announcement, typically) is decoded rather than swallowed.
+
+**No byte stream panics the decoder.** `FirmataClient::feed` reads every frame
+through checked access only, so a truncated or malformed message (line noise, a
+reset mid-message) is dropped, never a panic that takes down the browser
+runtime or the desktop actor. `firmata::sim::noise` builds a hostile corpus —
+every known message cut at every byte and followed by every other, plus seeded
+random streams — and tests push it through the client (with and without a
+described board, whole, bytewise and in random chunks), the wasm detection
+session and the runtime's inbound path.
+
+**The profile is bounded and the seed is literal.** A `PinProfile` holds at most
+`MAX_PINS` (128, Firmata's addressable pins); a capability response or seed
+entry past that is dropped rather than allocated. A seed's `analogChannel` is
+always the board's analog channel for that pin (`-1` for none): seeds are built
+fresh on every connect and never stored, so the runtime reads them as given and
+does not guess at an older pin-index format.
