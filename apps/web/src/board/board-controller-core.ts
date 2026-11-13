@@ -12,6 +12,10 @@
 // - the live link (`board-link.ts`) — at most one, replaced only through the
 //   machine's `closePort`, and its inbound stream handed to the flow runtime
 //   only once that runtime exists;
+// - the retry after a lost link, with capped exponential backoff;
+// - the safe state: an engine fault or a hidden page closes the port (the link
+//   resets the board's outputs first) instead of leaving it driving whatever the
+//   flow last wrote;
 // - the board store, written through `publish`, so a latched engine fault can
 //   never be painted over by a later phase.
 //
@@ -23,7 +27,7 @@
 import type * as WebSerial from "./web-serial";
 import type * as Analytics from "@/lib/analytics";
 import type { BoardConnection, LinkLoss, ProbeHooks } from "./board-link";
-import type { Clock } from "./clock";
+import type { Clock, TimerHandle } from "./clock";
 import type { WebSerialPort } from "./serial-port";
 import type {
   BringUpAction,
@@ -49,6 +53,13 @@ export interface Notifier {
   success(message: string, options?: { id?: string | number }): void;
   error(message: string): void;
   dismiss(id: string | number): void;
+}
+
+/** Page lifecycle the link reacts to. `persisted` is `PageTransitionEvent`'s:
+ *  true when the page comes back from the back/forward cache. */
+export interface PageLifecycleHandlers {
+  onPageHide(): void;
+  onPageShow(persisted: boolean): void;
 }
 
 /**
@@ -81,8 +92,23 @@ export interface BoardControllerDeps {
   notify: Notifier;
   track: typeof Analytics.track;
   clock: Clock;
+  /** Subscribe to `pagehide`/`pageshow`; returns an unsubscribe. */
+  onPageLifecycle(handlers: PageLifecycleHandlers): () => void;
   /** The desktop host runs its own bring-up; this controller stands down there. */
   isDesktop(): boolean;
+}
+
+/** First reconnect delay after a lost link; doubles per failed attempt. */
+export const RETRY_BASE_MS = 250;
+/** Ceiling on a single reconnect delay. */
+export const RETRY_CAP_MS = 8000;
+/** Attempts before the controller stops rescanning. A board that comes back
+ *  later still reconnects through the plug-in (`connect`) event. */
+export const RETRY_MAX_ATTEMPTS = 8;
+
+/** The delay before reconnect attempt `attempt` (0-based): capped exponential. */
+export function retryDelayMs(attempt: number): number {
+  return Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_CAP_MS);
 }
 
 /** Host-side bookkeeping for the bring-up attempt in flight (toast ids,
@@ -95,6 +121,9 @@ type Attempt = {
   flashed: boolean;
   flashToast?: string | number;
 };
+
+/** A reconnect sequence in progress after a lost link. */
+type Retry = { attempt: number; timer: TimerHandle | null };
 
 export class BoardController {
   /** The single live board link. Every DECISION about it comes from the shared
@@ -111,10 +140,13 @@ export class BoardController {
   /** Set once the wasm engine traps (ADR-0017). Terminal until reload: no
    *  runtime is respawned, no board is brought up, the store stays `error`. */
   private engineFault: string | null = null;
+  /** Between `pagehide` and `pageshow`: nothing may open the port. */
+  private pageHidden = false;
   // Serialise every port operation so connect / auto-reconnect / plug events
   // never race to open the same port.
   private queue: Promise<unknown> = Promise.resolve();
   private attempt: Attempt | null = null;
+  private retry: Retry | null = null;
 
   constructor(private readonly deps: BoardControllerDeps) {}
 
@@ -138,6 +170,11 @@ export class BoardController {
       seen = this.queue;
       await seen;
     }
+  }
+
+  /** Whether a reconnect sequence is pending. Tests only. */
+  get retrying(): boolean {
+    return this.retry !== null;
   }
 
   /**
@@ -221,18 +258,25 @@ export class BoardController {
    * run again on this runtime (ADR-0017). Drop the reactor so nothing calls back
    * into the dead module, and surface it on the board-level error state.
    *
-   * Deliberately NOT a bring-up event: `connectionLost` would retry into the
-   * same dead module, forever (ADR-0017 D3). `publish` keeps `error` showing
-   * over any later phase; reload is the recovery.
+   * The board must not keep running on the dead flow's last writes — a motor
+   * left on, a relay left closed — so the port is closed too, and the link
+   * resets the outputs first. The machine hears `disconnectRequested`, its
+   * teardown with no retry: `connectionLost` would retry into the same dead
+   * module, forever (ADR-0017 D3). `publish` keeps `error` showing over the
+   * `disconnected` that teardown reports, and every bring-up path refuses until
+   * the page reloads — reload is the recovery, as a trapped module cannot be
+   * revived in place.
    */
   private onEngineFault(message: string): void {
     if (this.engineFault !== null) return;
     this.engineFault = message;
+    this.cancelRetry();
     this.reactor?.dispose();
     this.reactor = null;
     console.error("[board-controller] flow engine fault:", message);
     this.publish({ state: "error", error: message });
     this.deps.notify.error(message);
+    if (this.link !== null) void this.run(() => this.dispatch({ type: "disconnectRequested" }));
   }
 
   /** The link's hooks: a live link losing its transport re-enters the machine
@@ -260,7 +304,14 @@ export class BoardController {
         const a = this.attempt;
         if (!a) return;
         const probe = action.afterFlash ? this.deps.serial.probeAfterFlash : this.deps.serial.probeFirmata;
-        const connection = await probe(a.port, this.linkHooks()).catch(() => null);
+        let connection = await probe(a.port, this.linkHooks()).catch(() => null);
+        if (connection && (this.pageHidden || this.engineFault !== null)) {
+          // The page went away (or the engine died) while the probe ran: give
+          // the port straight back rather than hand it to a flow that will
+          // never run.
+          await connection.disconnect();
+          connection = null;
+        }
         if (connection) {
           this.link = connection;
           await this.dispatch({ type: "probeOk" });
@@ -294,9 +345,7 @@ export class BoardController {
         break;
       }
       case "scheduleRetry":
-        // A reset keeps the USB device present (no `connect` event fires), so
-        // rescanning granted ports re-detects it — the browser's retry primitive.
-        void this.run(() => this.reconnectGranted());
+        this.startRetry();
         break;
       case "notifyFlashProgress": {
         if (this.attempt?.flashToast !== undefined) {
@@ -311,6 +360,50 @@ export class BoardController {
         await this.applyPhase(action.phase);
         break;
     }
+  }
+
+  // --- Reconnect with capped exponential backoff ----------------------------
+  //
+  // The machine's `scheduleRetry` is one intent — "try to get the board back" —
+  // and the host decides the cadence. A board resetting keeps its USB device
+  // (no `connect` event fires), so each attempt rescans the granted ports; one
+  // re-enumerating disappears for a moment, which is why a single immediate
+  // rescan was not enough. Any connection, gesture, disconnect, engine fault or
+  // hidden page ends the sequence.
+
+  private startRetry(): void {
+    if (this.retry !== null || this.engineFault !== null || this.pageHidden) return;
+    this.retry = { attempt: 0, timer: null };
+    this.armRetry();
+  }
+
+  private armRetry(): void {
+    const retry = this.retry;
+    if (retry === null || retry.timer !== null) return;
+    if (retry.attempt >= RETRY_MAX_ATTEMPTS) {
+      console.info("[board-controller] board did not come back; waiting for a plug-in event");
+      this.retry = null;
+      return;
+    }
+    retry.timer = this.deps.clock.setTimer(() => {
+      retry.timer = null;
+      retry.attempt += 1;
+      void this.run(async () => {
+        if (this.retry !== retry) return;
+        await this.reconnectGranted();
+        if (this.retry !== retry) return; // a connection (or cancel) ended it
+        if (this.link !== null) {
+          this.retry = null;
+          return;
+        }
+        this.armRetry();
+      });
+    }, retryDelayMs(retry.attempt));
+  }
+
+  private cancelRetry(): void {
+    if (this.retry?.timer != null) this.deps.clock.clearTimer(this.retry.timer);
+    this.retry = null;
   }
 
   /** Map a machine phase onto the board store + toasts (presentation only). */
@@ -334,6 +427,7 @@ export class BoardController {
         break;
       }
       case "connected": {
+        this.cancelRetry();
         const link = this.link;
         if (link) this.publish(this.deps.serial.connectedState(link.port, link.session));
         if (a?.flashToast !== undefined) {
@@ -442,7 +536,7 @@ export class BoardController {
 
   /** Whether a background path may open a port right now. */
   private mayAutoConnect(): boolean {
-    return this.link === null;
+    return this.link === null && this.engineFault === null && !this.pageHidden;
   }
 
   /**
@@ -452,6 +546,11 @@ export class BoardController {
    */
   connect(): Promise<void> {
     if (!this.deps.serial.isSupported()) return Promise.resolve();
+    if (this.engineFault !== null) {
+      // No flow can run until reload; opening the picker would only promise one.
+      this.deps.notify.error(`${this.engineFault} Reload the page to run flows again.`);
+      return Promise.resolve();
+    }
     // requestPort MUST run inside the user gesture — fire it now, before queueing.
     // Wrap so a dismissed picker never surfaces as an unhandled rejection while the
     // bring-up waits its turn behind the load scan.
@@ -467,12 +566,15 @@ export class BoardController {
         return;
       }
       if (this.link) return; // auto-reconnect won the race
+      // The user is choosing now; a background rescan must not race them.
+      this.cancelRetry();
       await this.bringUp(port, { autoFlash: true, explicit: true });
     });
   }
 
   disconnect(): Promise<void> {
     this.deps.track("board_disconnected", { via: "gesture" });
+    this.cancelRetry();
     return this.run(() => this.dispatch({ type: "disconnectRequested" }));
   }
 
@@ -491,6 +593,27 @@ export class BoardController {
   }
 
   /**
+   * The page is going away (tab close, navigation, or into the back/forward
+   * cache). Start closing the port now, outside the queue: a queued close would
+   * wait behind an in-flight probe, and an unloading page waits for nothing.
+   * The link's `disconnect` is idempotent, so the machine's own `closePort`
+   * below finds it already closing.
+   */
+  private onPageHide(): void {
+    this.pageHidden = true;
+    this.cancelRetry();
+    void this.link?.disconnect();
+    void this.run(() => this.dispatch({ type: "disconnectRequested" }));
+  }
+
+  /** Back from the back/forward cache: reconnect a granted board as on load. */
+  private onPageShow(persisted: boolean): void {
+    if (!this.pageHidden) return;
+    this.pageHidden = false;
+    if (persisted) void this.run(() => this.reconnectGranted());
+  }
+
+  /**
    * Start the background orchestration once: stand up the boardless flow runtime,
    * reconnect any already-granted board on load, and watch for plug/unplug of
    * granted devices and for the page going away. Idempotent.
@@ -505,6 +628,11 @@ export class BoardController {
     this.ensureBoardlessReactor();
 
     if (!this.deps.serial.isSupported()) return;
+
+    this.deps.onPageLifecycle({
+      onPageHide: () => this.onPageHide(),
+      onPageShow: (persisted) => this.onPageShow(persisted),
+    });
 
     // Reconnect a granted board on load (no picker; common case: a board that
     // already has Firmata just comes back).

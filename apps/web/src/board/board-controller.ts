@@ -29,13 +29,18 @@ import {
 import { createBringUp, handleBringUp } from "./wasm";
 import { FlowReactor, type CloudDeps } from "@/runtime/flow-reactor";
 import { isDesktop } from "@/platform/platform";
-import { BoardController, type BoardControllerDeps } from "./board-controller-core";
+import {
+  BoardController,
+  type BoardControllerDeps,
+  type PageLifecycleHandlers,
+} from "./board-controller-core";
 import { realClock } from "./clock";
 
 export {
   BoardController,
   type BoardControllerDeps,
   type Notifier,
+  type PageLifecycleHandlers,
   type ReactorHandle,
 } from "./board-controller-core";
 
@@ -62,6 +67,21 @@ const cloudDeps: CloudDeps = {
     useDesignBridgeStore.getState().ingestMqttMessage(topic, new TextDecoder().decode(payload));
   },
 };
+
+/** `pagehide`/`pageshow` on the window. `visibilitychange` is deliberately not
+ *  watched: a hidden tab keeps its flow running, and closing the port whenever
+ *  the user switched tabs would stop it. */
+function onPageLifecycle(handlers: PageLifecycleHandlers): () => void {
+  if (typeof window === "undefined") return () => {};
+  const hide = () => handlers.onPageHide();
+  const show = (event: PageTransitionEvent) => handlers.onPageShow(event.persisted);
+  window.addEventListener("pagehide", hide);
+  window.addEventListener("pageshow", show);
+  return () => {
+    window.removeEventListener("pagehide", hide);
+    window.removeEventListener("pageshow", show);
+  };
+}
 
 /** The production I/O: real Web Serial, the wasm bring-up machine, sonner. */
 export const browserBoardDeps: BoardControllerDeps = {
@@ -91,6 +111,7 @@ export const browserBoardDeps: BoardControllerDeps = {
   },
   track: trackEvent,
   clock: realClock,
+  onPageLifecycle,
   isDesktop,
 };
 
