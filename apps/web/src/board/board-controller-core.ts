@@ -303,14 +303,19 @@ export class BoardController {
       case "probe": {
         const a = this.attempt;
         if (!a) return;
+        if (this.standingDown()) {
+          await this.abandonAttempt();
+          return;
+        }
         const probe = action.afterFlash ? this.deps.serial.probeAfterFlash : this.deps.serial.probeFirmata;
-        let connection = await probe(a.port, this.linkHooks()).catch(() => null);
-        if (connection && (this.pageHidden || this.engineFault !== null)) {
+        const connection = await probe(a.port, this.linkHooks()).catch(() => null);
+        if (this.standingDown()) {
           // The page went away (or the engine died) while the probe ran: give
           // the port straight back rather than hand it to a flow that will
-          // never run.
-          await connection.disconnect();
-          connection = null;
+          // never run — and say nothing about what the probe found.
+          await connection?.disconnect();
+          await this.abandonAttempt();
+          return;
         }
         if (connection) {
           this.link = connection;
@@ -323,6 +328,12 @@ export class BoardController {
       case "flash": {
         const a = this.attempt;
         if (!a) return;
+        // Flashing opens the port and rewrites the board: never on a hidden page
+        // or for a dead engine.
+        if (this.standingDown()) {
+          await this.abandonAttempt();
+          return;
+        }
         try {
           await this.deps.serial.flashPort(a.port, {
             onProgress: (done, total) => void this.dispatch({ type: "flashProgress", done, total }),
@@ -532,6 +543,28 @@ export class BoardController {
     } catch {
       return false;
     }
+  }
+
+  /** The page is hidden or the engine is dead: no bring-up step may proceed. */
+  private standingDown(): boolean {
+    return this.pageHidden || this.engineFault !== null;
+  }
+
+  /**
+   * End the attempt in flight without a verdict on the board, because the page
+   * went away or the engine died while it ran.
+   *
+   * The machine hears `disconnectRequested` — its teardown from any state —
+   * and never `probeFailed`: that reads as "no Firmata here", and on an
+   * explicit connect to a known board the machine answers it with `flash`,
+   * rewriting a board that may well have answered. The attempt's bookkeeping
+   * goes first, so no `board_connect_failed` is tracked for it either.
+   */
+  private async abandonAttempt(): Promise<void> {
+    const a = this.attempt;
+    if (a?.flashToast !== undefined) this.deps.notify.dismiss(a.flashToast);
+    this.attempt = null;
+    await this.dispatch({ type: "disconnectRequested" });
   }
 
   /** Whether a background path may open a port right now. */
