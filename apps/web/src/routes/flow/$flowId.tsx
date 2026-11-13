@@ -3,6 +3,7 @@ import { useActiveFlowStore } from "@/flows/active-flow";
 import { useCircuitStore } from "@/circuit/circuit-store";
 import {
   FlowSessionProvider,
+  RemountOnAccessChange,
   useCloudSession,
   useFlowSession,
   useFlowStructuralNodes,
@@ -116,7 +117,9 @@ function FlowProviderShell({ session }: { session: FlowSession }) {
     <FlowSessionProvider session={session}>
       <FlowEventListeners />
       <CircuitBuildListener />
-      <FlowWithAskAi />
+      <RemountOnAccessChange>
+        <FlowWithAskAi />
+      </RemountOnAccessChange>
     </FlowSessionProvider>
   );
 }
@@ -233,27 +236,37 @@ function CloudFlowLayout() {
     ],
   );
 
-  const authToken = isDesktop() ? (localStorage.getItem("bearer_token") ?? undefined) : undefined;
 
   const initialData = useMemo(() => {
     if (!flow?.ydocBase64) return undefined;
     return Uint8Array.from(atob(flow.ydocBase64), (c) => c.charCodeAt(0));
   }, [flow?.ydocBase64]);
 
-  if (isLoading || !flow) return <LoadingState />;
+  // Error first: a failed query has no `flow`, so checking `!flow` first
+  // rendered every load failure as an endless spinner.
   if (error) return <ErrorState title="Failed to load flow" error={error} />;
+  if (isLoading || !flow) return <LoadingState />;
 
   return (
     <CloudFlowSessionMount
       flowId={flowId}
       wsUrl={wsUrl}
       user={user}
-      authToken={authToken}
+      getAuthToken={readDesktopAuthToken}
       initialData={initialData}
-      meta={{ name: flow.name }}
       role={flow.role}
     />
   );
+}
+
+/**
+ * The desktop bearer token, read at each connection attempt rather than once:
+ * the auth client rotates it in `localStorage`, and a captured copy expires.
+ * The web authenticates the socket with its session cookie instead.
+ */
+function readDesktopAuthToken(): string | undefined {
+  if (!isDesktop()) return undefined;
+  return localStorage.getItem("bearer_token") ?? undefined;
 }
 
 /**
@@ -264,9 +277,8 @@ function CloudFlowSessionMount(props: {
   flowId: string;
   wsUrl: string;
   user: { id: string; name: string; color?: string; icon?: string; isSupporter?: boolean };
-  authToken?: string;
+  getAuthToken?: () => string | undefined;
   initialData?: Uint8Array;
-  meta?: { name?: string; description?: string };
   role?: FlowRole;
 }) {
   const session = useCloudSession(props);
