@@ -29,7 +29,7 @@
 
 use crate::hardware::SessionId;
 use crate::runtime::services::MqttPublisher;
-use crate::runtime::supervisor::{self, CrashGuard, Fault, Verdict};
+use crate::runtime::supervisor::{self, CrashGuard, Fault, RuntimeCrash, RuntimeStatus, Verdict};
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::subscriptions::MidiListener;
 use microflow_core::runtime::{
@@ -45,7 +45,7 @@ use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -73,7 +73,7 @@ pub enum ActorMsg {
     /// wirings so the command can (un)subscribe MQTT.
     FlowUpdate {
         flow: FlowUpdate,
-        reply: oneshot::Sender<Vec<(String, SubscriberWiring)>>,
+        reply: oneshot::Sender<Result<Vec<(String, SubscriberWiring)>, String>>,
     },
     /// An external component call (`component_call` command).
     Call {
@@ -114,6 +114,8 @@ pub enum ActorMsg {
     /// Leave a crash-loop halt (`runtime_restart`): forget the recorded panics
     /// and respawn the runtime. A no-op beyond the reset when not halted.
     Restart,
+    /// Whether the runtime is halted (`runtime_status`).
+    Status { reply: oneshot::Sender<RuntimeStatus> },
     /// Tear the actor down (app exit).
     Shutdown,
 }
@@ -133,6 +135,7 @@ impl ActorMsg {
             Self::Inject { .. } => "injectEvent",
             Self::Wake { .. } => "wake",
             Self::Restart => "restart",
+            Self::Status { .. } => "status",
             Self::Shutdown => "shutdown",
         }
     }
@@ -157,13 +160,28 @@ impl ActorMsg {
 /// supervision) testable without a Tauri app.
 pub trait HostEvents {
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S);
+    /// A respawned runtime wires subscribers as `wirings`: reconcile the live
+    /// MQTT/Figma subscriptions against them, as a `flow_update` would have.
+    fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>);
 }
 
 impl HostEvents for AppHandle {
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
         let _ = Emitter::emit(self, event, payload);
     }
+
+    fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>) {
+        let app = self.clone();
+        tauri::async_runtime::spawn(async move {
+            let state = app.state::<crate::AppState>();
+            crate::runtime::commands::reconcile_subscriptions(&app, &state, &wirings).await;
+        });
+    }
 }
+
+/// What a halted actor answers a `flow_update` with. The flow is kept for the
+/// restart; it is not running.
+pub const HALTED: &str = "the flow runtime is halted after crashing repeatedly; reload to restart it";
 
 /// Spawn the actor thread. The caller owns the channel (so the `Send + Sync`
 /// sender can live on `AppState` + the hardware [`ActorLink`]) and the
@@ -404,6 +422,8 @@ struct Actor<E: HostEvents> {
     guard: CrashGuard,
     /// The guard tripped: no runtime drives the board until `Restart`.
     halted: bool,
+    /// The crash that tripped the guard, for `runtime_status`.
+    halt_crash: Option<RuntimeCrash>,
     events: E,
     rt_handle: Handle,
     self_tx: UnboundedSender<ActorMsg>,
@@ -452,6 +472,7 @@ impl<E: HostEvents> Actor<E> {
             wirings: Vec::new(),
             guard: CrashGuard::default(),
             halted: false,
+            halt_crash: None,
             events,
             rt_handle,
             self_tx,
@@ -550,10 +571,8 @@ impl<E: HostEvents> Actor<E> {
                 fault.location,
                 fault.fingerprint
             );
-            self.events.emit(
-                "runtime-crashed",
-                fault.event(verdict == Verdict::Respawn, self.guard.recent()),
-            );
+            let crash = fault.event(verdict == Verdict::Respawn, self.guard.recent());
+            self.events.emit("runtime-crashed", crash.clone());
             // The panicked runtime's state is indeterminate (ADR-0017 D3): it
             // never drives the board again, and neither do its timers.
             self.rebuild_runtime(false);
@@ -561,6 +580,7 @@ impl<E: HostEvents> Actor<E> {
             if verdict == Verdict::Halt {
                 log::error!("[actor] {} panics within the crash window; runtime halted", self.guard.recent());
                 self.halted = true;
+                self.halt_crash = Some(crash);
                 return;
             }
             match catch_unwind(AssertUnwindSafe(|| self.respawn())) {
@@ -577,18 +597,17 @@ impl<E: HostEvents> Actor<E> {
     /// state a replug would reach, without the replug.
     fn respawn(&mut self) {
         self.halted = false;
+        self.halt_crash = None;
         self.rebuild_runtime(true);
         self.apply_last_flow();
-        // Subscriptions. MIDI inputs live on the actor: rebuild the listener
-        // cache from the new runtime and reconcile. MQTT subscriptions live on
-        // `AppState`, keyed by node id, and are a function of the flow alone —
-        // the same flow yields the same wirings, so they stay valid. Say so
-        // loudly if that ever stops being true.
-        let wirings = self.rt.collect_subscriber_wirings();
-        if wirings != self.wirings {
-            log::warn!("[actor] respawned runtime wires subscribers differently; MQTT re-reconciles on the next flow_update");
-            self.wirings = wirings;
-        }
+        // Subscriptions. MQTT/Figma live on `AppState` and were reconciled
+        // against the last *successful* `flow_update`; the update that panicked
+        // (or one kept while halted) never got that far, so the respawned
+        // runtime may wire subscribers differently. Reconcile every time: it
+        // is a diff, so an unchanged set touches nothing. MIDI inputs live on
+        // the actor: rebuild the listener cache and reconcile.
+        self.wirings = self.rt.collect_subscriber_wirings();
+        self.events.subscriptions_changed(self.wirings.clone());
         self.midi_listeners = self.rt.collect_midi_listeners().into();
         self.midi.reconcile(&self.midi_listeners, &self.self_tx);
         log::info!("[actor] runtime respawned (epoch {})", self.epoch);
@@ -677,9 +696,10 @@ impl<E: HostEvents> Actor<E> {
                 log::info!("[actor] board disconnected");
             }
             ActorMsg::FlowUpdate { flow, reply } if self.halted => {
-                // Kept for the restart; the subscriptions stay as they are.
+                // Kept for the restart (which reconciles the subscriptions),
+                // but not running: say so rather than ack it.
                 self.last_flow = Some(flow);
-                let _ = reply.send(self.wirings.clone());
+                let _ = reply.send(Err(HALTED.to_string()));
             }
             ActorMsg::FlowUpdate { flow, reply } => {
                 self.last_flow = Some(flow.clone());
@@ -687,7 +707,7 @@ impl<E: HostEvents> Actor<E> {
                 let effects = self.rt.update_flow(flow);
                 self.apply(effects);
                 self.wirings = self.rt.collect_subscriber_wirings();
-                let _ = reply.send(self.wirings.clone());
+                let _ = reply.send(Ok(self.wirings.clone()));
                 // The flow changed: this is the only place the listener cache
                 // can go stale, so it is the only place it is rebuilt.
                 self.midi_listeners = self.rt.collect_midi_listeners().into();
@@ -735,6 +755,9 @@ impl<E: HostEvents> Actor<E> {
                 self.set_now();
                 let effects = self.rt.wake(&node_id, &method);
                 self.apply(effects);
+            }
+            ActorMsg::Status { reply } => {
+                let _ = reply.send(RuntimeStatus { halted: self.halted, crash: self.halt_crash.clone() });
             }
             ActorMsg::Restart => {
                 self.guard.reset();
@@ -1223,11 +1246,28 @@ mod tests {
         fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
             self.0.borrow_mut().push((event.to_string(), serde_json::to_value(payload).unwrap()));
         }
+
+        fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>) {
+            let ids: Vec<String> = wirings.into_iter().map(|(id, _)| id).collect();
+            self.emit("<subscriptions>", ids);
+        }
     }
 
     impl RecordingEvents {
+        fn named(&self, name: &str) -> Vec<serde_json::Value> {
+            self.0.borrow().iter().filter(|(e, _)| e == name).map(|(_, p)| p.clone()).collect()
+        }
+
         fn crashes(&self) -> Vec<serde_json::Value> {
-            self.0.borrow().iter().filter(|(e, _)| e == "runtime-crashed").map(|(_, p)| p.clone()).collect()
+            self.named("runtime-crashed")
+        }
+
+        /// Each subscription reconcile the actor asked for, as subscriber node ids.
+        fn reconciles(&self) -> Vec<Vec<String>> {
+            self.named("<subscriptions>")
+                .iter()
+                .map(|ids| ids.as_array().unwrap().iter().map(|id| id.as_str().unwrap().to_string()).collect())
+                .collect()
         }
     }
 
@@ -1251,11 +1291,14 @@ mod tests {
     }
 
     /// A node that panics: in dispatch on `boom`, on a `_boom` wakeup (core
-    /// strips the `_`), and on start when `data.panicOnStart`. Counts its
-    /// starts — one per flow apply.
+    /// strips the `_`), on start when `data.panicOnStart`, and on the first
+    /// start of any `data.panicOnce` node (a shared fuse). Counts its starts —
+    /// one per flow apply.
     struct Panicker {
         base: ComponentBase,
         panic_on_start: bool,
+        panic_once: bool,
+        fuse: Rc<Cell<bool>>,
         starts: Rc<Cell<u32>>,
     }
 
@@ -1280,6 +1323,8 @@ mod tests {
         fn on_start(&mut self, _ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
             self.starts.set(self.starts.get() + 1);
             assert!(!self.panic_on_start, "node panicked on start");
+            let first = self.panic_once && !self.fuse.replace(true);
+            assert!(!first, "node panicked on its first start");
             Ok(())
         }
     }
@@ -1305,18 +1350,20 @@ mod tests {
             let tokio = tokio::runtime::Builder::new_current_thread().enable_time().build().unwrap();
             let starts = Rc::new(Cell::new(0));
             let factory_starts = Rc::clone(&starts);
+            let fuse = Rc::new(Cell::new(false));
             let make_runtime: RuntimeFactory = Box::new(move || {
                 let mut rt = FlowRuntime::new();
                 let starts = Rc::clone(&factory_starts);
+                let fuse = Rc::clone(&fuse);
                 rt.register_test_factory(
                     "Panicker",
                     Box::new(move |id, data| {
+                        let flag = |key: &str| data.get(key).and_then(serde_json::Value::as_bool).unwrap_or(false);
                         Ok(Box::new(Panicker {
                             base: ComponentBase::new(id, ComponentValue::default()),
-                            panic_on_start: data
-                                .get("panicOnStart")
-                                .and_then(serde_json::Value::as_bool)
-                                .unwrap_or(false),
+                            panic_on_start: flag("panicOnStart"),
+                            panic_once: flag("panicOnce"),
+                            fuse: Rc::clone(&fuse),
                             starts: Rc::clone(&starts),
                         }))
                     }),
@@ -1338,17 +1385,21 @@ mod tests {
             Self { actor, events, written, starts, _tokio: tokio }
         }
 
-        fn flow(
-            &mut self,
-            panic_on_start: bool,
-        ) -> Result<Vec<(String, SubscriberWiring)>, oneshot::error::TryRecvError> {
+        fn flow(&mut self, panic_on_start: bool) -> Result<FlowReply, oneshot::error::TryRecvError> {
+            let p = node("p", "Panicker", serde_json::json!({ "panicOnStart": panic_on_start }));
+            self.send_flow(vec![p, sensor_a0()])
+        }
+
+        fn send_flow(&mut self, nodes: Vec<FlowNode>) -> Result<FlowReply, oneshot::error::TryRecvError> {
             let (reply, mut rx) = oneshot::channel();
-            let flow = FlowUpdate {
-                nodes: vec![node("p", "Panicker", serde_json::json!({ "panicOnStart": panic_on_start })), sensor_a0()],
-                edges: vec![],
-            };
-            assert!(self.actor.step(ActorMsg::FlowUpdate { flow, reply }));
+            assert!(self.actor.step(ActorMsg::FlowUpdate { flow: FlowUpdate { nodes, edges: vec![] }, reply }));
             rx.try_recv()
+        }
+
+        fn status(&mut self) -> RuntimeStatus {
+            let (reply, mut rx) = oneshot::channel();
+            assert!(self.actor.step(ActorMsg::Status { reply }));
+            rx.try_recv().unwrap()
         }
 
         fn call(&mut self, method: &str) {
@@ -1360,6 +1411,8 @@ mod tests {
             std::mem::take(&mut *self.written.lock().unwrap())
         }
     }
+
+    type FlowReply = Result<Vec<(String, SubscriberWiring)>, String>;
 
     fn sensor_a0() -> FlowNode {
         node(
@@ -1400,7 +1453,7 @@ mod tests {
     #[test]
     fn a_panicking_turn_respawns_a_seeded_runtime_and_reapplies_the_flow() {
         let mut rig = Rig::connected();
-        rig.flow(false).expect("the flow applied");
+        rig.flow(false).expect("replied").expect("the flow applied");
         assert_eq!(rig.starts.get(), 1);
         assert!(contains(&rig.take_written(), &REPORT_A0), "the connect seeded the pins");
         let epoch = rig.actor.epoch;
@@ -1427,7 +1480,7 @@ mod tests {
         let safe = safe_state_for(&analog_pins_json());
         assert!(written.starts_with(&safe), "the safe state goes out first: {written:02X?}");
         assert!(contains(&written[safe.len()..], &REPORT_A0), "then the re-seeded pins are re-inited");
-        assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings(), "subscriptions unchanged");
+        assert_eq!(rig.events.reconciles().len(), 1, "the respawn reconciled the subscriptions");
 
         // And it keeps working.
         rig.call("fine");
@@ -1437,7 +1490,7 @@ mod tests {
     #[test]
     fn a_crash_loop_halts_until_restart() {
         let mut rig = Rig::connected();
-        rig.flow(false).expect("the flow applied");
+        rig.flow(false).expect("replied").expect("the flow applied");
 
         rig.call("boom");
         rig.call("boom");
@@ -1453,18 +1506,25 @@ mod tests {
         let safe = safe_state_for(&analog_pins_json());
         assert!(written.ends_with(&safe), "a halt leaves the board in its safe state: {written:02X?}");
 
+        // Observable: a reloaded webview asks, and learns which crash halted it.
+        let status = rig.status();
+        assert!(status.halted);
+        let crash = status.crash.expect("the halting crash");
+        assert!(!crash.recovered);
+        assert_eq!(crash.crashes, 3);
+
         // Halted: flow turns are dropped, and a flow update is kept for the
-        // restart while the subscriptions stay as they were.
+        // restart but answered as what it is — not running.
         rig.call("boom");
         assert_eq!(rig.events.crashes().len(), 3, "nothing ran, nothing panicked");
-        let wirings = rig.flow(false).expect("a halted actor still replies");
-        assert_eq!(wirings, rig.actor.wirings);
+        assert_eq!(rig.flow(false), Ok(Err(HALTED.to_string())), "a halted actor does not ack a flow");
         assert_eq!(rig.starts.get(), starts);
         assert!(rig.take_written().is_empty(), "a halted runtime drives nothing");
 
         // The user restarts: fresh runtime, seeded, flow re-applied.
         assert!(rig.actor.step(ActorMsg::Restart));
         assert!(!rig.actor.halted);
+        assert_eq!(rig.status(), RuntimeStatus { halted: false, crash: None });
         assert_eq!(rig.starts.get(), starts + 1);
         assert!(contains(&rig.take_written(), &REPORT_A0));
         rig.call("boom");
@@ -1491,10 +1551,16 @@ mod tests {
         assert!(board.pin(13).is_high(), "the flow drove the LED");
 
         rig.call("boom");
-        // Everything the actor wrote since: the safe state, then the respawned
-        // flow's init — which sets the LED pin up again but does not drive it.
-        board.receive(&rig.take_written());
-        assert!(!board.pin(13).is_high(), "the panic left the LED off");
+        // The safe state goes out before anything the respawned runtime writes,
+        // and on its own it lowers the LED. (The re-applied flow's init writes
+        // the LED pin LOW too, so the whole stream would not prove this.)
+        let written = rig.take_written();
+        let safe = safe_state_for(&analog_pins_json());
+        assert!(written.starts_with(&safe), "the safe state goes out first: {written:02X?}");
+        board.receive(&safe);
+        assert!(!board.pin(13).is_high(), "the safe state left the LED off");
+        board.receive(&written[safe.len()..]);
+        assert!(!board.pin(13).is_high(), "and the respawned flow does not drive it again");
     }
 
     #[test]
@@ -1529,6 +1595,27 @@ mod tests {
     }
 
     #[test]
+    fn a_respawn_reconciles_subscriptions_the_panicked_update_never_reached() {
+        let mut rig = Rig::connected();
+        rig.flow(false).expect("replied").expect("the flow applied");
+        assert!(rig.events.reconciles().is_empty(), "a normal update is reconciled by flow_update itself");
+
+        // The update adds an MQTT subscriber and panics part-way: `flow_update`
+        // gets no reply, so it never reconciles the subscriptions.
+        let nodes = vec![
+            node("p", "Panicker", serde_json::json!({ "panicOnce": true })),
+            node("m", "Mqtt", serde_json::json!({ "direction": "subscribe", "brokerId": "b", "topic": "t" })),
+        ];
+        assert!(rig.send_flow(nodes).is_err(), "the panicked update dropped its reply");
+
+        // The respawn built the whole flow fine, and asked for the reconcile.
+        assert_eq!(rig.events.crashes().len(), 1);
+        assert!(!rig.actor.halted);
+        assert_eq!(rig.events.reconciles(), vec![vec!["m".to_string()]]);
+        assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings());
+    }
+
+    #[test]
     fn a_flow_that_panics_on_apply_halts_instead_of_looping() {
         // The respawn re-applies the very flow that panicked: each re-apply is
         // one more crash, so the guard ends it rather than spinning forever.
@@ -1545,7 +1632,7 @@ mod tests {
     #[test]
     fn a_timer_from_a_thrown_away_runtime_does_not_wake_the_new_one() {
         let mut rig = Rig::connected();
-        rig.flow(false).expect("the flow applied");
+        rig.flow(false).expect("replied").expect("the flow applied");
         let wake = |epoch| ActorMsg::Wake { id: 1, epoch, node_id: "p".into(), method: "_boom".into() };
 
         rig.actor.step(wake(rig.actor.epoch - 1));

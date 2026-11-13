@@ -283,6 +283,7 @@ pub fn run() {
             runtime::commands::component_call,
             runtime::commands::llm_result,
             runtime::commands::runtime_restart,
+            runtime::commands::runtime_status,
             runtime::commands::generate_sketch,
             runtime::commands::check_credentials,
             runtime::commands::list_board_targets,

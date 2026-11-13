@@ -3,6 +3,7 @@
 //! `flow_update` and `component_call` commands
 
 use super::host::ActorMsg;
+use super::supervisor::RuntimeStatus;
 use crate::codegen::board::{target_by_id, BoardTarget};
 use crate::codegen::credentials::{Credentials, MissingCredential};
 use crate::codegen::GenerationOutcome;
@@ -190,6 +191,16 @@ pub async fn runtime_restart(state: tauri::State<'_, AppState>) -> Result<(), St
     state.actor.send(ActorMsg::Restart).map_err(|_| "runtime actor is gone".to_string())
 }
 
+/// Whether the runtime is halted by the crash-loop guard, and the crash that
+/// halted it. The webview asks on start, so a reload (or a dismissed error)
+/// cannot leave a halted runtime with nothing on screen.
+#[tauri::command]
+pub async fn runtime_status(state: tauri::State<'_, AppState>) -> Result<RuntimeStatus, String> {
+    let (reply, rx) = tokio::sync::oneshot::channel();
+    state.actor.send(ActorMsg::Status { reply }).map_err(|_| "runtime actor is gone".to_string())?;
+    rx.await.map_err(|_| "runtime actor dropped the status reply".to_string())
+}
+
 /// Apply `flow` to the runtime and reconcile its MQTT/Figma subscriptions. Hands
 /// the flow to the runtime actor (which owns the "pending flow" and re-applies it
 /// on every (re)connect), then diffs the desired subscriber set against the live
@@ -215,14 +226,29 @@ async fn apply_flow(
             .map_err(|_| "runtime actor is gone".to_string())?;
         reply_rx
             .await
-            .map_err(|_| "runtime actor dropped the flow_update reply".to_string())?
+            .map_err(|_| "runtime actor dropped the flow_update reply".to_string())??
     };
 
+    reconcile_subscriptions(app, state, &component_wirings).await;
+    Ok(())
+}
+
+/// Reconcile the live MQTT/Figma subscriptions against the runtime's subscriber
+/// wirings: (un)subscribe the delta, then run the Figma connect/disconnect
+/// handshake. The second half of [`apply_flow`], and what the runtime actor
+/// asks for after a respawn — a respawned runtime can wire subscribers
+/// differently from the last successful `flow_update` (the update that
+/// panicked never got this far).
+pub async fn reconcile_subscriptions(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    component_wirings: &[(String, SubscriberWiring)],
+) {
     // Desired subscription set, one entry per (broker_id, topic). The collapse +
     // deterministic winner-selection is core policy (`reconcile_desired`), shared
     // with the browser host so both pick the same owner per topic; here we key it
     // by (broker, topic) for the diff against the live set below.
-    let desired: HashMap<(String, String), DesiredSub> = reconcile_desired(&component_wirings)
+    let desired: HashMap<(String, String), DesiredSub> = reconcile_desired(component_wirings)
         .into_iter()
         .map(|d| ((d.broker_id.clone(), d.topic.clone()), d))
         .collect();
@@ -353,8 +379,6 @@ async fn apply_flow(
         let mut subs = state.figma_subscriptions.lock().await;
         *subs = next_live;
     }
-
-    Ok(())
 }
 
 /// Generate the Arduino sketch for a Flow, targeting a selected board.
