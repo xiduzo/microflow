@@ -43,7 +43,7 @@ The browser has no automatic restart. When the flow engine stops there, reload t
 
 ## Step 5 — A specific node hung
 
-The most common cause of a flow that stops in the middle is a [Function](/docs/microflow-studio/nodes/shape/function) node whose user code has an issue. The runtime guards against infinite loops (10,000 iteration cap), but slow code can still stall a chain.
+The most common cause of a flow that stops in the middle is a [Function](/docs/microflow-studio/nodes/shape/function) node whose user code has an issue. The runtime stops a loop that runs more than 10,000 iterations in one call (see [Runtime](/docs/microflow-studio/nodes/shape/function#runtime)). The node then keeps its last value, so the chain after it stops changing. Slow code without loops can still stall a chain.
 
 - Drop a [Monitor](/docs/microflow-studio/nodes/internal/monitor) just *before* and just *after* every Function node.
 - If a Function's input changes but its output never updates, the code inside is the suspect. Look for: large recursive operations, loops over big arrays, accidental string operations on huge data.
