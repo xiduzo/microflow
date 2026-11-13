@@ -11,6 +11,8 @@ import { cn } from "@/ui/utils";
 import { Button } from "@/ui/button";
 import { TEMPLATES, type Template } from "@/flows/templates";
 import { track } from "@/lib/analytics";
+import { reportError } from "@/lib/report-error";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/templates")({
   component: TemplatesPage,
@@ -47,7 +49,15 @@ function TemplatesPage() {
 
   const useTemplate = useCallback(
     async (template: Template) => {
-      await saveLocalFlow(template.nodes, template.edges);
+      try {
+        await saveLocalFlow(template.nodes, template.edges);
+      } catch (error) {
+        reportError(error, { source: "action", route: Route.id });
+        toast.error("Couldn't load the template", {
+          description: error instanceof Error ? error.message : undefined,
+        });
+        return;
+      }
 
       const next = [...new Set([...readBuiltTemplates(), template.id])];
       localStorage.setItem(BUILT_TEMPLATES_STORAGE_KEY, JSON.stringify(next));
