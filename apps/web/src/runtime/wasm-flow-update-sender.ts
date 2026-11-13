@@ -7,13 +7,15 @@
 // `FlowUpdate` shape (normalised once in `buildFlowUpdate`). `brokers` /
 // `providers` are dropped — the browser resolves cloud config live from its
 // stores (`CloudDeps` in board-controller.ts), so only the flow crosses.
+//
+// The result is the runtime's own verdict (a rejected flow, a dead engine), so
+// the dispatcher's retry policy sees browser failures as it sees desktop ones.
 
 import { pushFlowUpdate } from "@/board/board-controller";
 import type { FlowUpdate, FlowUpdateSender, SendResult } from "./flow-update-sender";
 
 export class WasmFlowUpdateSender implements FlowUpdateSender {
   async send(update: FlowUpdate): Promise<SendResult> {
-    pushFlowUpdate({ nodes: update.nodes, edges: update.edges });
-    return { ok: true };
+    return pushFlowUpdate({ nodes: update.nodes, edges: update.edges });
   }
 }

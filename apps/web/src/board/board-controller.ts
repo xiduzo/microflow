@@ -32,6 +32,7 @@ import { isDesktop } from "@/platform/platform";
 import {
   BoardController,
   type BoardControllerDeps,
+  type FlowApplyResult,
   type PageLifecycleHandlers,
 } from "./board-controller-core";
 import { realClock } from "./clock";
@@ -42,6 +43,7 @@ export {
   type Notifier,
   type PageLifecycleHandlers,
   type ReactorHandle,
+  type FlowApplyResult,
 } from "./board-controller-core";
 
 /** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
@@ -119,7 +121,8 @@ export const browserBoardDeps: BoardControllerDeps = {
 // no call site needs to know an instance exists.
 const controller = new BoardController(browserBoardDeps);
 
-export const pushFlowUpdate = (flow: CoreFlowUpdate): void => controller.pushFlowUpdate(flow);
+export const pushFlowUpdate = (flow: CoreFlowUpdate): FlowApplyResult =>
+  controller.pushFlowUpdate(flow);
 export const dispatchToNode = (nodeId: string, port: string, value: unknown): void =>
   controller.dispatchToNode(nodeId, port, value);
 export const connect = (): Promise<void> => controller.connect();

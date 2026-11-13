@@ -40,8 +40,12 @@ import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 
 /** The part of a `FlowReactor` this module drives. Named so a test can stand in
  *  for it without a wasm module. */
+/** Whether a flow update reached a live runtime (the dispatcher's `SendResult`
+ *  shape). */
+export type FlowApplyResult = { ok: true } | { ok: false; error: string };
+
 export interface ReactorHandle {
-  applyFlow(flow: CoreFlowUpdate): void;
+  applyFlow(flow: CoreFlowUpdate): FlowApplyResult;
   feedBytes(bytes: Uint8Array): void;
   dispatchToNode(nodeId: string, port: string, value: unknown): void;
   dispose(): void;
@@ -181,10 +185,18 @@ export class BoardController {
    * Push the latest flow graph to the runtime. Called by `WasmFlowUpdateSender`
    * on every graph change; stored so a board connecting later starts on the
    * current flow.
+   *
+   * The result is honest so the dispatcher's retry policy can act on it: the
+   * runtime's own verdict when one is up, a failure when the engine is dead,
+   * and success when no runtime exists *yet* (still loading, or swapping
+   * between the boardless and a board-backed one) — the stored flow is applied
+   * the moment one attaches, so there is nothing for a retry to do.
    */
-  pushFlowUpdate(flow: CoreFlowUpdate): void {
+  pushFlowUpdate(flow: CoreFlowUpdate): FlowApplyResult {
     this.latestFlow = flow;
-    this.reactor?.applyFlow(flow);
+    if (this.reactor !== null) return this.reactor.applyFlow(flow);
+    if (this.engineFault !== null) return { ok: false, error: this.engineFault };
+    return { ok: true };
   }
 
   /**

@@ -106,7 +106,7 @@ function linked() {
         fed: [],
         disposed: false,
         fault: hooks.onEngineFault,
-        applyFlow() {},
+        applyFlow: () => ({ ok: true }),
         feedBytes(bytes) {
           reactor.fed.push(...bytes);
         },

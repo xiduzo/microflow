@@ -36,6 +36,40 @@ describe("FlowReactor.dispatchToNode", () => {
     reactor.dispose();
   });
 
+  test("applyFlow reports the runtime's verdict instead of a blanket success", async () => {
+    const empty = JSON.stringify({
+      outboundBytes: [],
+      componentEvents: [],
+      wakeups: [],
+      cancellations: [],
+      cloudRequests: [],
+      nodeDiagnostics: [],
+    });
+    let reject = false;
+    const runtime = {
+      setPins: () => undefined,
+      updateFlow: () => {
+        if (reject) throw new Error("unknown node type 'Bogus'");
+        return empty;
+      },
+      // No `reconcileSubscriptions`: the bridge contains that fault, so the
+      // reconcile stops before the cloud performer (which needs the wasm
+      // module) — and its fault must not become applyFlow's verdict.
+    } as unknown as FlowRuntimeCalls;
+
+    const reactor = await FlowReactor.attach(fakeConnection(), undefined, { runtime });
+    const flow = { nodes: [], edges: [] };
+    expect(reactor.applyFlow(flow)).toEqual({ ok: true });
+
+    reject = true;
+    const result = reactor.applyFlow(flow);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error).toContain("unknown node type 'Bogus'");
+
+    reactor.dispose();
+    expect(reactor.applyFlow(flow).ok).toBe(false);
+  });
+
   test("runs with no board: seeds an empty pin table and drops outbound bytes", async () => {
     const pinsSeeded: string[] = [];
     const runtime = {
