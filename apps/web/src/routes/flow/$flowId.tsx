@@ -13,10 +13,7 @@ import {
 } from "@/session";
 import { useFlowUpdateDispatcher } from "@/runtime/use-flow-update-dispatcher";
 import { usePins, type Pin } from "@/board/board-store";
-import { useComponentEvents } from "@/runtime/use-component-events";
-import { useNodeDiagnostics } from "@/runtime/use-node-diagnostics";
-import { useAudioRequests } from "@/runtime/use-audio-requests";
-import { useLlmRequests } from "@/ai/use-llm-requests";
+import { useDesktopFlowDocument } from "@/runtime/use-desktop-runtime-host";
 import { useHotkeyEvents } from "@/runtime/use-hotkey-events";
 import { useDebouncer } from "@tanstack/react-pacer";
 import { trpc } from "@/lib/trpc";
@@ -37,17 +34,15 @@ import { toast } from "sonner";
 import type { Node } from "@xyflow/react";
 
 /**
- * Inside-provider listeners — events that need access to the session's
- * FlowDocument (component events, hotkey events, optional desktop dispatch).
- * Returns null; effects only.
+ * Inside-provider listeners — what needs the session's FlowDocument: hotkeys,
+ * the flow dispatch, and (desktop) attaching the document to the app-lifetime
+ * Runtime Host, which applies the runtime's events whether or not this route
+ * is mounted. Returns null; effects only.
  */
 function FlowEventListeners() {
   const session = useFlowSession();
-  useComponentEvents();
-  useNodeDiagnostics();
+  useDesktopFlowDocument(session.doc);
   useHotkeyEvents();
-  useAudioRequests();
-  useLlmRequests();
   // Dispatch the live flow to the runtime — Tauri IPC on desktop, the in-browser
   // wasm runtime on web; the dispatcher picks the sender by platform.
   useFlowUpdateDispatcher(session);

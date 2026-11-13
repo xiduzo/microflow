@@ -29,6 +29,10 @@ js = ["runtime", "dep:boa_engine"]
 # under `cfg(test)`; this feature exposes it to other crates' tests (the wasm
 # runtime crate, the desktop app) as a dev-dependency feature.
 sim-board = []
+# `FlowRuntime::register_test_factory`: lets another crate's tests run a
+# hand-written node (e.g. one that panics, for the desktop actor's supervision
+# tests). Dev-dependency only; never on in a shipped build.
+test-nodes = ["runtime"]
 
 [dependencies]
 # `rc` enables serializing the `Arc<str>` fields on `ComponentEvent` (the

@@ -12,9 +12,9 @@
 // That makes it unit-testable with a stub `MqttClientFactory`, a stubbed `fetch`,
 // and fake resolvers — no broker, no runtime (see `cloud-performer.test.ts`).
 
-import type { EmitOf } from "@/nodes/component-types.generated";
 import type { CloudRequest } from "@/runtime/effects-sink";
 import type { LlmProviderConn } from "@/ai/llm-client";
+import { LlmPerformer } from "@/ai/llm-performer";
 import {
   BrokerConnections,
   defaultMqttClientFactory,
@@ -63,25 +63,12 @@ export type FigmaAnnounce = (
   next: Record<string, string>,
 ) => FigmaPublish[];
 
-// The `Llm` node's output handles, typed against the catalog's `Llm` emits
-// (ADR-0007). `EmitOf<"Llm">` is the literal union the codegen derives from
-// node-components.json — the SAME source the Catalog Parity Guard pins the Rust
-// `Llm::emits()` / `Llm::E_*` consts to. Annotating each const with it means a
-// renamed/removed handle in the catalog makes these assignments fail to compile,
-// closing the gap where the browser hard-coded a string the desktop sourced from
-// a Rust const. The browser host injects results on exactly these handles,
-// mirroring the desktop `CloudPerformer`.
-const LLM_THINKING: EmitOf<"Llm"> = "thinking";
-const LLM_VALUE: EmitOf<"Llm"> = "value";
-const LLM_DONE: EmitOf<"Llm"> = "done";
-const LLM_ERROR: EmitOf<"Llm"> = "error";
-
 /**
  * Performs the cloud half of a flow host (ADR-0009): the LLM/MQTT network I/O a
  * turn's `Effects` record, plus the subscription reconcile (incl. Figma
  * handshake). The browser twin of the desktop `CloudPerformer` in
  * `src-tauri/src/runtime/host.rs` — and like it, host-free: it owns the
- * {@link BrokerConnections}, the latest-wins LLM abort table, and the injected
+ * {@link BrokerConnections}, the shared {@link LlmPerformer}, and the injected
  * {@link CloudDeps} resolvers, but reaches the runtime only through the two
  * injected callbacks ({@link ResultInjector} / {@link InboundDeliver}). No wasm
  * runtime, no board connection, no store — so it unit-tests directly.
@@ -90,9 +77,9 @@ export class CloudPerformer {
   /** Per-broker MQTT-over-WSS connections + the live subscription set, reconciled
    *  on each `applyFlow` against the runtime's subscriber wirings. */
   private readonly brokers: BrokerConnections;
-  /** In-flight LLM generations keyed by issuing node id (latest-wins: a fresh
-   *  trigger aborts its predecessor, mirroring the desktop `CloudPerformer`). */
-  private readonly llmAborts = new Map<string, AbortController>();
+  /** The `llmGenerate` half — the same performer the desktop host holds
+   *  (ADR-0021); only the result re-entry differs. */
+  private readonly llm: LlmPerformer;
   private liveSubs = new Map<string, ActiveSub>();
   private disposed = false;
 
@@ -112,14 +99,18 @@ export class CloudPerformer {
     factory: MqttClientFactory = defaultMqttClientFactory,
   ) {
     this.brokers = new BrokerConnections(factory);
+    this.llm = new LlmPerformer(
+      (providerId) => this.cloud?.resolveLlmProvider(providerId),
+      (source, handle, value) => this.resultInjector(source, handle, value),
+    );
   }
 
-  /** Perform one recorded cloud request. The `llmGenerate` → `runLlm`,
+  /** Perform one recorded cloud request. The `llmGenerate` → `LlmPerformer`,
    *  `mqttPublish` → `publishMqtt` switch; `mqttPublish` covers both the Mqtt
    *  publish node and Figma set-value. */
   perform(request: CloudRequest): void {
     if (request.kind === "llmGenerate") {
-      void this.runLlm(request);
+      void this.llm.perform(request);
       return;
     }
     // Intercepted by the reactor's Midi/Audio performers before delegation
@@ -159,74 +150,9 @@ export class CloudPerformer {
     const liveUids = uidBrokers(this.liveSubs.values());
     if (liveUids.size > 0) this.figmaLifecycle(liveUids, new Map());
     this.disposed = true;
-    for (const controller of this.llmAborts.values()) controller.abort();
-    this.llmAborts.clear();
+    this.llm.dispose();
     this.brokers.disposeAll();
     this.liveSubs.clear();
-  }
-
-  // --- Cloud: LLM generation (ADR-0009 Phase 3) -------------------------------
-
-  /** Perform an `llmGenerate` request and re-enter the result on the `Llm`
-   *  node's handles, mirroring the desktop `CloudPerformer`: `thinking = true`
-   *  was already emitted synchronously by the node's dispatch; here we resolve
-   *  the provider, POST, and inject `thinking = false` + `value`/`done` (or
-   *  `error`). Latest-wins: a re-trigger for the same node aborts this one. */
-  private async runLlm(request: Extract<CloudRequest, { kind: "llmGenerate" }>): Promise<void> {
-    const { source } = request;
-    const provider = this.cloud?.resolveLlmProvider(request.providerId);
-    if (!provider) {
-      this.injectLlmError(source, `LLM provider '${request.providerId}' not configured`);
-      return;
-    }
-
-    this.llmAborts.get(source)?.abort();
-    const controller = new AbortController();
-    this.llmAborts.set(source, controller);
-
-    try {
-      // Imported on first use: the transport pulls in TanStack AI and the OpenAI
-      // client, which is a lot of bundle for every user who never places an Llm
-      // node. By the time we get here they have.
-      const { performLlmGenerate } = await import("@/ai/llm-client");
-      const text = await performLlmGenerate(
-        provider,
-        { model: request.model, system: request.system, prompt: request.prompt },
-        controller.signal,
-        // Stream: each delta re-injects the whole answer so far on `value`, so a
-        // downstream Monitor fills in as the model writes instead of sitting on
-        // `thinking` until the end. `thinking` stays true until the run
-        // finishes — a partial answer is still a pending one.
-        (textSoFar) => {
-          if (controller.signal.aborted || this.disposed) return;
-          this.inject(source, LLM_VALUE, textSoFar);
-        },
-      );
-      if (controller.signal.aborted || this.disposed) return;
-      this.inject(source, LLM_THINKING, false);
-      this.inject(source, LLM_VALUE, text);
-      this.inject(source, LLM_DONE, true);
-    } catch (error) {
-      // A superseded (aborted) or torn-down generation drops silently — its
-      // result would route nowhere (mirrors the desktop `LlmError::Cancelled`).
-      if (controller.signal.aborted || this.disposed) return;
-      this.injectLlmError(source, error instanceof Error ? error.message : String(error));
-    } finally {
-      if (this.llmAborts.get(source) === controller) this.llmAborts.delete(source);
-    }
-  }
-
-  private injectLlmError(source: string, message: string): void {
-    this.inject(source, LLM_THINKING, false);
-    this.inject(source, LLM_ERROR, message);
-  }
-
-  /** Inject one cloud result value on `handle` via the host-supplied
-   *  {@link ResultInjector} (which applies the cascade it drives). `value` is a
-   *  `ComponentValue` — a bare boolean/string serializes to the untagged JSON the
-   *  runtime parses. */
-  private inject(source: string, handle: string, value: boolean | string): void {
-    this.resultInjector(source, handle, value);
   }
 
   // --- Cloud: MQTT + Figma over WSS (ADR-0009 Phase 3) ------------------------

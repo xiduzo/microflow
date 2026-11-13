@@ -238,3 +238,26 @@ before this ADR started, not larger.
 this change — every room has been opened at least once, and every local
 IndexedDB store has synced once — delete the function and its two call sites.
 Nothing else has to change, because nothing else knows the old shape exists.
+
+---
+
+## Amendment (2026-11-13): mounting a node writes nothing
+
+A node's controls must not write to the document just because they rendered.
+The [Node-Data Commit](../../CONTEXT.md#node-data-commit) committer is seeded at
+mount with what the doc and the controls hold (`initial: { doc, controls }`,
+the doc winning), and from then on writes only the keys whose value changed. A
+key the doc does not hold reads as the control's mount-time default, so undoing
+the first edit to such a key puts the control back on its default instead of
+leaving it on the undone value. Before, every control wrote its value on mount,
+so opening a flow produced a write per node and a Viewer's mount fought the
+read-only guard.
+
+**Plain-object nodes are read, and upgraded only by their owner or by a write.**
+`upgradeLegacyNodes` still runs only where a document is loaded and owned: the
+server's room store and the client's IndexedDB adapter. A cloud seed handed to
+the client is not upgraded there: the server upgrades that room on load and syncs
+it down, and a client upgrade racing it would drop whichever side lost.
+`materialiseNode` therefore reads the plain-object shape, falling back to
+defaults for a bad type, position or size, and a write to such a node replaces
+it with the map form carrying the edit.

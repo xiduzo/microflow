@@ -100,7 +100,7 @@ Five sub-decisions:
   bridge holds mutable state (pending flush, loop guard, listeners). A
   class makes those fields explicit and named; a hook-of-functions
   would put them in `useRef` closures with no obvious name. The class
-  is also testable without React — vitest constructs one, calls
+  is also testable without React — a test constructs one, calls
   methods, asserts on the doc. The pure-helpers-in-hook alternative
   loses the integration test surface.
 
@@ -144,7 +144,7 @@ Roll out as one pure-addition PR:
 1. Add `react-flow-bridge.ts` (class).
 2. Rewrite `use-react-flow-bridge.ts` as thin hook (`useState` + `useEffect`
    + `useSyncExternalStore`).
-3. Add `react-flow-bridge.test.ts` — 28 vitest cases.
+3. Add `react-flow-bridge.test.ts` — 28 test cases (`bun test`).
 
 No call-site changes — the hook signature is preserved.
 
@@ -226,3 +226,39 @@ New terms recorded in [`CONTEXT.md`](../../CONTEXT.md):
 - [`docs/improve-codebase-architecture`](../../.claude/skills/improve-codebase-architecture/SKILL.md)
   candidate 2 — the architecture review opportunity this ADR closes.
 - `CONTEXT.md` § ReactFlowBridge.
+
+---
+
+## Amendment (2026-11-13): pending intent is rebased, never dropped
+
+The bridge has a sixth invariant. Structural changes are held as **pending
+intent** until the flush: a field-scoped `NodeIntent` (`remove`, `add`, or a
+`patch` of only the fields the user changed — a drag carries `position` and
+nothing else) or an `EdgeIntent` (`remove`, `put`). Every snapshot the bridge
+publishes is the doc with that intent applied on top, whether the trigger was a
+local change or a doc change landing inside the frame, and the flush writes only
+the intent through `FlowDocument`'s field-scoped mutators. There is one
+reconcile path for both directions, so a peer's edit arriving before the flush
+can no longer snap a drop back or resurrect a deleted node.
+
+Conflicts resolve the way Yjs would: the local intent wins per field it
+touches; a peer's delete wins over a local patch; a ReactFlow `replace` is
+diffed against the doc when recorded, so a selection-only replace records
+nothing; a node being dragged keeps its local position. The flush checks both
+endpoints before writing an edge, and a remove followed by an add of the same
+id in one frame keeps the node.
+
+**Deletes cascade, and the document repairs what a race leaves.** A node delete
+through the bridge or a flow tool removes its edges in the same transaction
+(`removeNodesWithEdges` in `session/flow-edits.ts`). Two peers can still race —
+one deletes a node while the other wires an edge to it — and no single client
+can prevent that beforehand. So an Editor's bridge starts
+`FlowDocument.startEdgePruning()`, which deletes any edge whose endpoint the
+document has seen deleted (a Yjs tombstone), after any transaction that could
+have left one. The prune uses origin `"prune"`, outside the undo manager, and is
+idempotent across peers; through `readOnlyDocument` it is a no-op, so a Viewer
+never prunes. `nodeWasDeleted` reads `Y.Map._map`, a Yjs internal, so a Yjs
+upgrade must keep `schema.prune.test.ts` passing.
+
+Tests: `react-flow-bridge-reconcile.test.ts`, `flow-edits.test.ts`,
+`packages/collab/src/schema.prune.test.ts`.

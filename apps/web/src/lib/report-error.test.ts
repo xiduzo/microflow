@@ -108,6 +108,18 @@ describe("reportError", () => {
     expect(local[0]!.error).toBe(error);
   });
 
+  test("a supplied hex fingerprint is used; anything else falls back to hashing the error", () => {
+    const { remote } = capture();
+    reportError(errorWithStack("a"), { source: "desktop-runtime", fingerprint: "0badf00d" });
+    const content = errorWithStack("b");
+    reportError(content, { source: "desktop-runtime", fingerprint: "alice@example.com" });
+
+    expect(remote.map((r) => r.fingerprint)).toEqual([
+      "0badf00d",
+      errorFingerprint(content, "desktop-runtime"),
+    ]);
+  });
+
   test("the Umami adapter sends only the summary fields", () => {
     const sent: unknown[] = [];
     const globalWindow = globalThis as { window?: unknown };

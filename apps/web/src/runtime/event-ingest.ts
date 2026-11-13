@@ -18,7 +18,7 @@ export type { EdgeLike };
 /**
  * The single place a component event is applied to the UI. Both runtimes — the
  * browser wasm reactor (`flow-reactor.ts`) and the desktop IPC listener
- * (`use-component-events.ts`) — funnel through here, so node values, edge-signal
+ * (`desktop-runtime-host.ts`) — funnel through here, so node values, edge-signal
  * animations, and the devtools dev-log stay in lock-step across platforms.
  *
  * Costs the emitting node's fan-out, not the size of the flow: `edges` is

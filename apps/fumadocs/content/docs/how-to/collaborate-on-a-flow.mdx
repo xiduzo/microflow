@@ -49,9 +49,29 @@ What is **not** synced (it stays per-machine):
 
 Microflow uses [Yjs](https://yjs.dev) for conflict resolution. If two of you edit the same node setting at the same instant, the operations are merged — you will not lose work and you will not see error dialogs. The result might be a setting that's the union of both edits, or one wins; if you find yourselves disagreeing, talk first.
 
+## Check the session status
+
+The top-left corner of the canvas shows whether your edits are reaching the server. Hover it for the full explanation.
+
+| Status | What it means |
+|---|---|
+| **Connecting…** / **Syncing…** | Studio is opening the flow and bringing your copy up to date. |
+| **Connected** | You are live with your collaborators. |
+| **Saving…** | Your edits reached the server and are being stored. |
+| **Saved** | Everything you sent is stored. |
+| **Not saved yet** | The server could not store the latest edits and is retrying. Keep the tab open until it says **Saved**. |
+| **View only** | You can look but not edit. Someone changed your access, or you were invited as a viewer. Edits made just before the change show as **View only · 2 local changes not saved**; export the flow to keep them. |
+| **Offline** / **Offline · 3 unsynced changes** | The connection dropped. Studio reconnects on its own; click **Retry** to try at once. |
+| **Server restarting** | The server is being updated. Studio reconnects on its own. |
+| **Flow deleted** | The owner deleted this flow. |
+| **Access removed** / **No access** | You can no longer open this flow. Editing stops. |
+| **Signed out** | Your session expired. Sign in again, then click **Retry**. |
+
+There is no separate "save" step: edits are stored as you make them.
+
 ## Working offline
 
-Edits made offline are stored locally. When the network reconnects, your changes are merged with the server's. There is no separate "save" step.
+When the connection drops, keep editing. Your edits stay in the open tab and merge with the server's copy when the connection is back. They are not stored on your computer, so reloading or closing the tab while **Offline** loses them. The status shows how many edits are waiting.
 
 ## Hosting your own server
 

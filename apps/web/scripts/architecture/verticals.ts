@@ -72,11 +72,9 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "effects-sink.ts",
       "flow-reactor.ts",
       "flow-update-dispatcher.ts",
-      "use-audio-requests.ts",
-      "use-component-events.ts",
+      "use-desktop-runtime-host.ts",
       "use-flow-update-dispatcher.ts",
       "use-hotkey-events.ts",
-      "use-node-diagnostics.ts",
     ],
   },
   // The Board: Web Serial, bring-up, Firmata wasm, pins, first-connection onboarding.
@@ -115,9 +113,9 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "cli-providers.ts",
       "endpoint.ts",
       "llm-client.ts",
+      "llm-performer.ts",
       "llm-provider.ts",
       "models.ts",
-      "use-llm-requests.ts",
     ],
   },
   // Arduino sketch export (/flow/$flowId/code).

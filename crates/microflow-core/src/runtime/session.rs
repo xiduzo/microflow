@@ -17,11 +17,59 @@
 //! ([`HardwareComponent::restore_output`]). Nodes with no board — timers,
 //! counters, cloud nodes — keep running untouched.
 //!
+//! Restoring can be what resets the board: a relay coil or a motor on the
+//! board's own 5 V rail browns it out the moment it is re-driven, the board
+//! resets and re-announces, and the runtime would re-drive it forever. So
+//! [`RESET_STORM_COUNT`] re-announces inside [`RESET_STORM_WINDOW_MS`] is a
+//! **reset storm**: the flow is still re-applied, but the outputs a restore
+//! would re-drive are held at the safe state, each with a runtime-origin
+//! warning on its node. The storm ends when the board has been quiet for
+//! [`RESET_STORM_QUIET_MS`] (the held outputs are then restored) or when the
+//! flow is updated (the badges clear; the flow drives its outputs again).
+//!
 //! [`HardwareComponent::restore_output`]: crate::runtime::HardwareComponent::restore_output
 
 use super::{reconcile, BufferBoardWriter, ComponentValue, FlowRuntime, RuntimeContext, ScheduleRequests};
 use crate::firmata::Message;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap, VecDeque};
+
+/// Re-announces inside [`RESET_STORM_WINDOW_MS`] that make a reset storm.
+pub const RESET_STORM_COUNT: usize = 3;
+/// The window [`RESET_STORM_COUNT`] re-announces must fall in.
+pub const RESET_STORM_WINDOW_MS: f64 = 30_000.0;
+/// How long the board must go without re-announcing for a storm to end.
+pub const RESET_STORM_QUIET_MS: f64 = 30_000.0;
+
+/// The badge on an output held at the safe state during a reset storm.
+const HELD_MESSAGE: &str =
+    "The board keeps resetting, so this output is held off. Check the board's power supply: \
+     a relay, motor or LED strip on the board's 5 V pin can brown it out.";
+
+/// Recent re-announces, and the outputs held while the board keeps resetting.
+#[derive(Debug, Default)]
+pub(super) struct ResetGuard {
+    /// Host-clock times of the re-announces inside the window.
+    recent: VecDeque<f64>,
+    /// Outputs held at the safe state, with the value to restore once the
+    /// board is quiet. Empty ⇔ no storm.
+    held: BTreeMap<String, ComponentValue>,
+}
+
+impl ResetGuard {
+    /// Record a re-announce at `now`; whether the board is now in a storm.
+    fn note(&mut self, now: f64) -> bool {
+        while self.recent.front().is_some_and(|&t| now - t > RESET_STORM_WINDOW_MS) {
+            self.recent.pop_front();
+        }
+        self.recent.push_back(now);
+        self.recent.len() >= RESET_STORM_COUNT
+    }
+
+    /// The storm is over: the board has not re-announced for the quiet period.
+    fn has_calmed(&self, now: f64) -> bool {
+        !self.held.is_empty() && self.recent.back().is_some_and(|&t| now - t >= RESET_STORM_QUIET_MS)
+    }
+}
 
 impl FlowRuntime {
     /// Whether this chunk's decode carries a firmware announcement. On a live
@@ -38,6 +86,14 @@ impl FlowRuntime {
     /// outputs that are safe to restore. Writes into the current turn.
     pub(super) fn board_reannounced(&mut self, out: &mut Vec<u8>, reqs: &mut ScheduleRequests) {
         log::warn!("board re-announced its firmware mid-session (it reset); re-applying the flow");
+        let storm = self.reset_guard.note(self.now_ms);
+        if storm {
+            log::warn!(
+                "board reset {} times within {}s; holding its outputs at the safe state — check its power supply",
+                self.reset_guard.recent.len(),
+                RESET_STORM_WINDOW_MS / 1000.0,
+            );
+        }
 
         // 1. What the runtime believed about the board went with the board's
         //    RAM: every pin is back in its default mode at 0. The capability
@@ -104,11 +160,55 @@ impl FlowRuntime {
         let plan = reconcile::plan_board(&HashMap::new(), &HashMap::new(), &desired);
         plan.encode_setup(&mut BufferBoardWriter::new(&mut self.client, out));
         self.report_set = desired.report;
-        for (id, last) in &rebuilt {
-            self.start_node(id, out, reqs);
-            self.restore_output(id, last, out, reqs);
+        for (id, last) in rebuilt {
+            self.start_node(&id, out, reqs);
+            // A node already held keeps the value from before the storm: its
+            // rebuilt instance never had it restored.
+            let last = self.reset_guard.held.get(&id).cloned().unwrap_or(last);
+            if !self.would_restore(&id, &last) {
+                continue;
+            }
+            if storm {
+                self.health.board_resetting(&id, Some(HELD_MESSAGE.to_string()));
+                self.reset_guard.held.insert(id, last);
+            } else {
+                self.restore_output(&id, &last, out, reqs);
+            }
         }
         plan.encode_arm(&mut BufferBoardWriter::new(&mut self.client, out));
+    }
+
+    /// Once the board has been quiet for [`RESET_STORM_QUIET_MS`], restore the
+    /// outputs held during the storm and clear their badges. Checked on every
+    /// inbound chunk that is not itself a re-announce.
+    pub(super) fn resume_after_reset_storm(&mut self, out: &mut Vec<u8>, reqs: &mut ScheduleRequests) {
+        if !self.reset_guard.has_calmed(self.now_ms) {
+            return;
+        }
+        log::info!("board quiet for {}s; restoring the outputs held during the reset storm", RESET_STORM_QUIET_MS / 1000.0);
+        self.reset_guard.recent.clear();
+        for (id, last) in std::mem::take(&mut self.reset_guard.held) {
+            self.health.board_resetting(&id, None);
+            if self.would_restore(&id, &last) {
+                self.restore_output(&id, &last, out, reqs);
+            }
+        }
+    }
+
+    /// A flow update ends a storm: badges clear, nothing is re-driven (the flow
+    /// drives its outputs again), and the count starts over.
+    pub(super) fn end_reset_storm(&mut self) {
+        self.reset_guard.recent.clear();
+        for id in std::mem::take(&mut self.reset_guard.held).into_keys() {
+            self.health.board_resetting(&id, None);
+        }
+    }
+
+    fn would_restore(&mut self, id: &str, last: &ComponentValue) -> bool {
+        self.components
+            .get_mut(id)
+            .and_then(|c| c.as_hardware_mut())
+            .is_some_and(|hw| hw.restores_output(last))
     }
 
     /// Re-drive `id`'s last output where the node says that is safe.

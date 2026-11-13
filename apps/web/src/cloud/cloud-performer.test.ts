@@ -5,9 +5,9 @@
 // are captured as plain callbacks.
 //
 // Since ADR-0021 the LLM cases here are not a "browser twin" of anything — this
-// performer is the only LLM performer, the desktop drives the same transport
-// through `use-llm-requests.ts`. So these are THE tests for latest-wins
-// cancellation and for what re-enters the runtime after a generation.
+// performer delegates to the one `LlmPerformer` the desktop host holds too
+// (`ai/llm-performer.ts`). So these are THE tests for latest-wins cancellation
+// and for what re-enters the runtime after a generation.
 
 import { afterEach, describe, expect, test } from "bun:test";
 import {
