@@ -73,6 +73,28 @@ function buildNodeMap(node: FlowNode): Y.Map<unknown> {
   return map;
 }
 
+function finiteOrUndefined(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readPosition(value: unknown): { x: number; y: number } {
+  if (value && typeof value === "object") {
+    const { x, y } = value as { x?: unknown; y?: unknown };
+    const fx = finiteOrUndefined(x);
+    const fy = finiteOrUndefined(y);
+    if (fx !== undefined && fy !== undefined) return value as { x: number; y: number };
+    return { x: fx ?? 0, y: fy ?? 0 };
+  }
+  return { x: 0, y: 0 };
+}
+
+const warned = new Set<string>();
+function warnOnce(message: string): void {
+  if (warned.has(message)) return;
+  warned.add(message);
+  console.warn(`[collab] ${message}`);
+}
+
 /**
  * Bring a document written before
  * [ADR-0019](../../../docs/adr/0019-nested-node-fields-for-concurrent-edits.md)
@@ -301,8 +323,16 @@ export class FlowDocument {
     const cached = this.nodeCache.get(id);
     if (cached) return cached;
 
-    const stored = this.nodes.get(id);
+    const stored: unknown = this.nodes.get(id);
     if (stored === undefined) return undefined;
+    // Every load boundary runs `upgradeLegacyNodes`, but a live update from a
+    // client that predates ADR-0019 can still put a plain object here. Reading
+    // it as a `Y.Map` would throw on every `getNodes()` and take the canvas and
+    // the runtime dispatch down with it; skip it instead, loudly.
+    if (!(stored instanceof Y.Map)) {
+      warnOnce(`node ${id} is not stored as a Y.Map (written by an outdated client?); skipping it`);
+      return undefined;
+    }
 
     const data: Record<string, unknown> = {};
     const storedData = stored.get("data");
@@ -310,13 +340,18 @@ export class FlowDocument {
       for (const [key, value] of storedData.entries()) data[key] = value;
     }
 
+    // The document is shared and written by every client in the room, so its
+    // scalars are checked rather than cast: a malformed value is replaced by
+    // the same default a missing one gets.
+    const storedId = stored.get("id");
+    const type = stored.get("type");
     const node = {
-      id: (stored.get("id") as string) ?? id,
-      type: stored.get("type") as string,
-      position: (stored.get("position") as { x: number; y: number }) ?? { x: 0, y: 0 },
+      id: typeof storedId === "string" ? storedId : id,
+      type: typeof type === "string" ? type : "",
+      position: readPosition(stored.get("position")),
       data,
-      width: stored.get("width") as number | undefined,
-      height: stored.get("height") as number | undefined,
+      width: finiteOrUndefined(stored.get("width")),
+      height: finiteOrUndefined(stored.get("height")),
     } satisfies FlowNode;
 
     this.nodeCache.set(id, node);
