@@ -296,7 +296,10 @@ function serverClose(socket: FakeSocket, code: number, reason = ""): void {
 const FIRST_RETRY_MS = 260;
 
 describe("SyncProvider auth and access", () => {
-  function makeAuthedProvider(readToken: () => string | undefined) {
+  function makeAuthedProvider(
+    readToken: () => string | undefined,
+    extra: { refreshAuth?: () => Promise<unknown>; reauthBaseMs?: number } = {},
+  ) {
     const doc = new Y.Doc();
     const provider = new SyncProvider({
       flowId: `flow-${++flowCounter}`,
@@ -304,6 +307,8 @@ describe("SyncProvider auth and access", () => {
       wsUrl: "wss://example.test",
       user: { id: "user-1", name: "Ada" },
       authToken: readToken,
+      reauthBaseMs: 20,
+      ...extra,
       WebSocketPolyfill: FakeSocket as unknown as typeof WebSocket,
     });
     return { doc, provider };
@@ -330,6 +335,52 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
+  test("a token rotated after the close, before the retry, is the one presented", async () => {
+    let token = "token-a";
+    const { provider } = makeAuthedProvider(() => token);
+    const first = lastSocket();
+    first.open();
+
+    serverClose(first, 1006);
+    // The auth client rotates the token during y-websocket's backoff.
+    await new Promise((r) => setTimeout(r, 50));
+    token = "token-b";
+    await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
+
+    expect(tokenOf(lastSocket())).toBe("token-b");
+    provider.destroy();
+  });
+
+  test("re-auth waits for a slow token refresh instead of spending its budget", async () => {
+    let token = "expired";
+    let finishRefresh!: () => void;
+    const refreshAuth = () =>
+      new Promise<void>((resolve) => {
+        finishRefresh = () => {
+          token = "fresh";
+          resolve();
+        };
+      });
+    const { provider } = makeAuthedProvider(() => token, { refreshAuth, reauthBaseMs: 10 });
+    const denied: string[] = [];
+    provider.on("accessDenied", (reason) => denied.push(reason));
+
+    const first = lastSocket();
+    first.open();
+    serverClose(first, 1008, "Unauthorized");
+
+    // Well past the backoff: still waiting on the refresh, nothing spent.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(FakeSocket.instances.length).toBe(1);
+    expect(denied).toEqual([]);
+
+    finishRefresh();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(FakeSocket.instances.length).toBe(2);
+    expect(tokenOf(lastSocket())).toBe("fresh");
+    provider.destroy();
+  });
+
   test("4403 Forbidden is terminal: no retry, and the reason is surfaced", async () => {
     const { provider } = makeAuthedProvider(() => "token");
     const denied: Array<[string, number]> = [];
@@ -352,17 +403,17 @@ describe("SyncProvider auth and access", () => {
     const denied: Array<[string, number]> = [];
     provider.on("accessDenied", (reason, code) => denied.push([reason, code]));
 
-    // Every attempt is refused; y-websocket backs off 200, 400, 800ms.
+    // Every attempt is refused; re-auth backs off 20, 40, 80ms here.
     for (let attempt = 0; attempt <= MAX_REAUTH_ATTEMPTS; attempt++) {
       const socket = lastSocket();
       socket.open();
       serverClose(socket, 1008, "Unauthorized");
       if (attempt < MAX_REAUTH_ATTEMPTS) {
-        await new Promise((r) => setTimeout(r, 120 * 2 ** (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 30 * 2 ** attempt));
         expect(lastSocket()).not.toBe(socket);
       }
     }
-    await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
+    await new Promise((r) => setTimeout(r, 200));
 
     const tokens = FakeSocket.instances.map(tokenOf);
     expect(new Set(tokens).size).toBe(tokens.length); // a fresh read per attempt
@@ -374,10 +425,10 @@ describe("SyncProvider auth and access", () => {
     const resumed = lastSocket();
     resumed.open();
     serverClose(resumed, 1008, "Unauthorized");
-    await new Promise((r) => setTimeout(r, 2600)); // backoff is capped at 2.5s
+    await new Promise((r) => setTimeout(r, 60));
     expect(lastSocket()).not.toBe(resumed);
     provider.destroy();
-  }, 10_000);
+  });
 
   test("an explicit reconnect after a terminal close tries again with a fresh token", () => {
     let token = "expired";

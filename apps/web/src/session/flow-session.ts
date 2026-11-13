@@ -63,6 +63,11 @@ export type CreateCloudSessionOptions = {
    * on the session cookie.
    */
   getAuthToken?: () => string | undefined;
+  /**
+   * Ask the auth client to refresh the session after the server rejected it
+   * (1008). Awaited before each bounded re-auth attempt. See `SyncProvider`.
+   */
+  refreshAuth?: () => Promise<unknown>;
   /** A server-side snapshot to seed the doc with before the socket syncs. */
   initialData?: Uint8Array;
   /** The local user's Flow Role, from `flow.get`. Viewers get a read-only session. */
@@ -93,6 +98,7 @@ export function createCloudSession(options: CreateCloudSessionOptions): FlowSess
     wsUrl: options.wsUrl,
     user: options.user,
     authToken: options.getAuthToken,
+    refreshAuth: options.refreshAuth,
   });
   // `SyncProvider` satisfies the adapter port directly; the annotation is the
   // compile-time proof.

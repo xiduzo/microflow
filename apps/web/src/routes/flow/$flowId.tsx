@@ -253,6 +253,7 @@ function CloudFlowLayout() {
       wsUrl={wsUrl}
       user={user}
       getAuthToken={readDesktopAuthToken}
+      refreshAuth={getSession}
       initialData={initialData}
       role={flow.role}
     />
@@ -278,6 +279,8 @@ function CloudFlowSessionMount(props: {
   wsUrl: string;
   user: { id: string; name: string; color?: string; icon?: string; isSupporter?: boolean };
   getAuthToken?: () => string | undefined;
+  /** `getSession` round-trips the auth client, which stores a rotated desktop token. */
+  refreshAuth?: () => Promise<unknown>;
   initialData?: Uint8Array;
   role?: FlowRole;
 }) {

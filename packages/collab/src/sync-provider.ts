@@ -107,6 +107,15 @@ export type SyncProviderOptions = {
    */
   authToken?: string | (() => string | undefined);
   /**
+   * Ask the auth client for a fresh token, after the server rejected the
+   * current one (1008). Awaited (up to `REAUTH_REFRESH_TIMEOUT_MS`) before
+   * each bounded re-auth attempt, so a slow refresh is not raced by the retry
+   * budget. Optional: without it the attempt just waits its backoff.
+   */
+  refreshAuth?: () => Promise<unknown>;
+  /** First re-auth backoff, doubled per attempt. Tests shorten it. */
+  reauthBaseMs?: number;
+  /**
    * Minimum gap between presence broadcasts, in milliseconds.
    *
    * Pointer events fire far faster than anyone can perceive, and every one of
@@ -125,6 +134,9 @@ export type SyncProviderOptions = {
 };
 
 const DEFAULT_CURSOR_THROTTLE_MS = 50;
+/** 1s, 2s, 4s: long enough for an auth round trip, short enough to recover. */
+const DEFAULT_REAUTH_BASE_MS = 1000;
+const REAUTH_REFRESH_TIMEOUT_MS = 10_000;
 
 // ============================================================================
 // SyncProvider
@@ -176,6 +188,11 @@ export class SyncProvider {
   private currentAccess: "read" | "write" | null = null;
   /** Fresh-token retries spent since the last successful sync. */
   private reauthAttempts = 0;
+  /** A re-auth attempt is waiting (backoff + refresh); cancelled by any explicit connect. */
+  private reauthTimer: ReturnType<typeof setTimeout> | null = null;
+  private reauthGeneration = 0;
+  private readonly refreshAuth: (() => Promise<unknown>) | undefined;
+  private readonly reauthBaseMs: number;
 
   /** Latest presence not yet broadcast, and the timer that will. */
   private pendingCursor: { x: number; y: number } | null = null;
@@ -215,6 +232,8 @@ export class SyncProvider {
 
     const authToken = options.authToken;
     this.readAuthToken = typeof authToken === "function" ? authToken : () => authToken;
+    this.refreshAuth = options.refreshAuth;
+    this.reauthBaseMs = options.reauthBaseMs ?? DEFAULT_REAUTH_BASE_MS;
 
     this.provider = new WebsocketProvider(
       // `WebsocketProvider` builds `${serverUrl}/${roomname}` itself, so the
@@ -224,13 +243,27 @@ export class SyncProvider {
       options.doc,
       {
         awareness: this.awareness,
-        params: this.authParams(),
+        // Never connect from the constructor: `params` is replaced by a live
+        // getter just below, and the first socket must already see it.
+        connect: false,
         // y-websocket only treats 4400–4499 as final; the server's auth gate
         // closes with 1008, which it would otherwise retry forever.
         shouldReconnect: (event: CloseEvent) => this.shouldReconnect(event),
         ...(options.WebSocketPolyfill ? { WebSocketPolyfill: options.WebSocketPolyfill } : {}),
       },
     );
+
+    // y-websocket builds each socket's URL from `provider.params` at the
+    // moment it opens the socket (`setupWS`). Making `params` a getter reads
+    // the token right then — not at close time, up to a backoff (2.5s)
+    // earlier, when a token the auth client rotates in between would be
+    // missed. Assigning `params` (which y-websocket never does) is ignored.
+    Object.defineProperty(this.provider, "params", {
+      configurable: true,
+      enumerable: true,
+      get: () => this.authParams(),
+      set: () => {},
+    });
 
     // Our own message type; the provider dispatches by number into this array.
     this.provider.messageHandlers[MESSAGE_ACK] = (_encoder, decoder) => {
@@ -244,11 +277,7 @@ export class SyncProvider {
       this.emit("access", access);
     };
 
-    // Every closed socket is followed by a scheduled retry that reads
-    // `provider.params` when it builds the next URL. Refreshing here — before
-    // that retry fires — is what lets a session outlive its token.
     this.provider.on("connection-close", () => {
-      this.refreshAuthParams();
       // y-websocket only reports "disconnected" for a socket that had opened;
       // a refused attempt would otherwise leave us claiming "connecting".
       this.setState("disconnected");
@@ -280,12 +309,16 @@ export class SyncProvider {
     // `shouldReconnect` said no. `y-websocket` has already stopped
     // reconnecting by the time this fires.
     this.provider.on("closed", ({ code, reason }: { code: number; reason: string }) => {
+      // A bounded re-auth stops y-websocket too; it is not a final answer.
+      if (this.reauthTimer !== null) return;
       this.currentError = new Error(reason || "Access denied");
       this.emit("accessDenied", reason || "Access denied", code);
       this.emit("error", this.currentError);
     });
 
     this.awareness.on("change", this.handleAwarenessChange);
+
+    this.provider.connect();
   }
 
   // --------------------------------------------------------------------------
@@ -323,35 +356,64 @@ export class SyncProvider {
 
   connect(): void {
     if (this.destroyed) return;
-    this.refreshAuthParams();
+    this.cancelReauth();
     this.provider.connect();
   }
 
   disconnect(): void {
+    this.cancelReauth();
     this.provider.disconnect();
   }
 
-  /** Also the way out of a terminal close: it re-reads the token and retries. */
+  /** Also the way out of a terminal close: a new connection, a fresh token. */
   reconnect(): void {
     if (this.destroyed) return;
+    this.cancelReauth();
     this.provider.disconnect();
     this.reauthAttempts = 0;
-    this.refreshAuthParams();
     this.provider.connect();
   }
 
-  /**
-   * The retry policy over the server's close codes (`classifyClose`). The
-   * token was already re-read on `connection-close`, which y-websocket emits
-   * before asking this — so a "reauth" retry presents whatever the auth
-   * client holds now.
-   */
+  /** The retry policy over the server's close codes (`classifyClose`). */
   private shouldReconnect(event: CloseEvent): boolean {
     const verdict = classifyClose(event.code);
     if (verdict === "terminal") return false;
-    if (verdict === "reauth" && ++this.reauthAttempts > MAX_REAUTH_ATTEMPTS) return false;
+    if (verdict === "reauth") {
+      if (++this.reauthAttempts > MAX_REAUTH_ATTEMPTS) return false;
+      this.emit("dropped", event.code, event.reason);
+      this.scheduleReauth(this.reauthAttempts);
+      // We reconnect ourselves, once the backoff and the refresh are done;
+      // y-websocket's own 200ms–800ms schedule would spend the budget before
+      // a slow token refresh could land.
+      return false;
+    }
     this.emit("dropped", event.code, event.reason);
     return true;
+  }
+
+  /** Back off, let the auth client refresh, then open a socket with whatever token it holds. */
+  private scheduleReauth(attempt: number): void {
+    const generation = ++this.reauthGeneration;
+    const backoff = this.reauthBaseMs * 2 ** (attempt - 1);
+    const refreshed = this.refreshAuth
+      ? Promise.race([
+          this.refreshAuth().catch(() => {}),
+          new Promise((resolve) => setTimeout(resolve, REAUTH_REFRESH_TIMEOUT_MS)),
+        ])
+      : Promise.resolve();
+    this.reauthTimer = setTimeout(() => {
+      void refreshed.then(() => {
+        if (this.destroyed || generation !== this.reauthGeneration) return;
+        this.reauthTimer = null;
+        this.provider.connect();
+      });
+    }, backoff);
+  }
+
+  private cancelReauth(): void {
+    this.reauthGeneration++;
+    if (this.reauthTimer !== null) clearTimeout(this.reauthTimer);
+    this.reauthTimer = null;
   }
 
   /** What the server last said this connection may do; `null` until it says. */
@@ -362,11 +424,6 @@ export class SyncProvider {
   private authParams(): Record<string, string> {
     const token = this.readAuthToken();
     return token ? { token } : {};
-  }
-
-  private refreshAuthParams(): void {
-    // Documented as safe to update: used by the next connection attempt.
-    this.provider.params = this.authParams();
   }
 
   /** Remote updates carry the provider as their transaction origin. */
@@ -552,6 +609,7 @@ export class SyncProvider {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.cancelReauth();
 
     if (this.presenceTimer !== null) {
       clearTimeout(this.presenceTimer);
