@@ -270,7 +270,7 @@ impl BoardConfig {
 
     /// The board a USB VID/PID **positively identifies** — the only board a
     /// host may flash without asking. `None` for a generic USB-serial bridge
-    /// chip (CH340, CP210x, FTDI) and for an unknown VID, even when the PID is
+    /// chip (CH340, `CP210x`, FTDI) and for an unknown VID, even when the PID is
     /// one that clone boards commonly use: those chips are also on ESP32 dev
     /// boards, GPS modules and plain USB-serial adapters, and flashing them would
     /// overwrite someone else's firmware. Use [`identify_usb`](Self::identify_usb)
@@ -322,7 +322,7 @@ fn official_board(pid: u16) -> Option<BoardType> {
 pub enum BridgeChip {
     /// WCH CH340/CH341 (VID 0x1A86).
     Ch340,
-    /// Silicon Labs CP210x (VID 0x10C4).
+    /// Silicon Labs `CP210x` (VID 0x10C4).
     Cp210x,
     /// FTDI FT232/FT231X (VID 0x0403).
     Ftdi,

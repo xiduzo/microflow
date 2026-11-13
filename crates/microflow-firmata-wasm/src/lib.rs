@@ -375,7 +375,7 @@ pub fn parse_hex(hex_content: &str) -> Result<Vec<u8>, JsError> {
 /// The board a USB vendor/product id **positively identifies** (an official
 /// Arduino VID), as a lowercase board id (e.g. `"uno"`) — the only board that
 /// may be flashed without asking. `null` for generic USB-serial bridge chips
-/// (CH340, CP210x, FTDI) and unknown devices.
+/// (CH340, `CP210x`, FTDI) and unknown devices.
 #[wasm_bindgen(js_name = detectBoardFromUsb)]
 #[must_use]
 pub fn detect_board_from_usb(vid: u16, pid: u16) -> Option<String> {
