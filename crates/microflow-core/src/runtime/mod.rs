@@ -17,11 +17,13 @@ pub mod board;
 pub mod component;
 pub mod context;
 pub mod error;
+mod health;
 pub mod pin_mode;
 pub mod reconcile;
 pub mod registry;
 pub mod router;
 pub mod subscriptions;
+pub mod turn_budget;
 pub mod value;
 pub mod wiring;
 
@@ -53,6 +55,7 @@ pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
 pub use subscriptions::{
     bridge_uid, figma_announce_actions, reconcile_desired, DesiredSub, FigmaPublish, SubKind,
 };
+pub use turn_budget::TURN_BUDGET;
 pub use value::{ComponentEvent, ComponentValue, PinConfig};
 pub use wiring::{BoardWiring, I2cContinuousRead, ListenerWiring, SubscriberWiring};
 
@@ -61,6 +64,7 @@ pub use error::MqttError;
 
 use crate::firmata::FirmataClient;
 use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
+use health::NodeHealth;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -173,6 +177,15 @@ pub struct FlowRuntime {
     /// Last `STRING_DATA` diagnostic logged, to dedupe a per-poll failure
     /// (e.g. a non-ACKing I2C device) into a single line until it changes.
     last_firmata_string: Option<String>,
+    /// What the runtime knows is wrong with each node (build, start, rejected
+    /// input, runaway loop) — flushed into `Effects::node_diagnostics` per turn.
+    health: NodeHealth,
+    /// Nodes paused by the turn budget: their Port emits are not routed, which
+    /// breaks the loop that blew the budget. Released by a flow update that
+    /// reshapes the loop (see `release_paused`).
+    paused: HashSet<Arc<str>>,
+    /// The edges among `paused` when they were paused — the loop's shape.
+    paused_edges: Vec<[String; 4]>,
 }
 
 impl FlowRuntime {
@@ -199,6 +212,9 @@ impl FlowRuntime {
             tick_errors: 0,
             run_seq: 0,
             last_firmata_string: None,
+            health: NodeHealth::default(),
+            paused: HashSet::new(),
+            paused_edges: Vec::new(),
         }
     }
 
@@ -251,6 +267,7 @@ impl FlowRuntime {
 
         // 1. Diff: removed = present but gone; to_add = new or data-changed.
         let new_ids: HashSet<&str> = nodes.iter().map(|n| n.id.as_str()).collect();
+        let edges = drop_dangling_edges(edges, &new_ids);
         let mut removed: Vec<String> = self
             .components
             .keys()
@@ -268,24 +285,32 @@ impl FlowRuntime {
             }
         }
 
-        // 2. Destroy removed / replaced.
+        // 2. Destroy removed / replaced. A paused loop is released first when
+        //    this update reshapes it.
+        self.release_paused(&new_ids, &to_add, &edges);
         for id in &removed {
             self.remove_component(id);
             self.node_data.remove(id);
         }
+        // Nodes that left the flow lose any badge the runtime put on them —
+        // including ones that never built, which `removed` cannot see.
+        self.health.retain(|id| new_ids.contains(id));
 
-        // 3. Build added / replaced.
+        // 3. Build added / replaced. A node that fails to build is not running,
+        //    so the failure goes on its badge, not only into the log. It never
+        //    enters `node_data`, so every later update retries the build.
         for node in &to_add {
             let instance = node_instance(node);
+            self.health.rebuilt(&node.id);
             match self.registry.create(&node.id, instance, &node.data) {
                 Ok(component) => {
                     self.add_component(&node.id, component);
                     self.node_data.insert(node.id.clone(), node.data.clone());
                 }
-                Err(RuntimeError::ComponentNotFound(_)) => {
-                    log::warn!("skipping unknown component {} ({instance})", node.id);
+                Err(e) => {
+                    tracing::warn!(node = %node.id, instance, error = %e, "failed to build component");
+                    self.health.build_failed(&node.id, build_failure_message(instance, &e));
                 }
-                Err(e) => log::warn!("failed to build component {}: {e}", node.id),
             }
         }
 
@@ -333,11 +358,13 @@ impl FlowRuntime {
             if let Some(component) = self.components.get_mut(id) {
                 if let Some(hw) = component.as_hardware_mut() {
                     if let Err(e) = hw.initialize(&mut ctx) {
-                        log::warn!("initialize {id} failed: {e}");
+                        tracing::warn!(node = %id, error = %e, "initialize failed");
+                        self.health.start_failed(id, format!("Could not set up on the board: {e}"));
                     }
                 }
                 if let Err(e) = component.on_start(&mut ctx) {
-                    log::warn!("on_start {id} failed: {e}");
+                    tracing::warn!(node = %id, error = %e, "on_start failed");
+                    self.health.start_failed(id, format!("Failed to start: {e}"));
                 }
             }
         }
@@ -350,7 +377,13 @@ impl FlowRuntime {
         //     regardless of address, so an extra stop would drop a sibling device).
         plan.encode_arm(&mut BufferBoardWriter::new(&mut self.client, &mut out));
 
-        // 7. Rebuild edges, then drain any init-time emissions.
+        // 7. Rebuild edges, then drain any init-time emissions. A rejected input
+        //    that no edge feeds any more stops being reported — removing the
+        //    bad edge is how the user fixes it.
+        self.health.retain_inputs(|node, method| {
+            method.starts_with(reserved_handles::INTERNAL_PREFIX)
+                || edges.iter().any(|e| e.target == node && e.target_handle == method)
+        });
         self.router.set_edges(edges);
         self.finish("update_flow", out, reqs)
     }
@@ -656,11 +689,21 @@ impl FlowRuntime {
         let _enter = span.enter();
         let mut events = Vec::new();
         let mut drained = 0u32;
+        // Emitters seen in the last `TRACE_TAIL` events before the budget — only
+        // filled once a turn is already close to running away.
+        let mut tail: HashSet<Arc<str>> = HashSet::new();
         loop {
             // Pop in its own scope so a component is free to push during dispatch.
             let next = self.sink.borrow_mut().pop_front();
             let Some(event) = next else { break };
             drained += 1;
+            if drained > TURN_BUDGET - turn_budget::TRACE_TAIL {
+                if drained > TURN_BUDGET {
+                    self.stop_runaway_turn(&tail, &event.source);
+                    break;
+                }
+                tail.insert(Arc::clone(&event.source));
+            }
             // Highest-cardinality flow signal: which node emitted on which handle,
             // and whether it's UI-visible or internal plumbing. TRACE so it's
             // opt-in and silent by default.
@@ -690,7 +733,16 @@ impl FlowRuntime {
             .drain(..)
             .map(|(source, kind)| CloudRequest { source: Arc::from(source.as_str()), kind })
             .collect();
-        let node_diagnostics = std::mem::take(&mut reqs.diagnostics);
+        // The runtime's own badge transitions bracket the ones nodes raised
+        // about themselves: its clears go first and its raises last, so a
+        // runtime clear never wipes a node's fresh diagnostic and a node's
+        // diagnostic never hides a fault that stopped it.
+        let mut health = Vec::new();
+        self.health.flush(&mut health);
+        let (raises, clears): (Vec<_>, Vec<_>) = health.into_iter().partition(|d| d.message.is_some());
+        let mut node_diagnostics = clears;
+        node_diagnostics.append(&mut reqs.diagnostics);
+        node_diagnostics.extend(raises);
         let (wakeups, cancellations) = self.resolve_schedule(reqs);
         // One wide event per turn that *did something* — drained an event, wrote
         // bytes, (re)armed a timer, issued a cloud call, or hit a dispatch error.
@@ -729,6 +781,63 @@ impl FlowRuntime {
         }
     }
 
+    /// The turn drained [`TURN_BUDGET`] events: drop the rest of the queue (the
+    /// runtime stays alive and the turn's effects so far still apply), then
+    /// pause the nodes that were looping so the next stimulus cannot spin
+    /// again. `tail` holds the emitters of the last events; the loop is the
+    /// part of it that cycles. With no cycle in the tail (an acyclic blow-up),
+    /// the node whose event found the budget spent is paused instead.
+    fn stop_runaway_turn(&mut self, tail: &HashSet<Arc<str>>, last: &Arc<str>) {
+        let dropped = {
+            let mut queue = self.sink.borrow_mut();
+            let n = queue.len() + 1;
+            queue.clear();
+            n
+        };
+        let mut members = turn_budget::loop_members(tail, self.router.edges());
+        if members.is_empty() {
+            members.push(Arc::clone(last));
+        }
+        tracing::warn!(
+            run_id = self.run_seq,
+            budget = TURN_BUDGET,
+            dropped,
+            nodes = ?members,
+            "turn budget spent; pausing runaway nodes",
+        );
+        let message = format!(
+            "Paused: this node is in a loop that never settles (more than {TURN_BUDGET} \
+             events in one step). Change the loop to resume it."
+        );
+        for id in members {
+            self.health.runaway(&id, Some(message.clone()));
+            self.paused.insert(id);
+        }
+        self.paused_edges = turn_budget::edges_within(&self.paused, self.router.edges());
+    }
+
+    /// Release every paused node when a flow update reshapes their loop: a
+    /// paused node is removed or rebuilt (its behaviour may have changed), or an
+    /// edge among them is added, removed or re-pointed. Otherwise the loop is
+    /// exactly as runaway as it was, and releasing it would only spend another
+    /// full budget on the next stimulus. A released loop that still runs away
+    /// is caught and paused again by the next turn.
+    fn release_paused(&mut self, new_ids: &HashSet<&str>, to_add: &[&FlowNode], edges: &[FlowEdge]) {
+        if self.paused.is_empty() {
+            return;
+        }
+        let reshaped = self.paused.iter().any(|id| !new_ids.contains(id.as_ref()))
+            || to_add.iter().any(|n| self.paused.contains(n.id.as_str()))
+            || turn_budget::edges_within(&self.paused, edges) != self.paused_edges;
+        if !reshaped {
+            return;
+        }
+        for id in self.paused.drain() {
+            self.health.runaway(&id, None);
+        }
+        self.paused_edges.clear();
+    }
+
     /// Gate stale events, branch internal/hardware callbacks, echo `set_value`
     /// on the source, route, and dispatch. Ported from the desktop
     /// `FlowExecutor::process_event`.
@@ -753,6 +862,12 @@ impl FlowRuntime {
         // `dispatch_internal`. Never flows through the router (source == target).
         if event.source_handle.starts_with(reserved_handles::INTERNAL_PREFIX) {
             self.dispatch_internal_event(event, out, reqs);
+            return;
+        }
+
+        // A node paused by the turn budget still runs and still shows its value,
+        // but its Port emits go nowhere — that is what keeps its loop broken.
+        if !self.paused.is_empty() && self.paused.contains(event.source.as_ref()) {
             return;
         }
 
@@ -796,16 +911,19 @@ impl FlowRuntime {
         if let Some(component) = self.components.get_mut(id) {
             let mut writer = BufferBoardWriter::new(&mut self.client, out);
             let mut ctx = RuntimeContext::new(&mut writer, self.now_ms, id, reqs);
-            if let Err(e) = component.dispatch(method, value, &mut ctx) {
-                errored = Some(e);
+            match component.dispatch(method, value, &mut ctx) {
+                Ok(()) => self.health.input_accepted(id, method),
+                Err(e) => errored = Some(e),
             }
         }
         // Counted into the turn's `flow tick` wide event and emitted on the tracing
         // pipeline so it nests under the `flow_tick` span — the browser has no
-        // `log` subscriber, so the old `log::warn!` here was invisible there.
+        // `log` subscriber, so the old `log::warn!` here was invisible there. The
+        // node's badge says which input it rejected until that input succeeds.
         if let Some(e) = errored {
             tracing::warn!(node = id, method, error = %e, "dispatch failed");
             self.tick_errors += 1;
+            self.health.input_rejected(id, method, format!("Input \"{method}\" failed: {e}"));
         }
     }
 
@@ -837,13 +955,20 @@ impl FlowRuntime {
                 }
                 other => component.dispatch_internal(&other[1..], event.value.clone(), &mut ctx),
             };
-            if let Err(e) = result {
-                errored = Some(e);
+            match result {
+                Ok(()) => self.health.input_accepted(id.as_ref(), handle.as_ref()),
+                Err(e) => errored = Some(e),
             }
         }
         if let Some(e) = errored {
             tracing::warn!(node = %id, handle = %handle, error = %e, "internal dispatch failed");
             self.tick_errors += 1;
+            let what = match handle.as_ref() {
+                reserved_handles::PIN_CHANGE => "Reading its pin".to_string(),
+                reserved_handles::I2C_REPLY => "Reading its I2C device".to_string(),
+                other => format!("Internal step \"{}\"", &other[1..]),
+            };
+            self.health.input_rejected(id.as_ref(), handle.as_ref(), format!("{what} failed: {e}"));
         }
     }
 
@@ -907,6 +1032,43 @@ fn node_instance(node: &FlowNode) -> &str {
         .and_then(serde_json::Value::as_str)
         .or(node.node_type.as_deref())
         .unwrap_or("")
+}
+
+/// Drop edges whose source or target is not a node of this update. A shared
+/// document can hold them (a node deleted while a collaborator wired it, or a
+/// flow persisted by an older client); the editor cannot draw or delete them,
+/// so they are not the user's to fix and get no badge. At runtime they are inert
+/// — they never fire and an aggregating input skips them — so dropping them here
+/// only keeps them out of the router and out of loop detection. Handles are not
+/// checked: a node may take open ports its `ports()` does not list (Function's
+/// template variables).
+fn drop_dangling_edges(edges: Vec<FlowEdge>, nodes: &HashSet<&str>) -> Vec<FlowEdge> {
+    let before = edges.len();
+    let kept: Vec<FlowEdge> = edges
+        .into_iter()
+        .filter(|e| nodes.contains(e.source.as_str()) && nodes.contains(e.target.as_str()))
+        .collect();
+    if kept.len() != before {
+        tracing::warn!(dropped = before - kept.len(), "dropped edges to nodes not in the flow");
+    }
+    kept
+}
+
+/// The badge text for a node the registry could not build. The node is not
+/// running at all, so the message says so first, then why.
+fn build_failure_message(instance: &str, error: &RuntimeError) -> String {
+    match error {
+        RuntimeError::ComponentNotFound(_) if instance.is_empty() => {
+            "Not running: this node has no type".to_string()
+        }
+        RuntimeError::ComponentNotFound(_) => {
+            format!("Not running: \"{instance}\" is not a node type this runtime knows")
+        }
+        RuntimeError::ConfigDeserialize { source, .. } => {
+            format!("Not running: its settings could not be read ({source})")
+        }
+        other => format!("Not running: {other}"),
+    }
 }
 
 #[cfg(test)]
@@ -1443,6 +1605,287 @@ mod tests {
             "the port must be disabled once no pin needs it, got: {:02X?}",
             after_clear.outbound_bytes
         );
+    }
+
+    // --- Turn budget -----------------------------------------------------------
+
+    /// Run `test` on a worker thread with a deadline, so a turn that never ends
+    /// fails the test instead of hanging the suite. (The runtime is `!Send`, so
+    /// the whole test body runs on the worker.)
+    fn within_deadline(test: impl FnOnce() + Send + 'static) {
+        use std::sync::mpsc::RecvTimeoutError;
+        let (tx, rx) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            test();
+            let _ = tx.send(());
+        });
+        match rx.recv_timeout(std::time::Duration::from_secs(10)) {
+            Ok(()) => {}
+            Err(RecvTimeoutError::Timeout) => panic!("the turn never ended: the runtime is still spinning"),
+            Err(RecvTimeoutError::Disconnected) => {
+                if let Err(panic) = worker.join() {
+                    std::panic::resume_unwind(panic);
+                }
+            }
+        }
+    }
+
+    /// Two real Gates wired `a.true → b.value`, `b.true → a.value`. A Gate's
+    /// `true` Emit always fires, so each dispatch re-triggers the other: before
+    /// the turn budget this turn never ended.
+    fn gate_ring() -> FlowUpdate {
+        use serde_json::json;
+        FlowUpdate {
+            nodes: vec![
+                node("a", "Gate", json!({ "gate": "or" })),
+                node("b", "Gate", json!({ "gate": "or" })),
+                node("led", "Led", json!({ "pin": 13 })),
+            ],
+            edges: vec![
+                edge("a", "true", "b", "value"),
+                edge("b", "true", "a", "value"),
+                // Hangs off the loop; must not be blamed for it.
+                edge("b", "value", "led", "value"),
+            ],
+        }
+    }
+
+    fn badge<'a>(effects: &'a Effects, node: &str) -> Option<&'a NodeDiagnostic> {
+        effects.node_diagnostics.iter().rev().find(|d| d.node == node)
+    }
+
+    #[test]
+    fn a_runaway_loop_ends_the_turn_and_pauses_the_loop() {
+        within_deadline(|| {
+            let mut rt = FlowRuntime::new();
+            rt.seed_digital_pins(20);
+            rt.update_flow(gate_ring());
+
+            let effects = rt.dispatch("a", "value", ComponentValue::Bool(true));
+
+            // The turn stopped at the budget, with the loop attributed.
+            assert!(effects.component_events.len() <= TURN_BUDGET as usize);
+            for id in ["a", "b"] {
+                let d = badge(&effects, id).unwrap_or_else(|| panic!("{id} must carry a badge"));
+                assert!(matches!(d.level, DiagnosticLevel::Error));
+                assert!(d.message.as_deref().is_some_and(|m| m.contains("loop")), "{d:?}");
+            }
+            assert!(badge(&effects, "led").is_none(), "a node fed by the loop is not part of it");
+
+            // The runtime is alive, and the paused loop no longer spins: the
+            // next stimulus is one short turn with no new diagnostics.
+            let again = rt.dispatch("a", "value", ComponentValue::Bool(true));
+            assert!(again.component_events.len() < 10, "paused loop re-spun: {}", again.component_events.len());
+            assert!(again.node_diagnostics.is_empty());
+            let led = rt.dispatch("led", "value", ComponentValue::Bool(true));
+            assert!(!led.outbound_bytes.is_empty(), "the rest of the flow keeps running");
+        });
+    }
+
+    #[test]
+    fn a_paused_loop_resumes_only_when_the_loop_changes() {
+        within_deadline(|| {
+            let mut rt = FlowRuntime::new();
+            rt.seed_digital_pins(20);
+            rt.update_flow(gate_ring());
+            rt.dispatch("a", "value", ComponentValue::Bool(true));
+
+            // An update that leaves the loop as it was (a node dragged, say)
+            // keeps it paused: no clear, and no second runaway turn.
+            let same = rt.update_flow(gate_ring());
+            assert!(same.node_diagnostics.is_empty(), "{:?}", same.node_diagnostics);
+            let poke = rt.dispatch("a", "value", ComponentValue::Bool(true));
+            assert!(poke.component_events.len() < 10);
+
+            // Cutting the loop releases both nodes and clears their badges.
+            let mut cut = gate_ring();
+            cut.edges.retain(|e| !(e.source == "b" && e.source_handle == "true"));
+            let released = rt.update_flow(cut);
+            for id in ["a", "b"] {
+                let d = badge(&released, id).unwrap_or_else(|| panic!("{id} must be cleared"));
+                assert!(d.message.is_none(), "{d:?}");
+            }
+            // And the now-acyclic flow routes again.
+            let routed = rt.dispatch("a", "value", ComponentValue::Bool(true));
+            assert!(routed.component_events.iter().any(|e| &*e.source == "b"), "b must hear a again");
+        });
+    }
+
+    #[test]
+    fn a_long_acyclic_chain_stays_under_the_budget() {
+        // 2 000 Gates in a line: 2 events each (`value` + `true`), far deeper
+        // than any real flow, still well inside the budget.
+        use serde_json::json;
+        within_deadline(|| {
+            let n = 2_000;
+            let id = |i: usize| format!("g{i}");
+            let mut rt = FlowRuntime::new();
+            rt.update_flow(FlowUpdate {
+                nodes: (0..n).map(|i| node(&id(i), "Gate", json!({ "gate": "or" }))).collect(),
+                edges: (1..n).map(|i| edge(&id(i - 1), "true", &id(i), "value")).collect(),
+            });
+            let effects = rt.dispatch("g0", "value", ComponentValue::Bool(true));
+            assert!(effects.node_diagnostics.is_empty(), "nothing in a chain is a loop");
+            let last = id(n - 1);
+            assert!(effects.component_events.iter().any(|e| *e.source == *last && &*e.source_handle == "true"));
+        });
+    }
+
+    // --- Node health ---------------------------------------------------------
+
+    #[test]
+    fn a_node_whose_config_does_not_deserialize_carries_a_badge_until_fixed() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        let broken = rt.update_flow(FlowUpdate {
+            nodes: vec![node("g", "Gate", json!({ "gate": "maybe" }))],
+            edges: vec![],
+        });
+        let d = badge(&broken, "g").expect("a node that did not build must say so");
+        assert!(matches!(d.level, DiagnosticLevel::Error));
+        assert!(d.message.as_deref().is_some_and(|m| m.starts_with("Not running")), "{d:?}");
+
+        // Re-sent unchanged (every update retries the build): no repeat badge.
+        let retry = rt.update_flow(FlowUpdate {
+            nodes: vec![node("g", "Gate", json!({ "gate": "maybe" }))],
+            edges: vec![],
+        });
+        assert!(retry.node_diagnostics.is_empty());
+
+        let fixed = rt.update_flow(FlowUpdate {
+            nodes: vec![node("g", "Gate", json!({ "gate": "and" }))],
+            edges: vec![],
+        });
+        assert!(badge(&fixed, "g").is_some_and(|d| d.message.is_none()), "building clears the badge");
+    }
+
+    #[test]
+    fn an_unknown_node_type_carries_a_badge_cleared_when_it_leaves_the_flow() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        let unknown = rt.update_flow(FlowUpdate { nodes: vec![node("x", "Teleporter", json!({}))], edges: vec![] });
+        let d = badge(&unknown, "x").expect("an unknown type must be attributed");
+        assert!(d.message.as_deref().is_some_and(|m| m.contains("Teleporter")), "{d:?}");
+
+        // It never built, so it is not a component — removal must still clear.
+        let gone = rt.update_flow(FlowUpdate { nodes: vec![], edges: vec![] });
+        assert!(badge(&gone, "x").is_some_and(|d| d.message.is_none()));
+    }
+
+    /// A node whose start fails when `data.fail` is true, and which raises its
+    /// own warning on start when `data.own` is true.
+    struct FailingStart {
+        base: ComponentBase,
+        fail: bool,
+        own: bool,
+    }
+    impl Component for FailingStart {
+        fn base(&self) -> &ComponentBase { &self.base }
+        fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
+        fn component_type(&self) -> &'static str { "FailingStart" }
+        fn dispatch(&mut self, _m: &str, _a: ComponentValue, _c: &mut RuntimeContext) -> Result<(), RuntimeError> { Ok(()) }
+        fn on_start(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            if self.own {
+                ctx.report_diagnostic(DiagnosticLevel::Warning, "own");
+            }
+            if self.fail { Err(RuntimeError::ComponentError("no".into())) } else { Ok(()) }
+        }
+    }
+
+    fn runtime_with_failing_start() -> FlowRuntime {
+        let mut rt = FlowRuntime::new();
+        rt.registry.register_test_factory(
+            "FailingStart",
+            Box::new(|id, data| {
+                let flag = |key: &str| data.get(key).and_then(serde_json::Value::as_bool).unwrap_or(false);
+                Ok(Box::new(FailingStart {
+                    base: ComponentBase::new(id, ComponentValue::default()),
+                    fail: flag("fail"),
+                    own: flag("own"),
+                }))
+            }),
+        );
+        rt
+    }
+
+    #[test]
+    fn a_node_whose_start_fails_carries_a_badge_until_it_rebuilds_fine() {
+        use serde_json::json;
+        let mut rt = runtime_with_failing_start();
+        let failed = rt.update_flow(FlowUpdate {
+            nodes: vec![node("s", "FailingStart", json!({ "fail": true }))],
+            edges: vec![],
+        });
+        let d = badge(&failed, "s").expect("a failed start must be attributed");
+        assert!(d.message.as_deref().is_some_and(|m| m.contains("Failed to start")), "{d:?}");
+
+        let fine = rt.update_flow(FlowUpdate {
+            nodes: vec![node("s", "FailingStart", json!({ "fail": false }))],
+            edges: vec![],
+        });
+        assert!(badge(&fine, "s").is_some_and(|d| d.message.is_none()));
+    }
+
+    #[test]
+    fn a_rejected_input_warns_once_and_clears_when_its_edge_is_removed() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        // An edge into a handle the Gate does not have (a dangling handle).
+        let flow = |edges| FlowUpdate {
+            nodes: vec![
+                node("src", "Gate", json!({ "gate": "or" })),
+                node("g", "Gate", json!({ "gate": "or" })),
+            ],
+            edges,
+        };
+        rt.update_flow(flow(vec![edge("src", "true", "g", "nope")]));
+
+        let first = rt.dispatch("src", "value", ComponentValue::Bool(true));
+        let d = badge(&first, "g").expect("a rejected input must be attributed");
+        assert!(matches!(d.level, DiagnosticLevel::Warning));
+        assert!(d.message.as_deref().is_some_and(|m| m.contains("\"nope\"")), "{d:?}");
+
+        let second = rt.dispatch("src", "value", ComponentValue::Bool(true));
+        assert!(second.node_diagnostics.is_empty(), "the same rejection must not spam");
+
+        let fixed = rt.update_flow(flow(vec![edge("src", "true", "g", "value")]));
+        assert!(badge(&fixed, "g").is_some_and(|d| d.message.is_none()), "removing the bad edge clears it");
+    }
+
+    #[test]
+    fn edges_to_nodes_not_in_the_flow_are_dropped() {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        let effects = rt.update_flow(FlowUpdate {
+            nodes: vec![node("a", "Gate", json!({ "gate": "or" }))],
+            edges: vec![edge("a", "true", "ghost", "value"), edge("ghost", "true", "a", "value")],
+        });
+        assert!(rt.router.edges().is_empty(), "dangling edges must not reach the router");
+        assert!(effects.node_diagnostics.is_empty(), "the user cannot see or delete them, so no badge");
+    }
+
+    #[test]
+    fn runtime_clears_go_before_node_raises_and_runtime_raises_after() {
+        // A node that had a runtime fault and raises its own diagnostic in the
+        // same turn must end up showing its own — the runtime's clear must not
+        // be applied after it.
+        use serde_json::json;
+        let mut rt = runtime_with_failing_start();
+        rt.update_flow(FlowUpdate { nodes: vec![node("s", "FailingStart", json!({ "fail": true }))], edges: vec![] });
+        let fixed = rt.update_flow(FlowUpdate {
+            nodes: vec![node("s", "FailingStart", json!({ "own": true }))],
+            edges: vec![],
+        });
+        let last = badge(&fixed, "s").expect("the node raises its own warning on start");
+        assert_eq!(last.message.as_deref(), Some("own"), "{:?}", fixed.node_diagnostics);
+
+        // And a runtime raise is applied after the node's own, so it wins.
+        let both = rt.update_flow(FlowUpdate {
+            nodes: vec![node("s", "FailingStart", json!({ "own": true, "fail": true }))],
+            edges: vec![],
+        });
+        let last = badge(&both, "s").expect("both raise");
+        assert!(last.message.as_deref().is_some_and(|m| m.contains("Failed to start")), "{:?}", both.node_diagnostics);
     }
 
     fn contains(haystack: &[u8], needle: &[u8]) -> bool {
