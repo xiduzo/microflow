@@ -304,3 +304,68 @@ impl ComponentBuilder for Matrix {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use serde_json::json;
+
+    const ARROW: [&str; 8] = [
+        "00011000", "00111100", "01111110", "11011011", "00011000", "00011000", "00011000", "00011000",
+    ];
+
+    /// A rig with a chain of `devices` MAX7219s wired to data 2 / clock 3 / cs 4.
+    fn matrix(devices: usize, shapes: serde_json::Value) -> SimRig {
+        let mut board = SimBoard::new(BoardLayout::uno());
+        board.attach_max7219(2, 3, 4, devices);
+        let mut rig = SimRig::connect(board);
+        rig.apply_flow(
+            vec![node(
+                "m",
+                "Matrix",
+                json!({ "pins": { "data": 2, "clock": 3, "cs": 4 }, "devices": devices, "shapes": shapes }),
+            )],
+            vec![],
+        );
+        rig
+    }
+
+    fn rows(bits: &[&str]) -> [u8; 8] {
+        let mut out = [0u8; 8];
+        for (row, s) in out.iter_mut().zip(bits) {
+            *row = u8::from_str_radix(s, 2).unwrap();
+        }
+        out
+    }
+
+    #[test]
+    fn initialize_brings_the_chip_out_of_shutdown_with_led_control_defaults() {
+        let rig = matrix(1, json!([]));
+        let chip = rig.board.max7219(0).device(0);
+        assert!(chip.on, "shutdown register = 1");
+        assert!(!chip.display_test);
+        assert_eq!((chip.decode_mode, chip.intensity, chip.scan_limit), (0, 3, 7));
+        assert_eq!(chip.rows, [0; 8]);
+    }
+
+    #[test]
+    fn value_shows_the_shape_and_reset_clears_it() {
+        let mut rig = matrix(1, json!([ARROW, ["11111111"]]));
+        assert_eq!(rig.board.max7219(0).device(0).rows, rows(&ARROW), "shape 0 on init");
+        rig.dispatch("m", "value", 1.0);
+        assert_eq!(rig.board.max7219(0).device(0).rows, rows(&["11111111"]));
+        rig.dispatch("m", "value", 9.0);
+        assert_eq!(rig.board.max7219(0).device(0).rows, rows(&["11111111"]), "index clamps");
+        rig.dispatch("m", "reset", true);
+        assert_eq!(rig.board.max7219(0).device(0).rows, [0; 8]);
+    }
+
+    #[test]
+    fn a_chain_splits_each_row_eight_columns_per_device() {
+        let wide: Vec<String> = ARROW.iter().map(|r| format!("{r}{}", "10000001")).collect();
+        let rig = matrix(2, json!([wide]));
+        assert_eq!(rig.board.max7219(0).device(0).rows, rows(&ARROW));
+        assert_eq!(rig.board.max7219(0).device(1).rows, [0b1000_0001; 8]);
+    }
+}
