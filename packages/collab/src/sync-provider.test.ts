@@ -10,7 +10,8 @@ import {
   MESSAGE_ACK,
   MESSAGE_AWARENESS,
   MESSAGE_SYNC,
-  isTerminalClose,
+  MAX_REAUTH_ATTEMPTS,
+  classifyClose,
 } from "./protocol";
 
 /**
@@ -329,21 +330,54 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
-  test("a 1008 close is terminal: no retry, and the reason is surfaced", async () => {
-    const { provider } = makeAuthedProvider(() => "stale");
+  test("1008 Forbidden is terminal: no retry, and the reason is surfaced", async () => {
+    const { provider } = makeAuthedProvider(() => "token");
     const denied: Array<[string, number]> = [];
     provider.on("accessDenied", (reason, code) => denied.push([reason, code]));
 
     const first = lastSocket();
     first.open();
-    serverClose(first, 1008, "Unauthorized");
+    serverClose(first, 1008, "Forbidden");
     await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
 
-    expect(denied).toEqual([["Unauthorized", 1008]]);
+    expect(denied).toEqual([["Forbidden", 1008]]);
     expect(FakeSocket.instances.length).toBe(1);
     expect(provider.state).toBe("disconnected");
     provider.destroy();
   });
+
+  test("1008 Unauthorized retries with a re-read token, then gives up", async () => {
+    let reads = 0;
+    const { provider } = makeAuthedProvider(() => `token-${++reads}`);
+    const denied: Array<[string, number]> = [];
+    provider.on("accessDenied", (reason, code) => denied.push([reason, code]));
+
+    // Every attempt is refused; y-websocket backs off 200, 400, 800ms.
+    for (let attempt = 0; attempt <= MAX_REAUTH_ATTEMPTS; attempt++) {
+      const socket = lastSocket();
+      socket.open();
+      serverClose(socket, 1008, "Unauthorized");
+      if (attempt < MAX_REAUTH_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 120 * 2 ** (attempt + 1)));
+        expect(lastSocket()).not.toBe(socket);
+      }
+    }
+    await new Promise((r) => setTimeout(r, FIRST_RETRY_MS));
+
+    const tokens = FakeSocket.instances.map(tokenOf);
+    expect(new Set(tokens).size).toBe(tokens.length); // a fresh read per attempt
+    expect(FakeSocket.instances.length).toBe(MAX_REAUTH_ATTEMPTS + 1);
+    expect(denied).toEqual([["Unauthorized", 1008]]);
+
+    // An explicit reconnect (the user signed in again) refills the budget.
+    provider.reconnect();
+    const resumed = lastSocket();
+    resumed.open();
+    serverClose(resumed, 1008, "Unauthorized");
+    await new Promise((r) => setTimeout(r, 2600)); // backoff is capped at 2.5s
+    expect(lastSocket()).not.toBe(resumed);
+    provider.destroy();
+  }, 10_000);
 
   test("an explicit reconnect after a terminal close tries again with a fresh token", () => {
     let token = "expired";
@@ -398,11 +432,24 @@ describe("SyncProvider auth and access", () => {
     provider.destroy();
   });
 
-  test("terminal close codes: 1008 and 4400–4499 only", () => {
-    expect(isTerminalClose(1008)).toBe(true);
-    expect(isTerminalClose(4401)).toBe(true);
-    expect(isTerminalClose(1006)).toBe(false);
-    expect(isTerminalClose(1000)).toBe(false);
-    expect(isTerminalClose(4500)).toBe(false);
+  test("close classification follows the server's codes", () => {
+    expect(classifyClose(1008, "Forbidden")).toBe("terminal");
+    expect(classifyClose(1008, "Unauthorized")).toBe("reauth");
+    expect(classifyClose(4401, "Access revoked")).toBe("terminal");
+    expect(classifyClose(4401, "")).toBe("terminal");
+    for (const code of [1000, 1005, 1006, 1011, 1012, 1013, 4500]) {
+      expect(classifyClose(code)).toBe("retry");
+    }
+  });
+
+  test("a retryable close is reported as a drop with its code", () => {
+    const { provider } = makeAuthedProvider(() => undefined);
+    const drops: number[] = [];
+    provider.on("dropped", (code) => drops.push(code));
+    const socket = lastSocket();
+    socket.open();
+    serverClose(socket, 1012, "Server restarting");
+    expect(drops).toEqual([1012]);
+    provider.destroy();
   });
 });

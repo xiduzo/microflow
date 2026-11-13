@@ -59,19 +59,35 @@ export const ACCESS_CODES = ["none", "read", "write"] as const;
 export type WireAccess = (typeof ACCESS_CODES)[number];
 
 /**
- * The close code the server's auth gate uses today (`apps/server`): RFC 6455
- * "policy violation", sent for both an invalid session and a user who may not
- * open this flow. Outside y-websocket's 4400–4499 terminal range, so by default
- * the provider retries it forever — `isTerminalClose` adds it.
+ * The close code the server's auth gate uses (`apps/server`): RFC 6455
+ * "policy violation". The reason tells the two cases apart — "Unauthorized"
+ * (no valid session) and "Forbidden" (this user may not open this flow).
+ * Outside y-websocket's 4400–4499 terminal range, so by default the provider
+ * retries both forever — `classifyClose` decides instead.
  */
 export const CLOSE_POLICY_VIOLATION = 1008;
+/** RFC 6455 "service restart": a graceful server shutdown. Retry. */
+export const CLOSE_SERVICE_RESTART = 1012;
 
 /**
- * Whether reconnecting after this close code can help. 4400–4499 is
- * y-websocket's convention (`CLOSE_ACCESS_DENIED`); 1008 is what the server's
- * auth gate sends. Both mean the answer will not change by asking again with
- * the same credentials.
+ * What a client should do after the server closed its socket:
+ *
+ * - `"retry"` — transient (network, 1011 load failure, 1012 restart, 1013,
+ *   a dropped room or stalled send buffer). Back off and reconnect.
+ * - `"reauth"` — the credentials were rejected (1008 "Unauthorized"). A token
+ *   refreshed in the meantime may fix it, so retry with a freshly read token —
+ *   a bounded number of times (`MAX_REAUTH_ATTEMPTS`), then give up.
+ * - `"terminal"` — the answer will not change (1008 "Forbidden", 4400–4499
+ *   including `CLOSE_ACCESS_DENIED` "Access revoked"). Stop.
  */
-export function isTerminalClose(code: number): boolean {
-  return code === CLOSE_POLICY_VIOLATION || (code >= 4400 && code < 4500);
+export type CloseVerdict = "retry" | "reauth" | "terminal";
+
+export const MAX_REAUTH_ATTEMPTS = 3;
+
+export function classifyClose(code: number, reason = ""): CloseVerdict {
+  if (code >= 4400 && code < 4500) return "terminal";
+  if (code === CLOSE_POLICY_VIOLATION) {
+    return /unauthori[sz]ed/i.test(reason) ? "reauth" : "terminal";
+  }
+  return "retry";
 }

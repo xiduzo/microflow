@@ -2,7 +2,13 @@ import type * as Y from "yjs";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as decoding from "lib0/decoding";
 import { WebsocketProvider } from "y-websocket";
-import { ACCESS_CODES, MESSAGE_ACCESS, MESSAGE_ACK, isTerminalClose } from "./protocol";
+import {
+  ACCESS_CODES,
+  MAX_REAUTH_ATTEMPTS,
+  MESSAGE_ACCESS,
+  MESSAGE_ACK,
+  classifyClose,
+} from "./protocol";
 
 // ============================================================================
 // Constants
@@ -61,11 +67,17 @@ export type SyncProviderEvents = {
   error: (error: Error) => void;
   ack: (version: number) => void;
   /**
-   * The server closed with a terminal code (see `isTerminalClose`): access was
-   * denied, revoked, or the credentials were rejected. The transport has
-   * stopped retrying; only an explicit `reconnect()` resumes it.
+   * The server closed and retrying will not help (see `classifyClose`): access
+   * was denied or revoked, or the credentials stayed rejected after
+   * `MAX_REAUTH_ATTEMPTS` fresh-token retries. The transport has stopped; only
+   * an explicit `reconnect()` resumes it.
    */
   accessDenied: (reason: string, code: number) => void;
+  /**
+   * The server closed the socket and the transport will retry. Carries the
+   * close code so the status can tell a graceful restart (1012) from a drop.
+   */
+  dropped: (code: number, reason: string) => void;
   /** The server stated what this connection may do (`MESSAGE_ACCESS`). */
   access: (access: "read" | "write") => void;
   /**
@@ -162,6 +174,8 @@ export class SyncProvider {
   private currentError: Error | null = null;
   private readonly readAuthToken: () => string | undefined;
   private currentAccess: "read" | "write" | null = null;
+  /** Fresh-token retries spent since the last successful sync. */
+  private reauthAttempts = 0;
 
   /** Latest presence not yet broadcast, and the timer that will. */
   private pendingCursor: { x: number; y: number } | null = null;
@@ -213,7 +227,7 @@ export class SyncProvider {
         params: this.authParams(),
         // y-websocket only treats 4400–4499 as final; the server's auth gate
         // closes with 1008, which it would otherwise retry forever.
-        shouldReconnect: (event: CloseEvent) => !isTerminalClose(event.code),
+        shouldReconnect: (event: CloseEvent) => this.shouldReconnect(event),
         ...(options.WebSocketPolyfill ? { WebSocketPolyfill: options.WebSocketPolyfill } : {}),
       },
     );
@@ -253,6 +267,7 @@ export class SyncProvider {
     this.provider.on("sync", (isSynced: boolean) => {
       if (!isSynced) return;
       this.currentError = null;
+      this.reauthAttempts = 0;
       this.setState("synced");
       this.emit("synced");
     });
@@ -262,8 +277,8 @@ export class SyncProvider {
       this.emit("error", this.currentError);
     });
 
-    // 4400–4499: the server says retrying will not help. `y-websocket` has
-    // already stopped reconnecting by the time this fires.
+    // `shouldReconnect` said no. `y-websocket` has already stopped
+    // reconnecting by the time this fires.
     this.provider.on("closed", ({ code, reason }: { code: number; reason: string }) => {
       this.currentError = new Error(reason || "Access denied");
       this.emit("accessDenied", reason || "Access denied", code);
@@ -320,8 +335,23 @@ export class SyncProvider {
   reconnect(): void {
     if (this.destroyed) return;
     this.provider.disconnect();
+    this.reauthAttempts = 0;
     this.refreshAuthParams();
     this.provider.connect();
+  }
+
+  /**
+   * The retry policy over the server's close codes (`classifyClose`). The
+   * token was already re-read on `connection-close`, which y-websocket emits
+   * before asking this — so a "reauth" retry presents whatever the auth
+   * client holds now.
+   */
+  private shouldReconnect(event: CloseEvent): boolean {
+    const verdict = classifyClose(event.code, event.reason);
+    if (verdict === "terminal") return false;
+    if (verdict === "reauth" && ++this.reauthAttempts > MAX_REAUTH_ATTEMPTS) return false;
+    this.emit("dropped", event.code, event.reason);
+    return true;
   }
 
   /** What the server last said this connection may do; `null` until it says. */

@@ -22,6 +22,9 @@ export {
   MESSAGE_ACCESS,
   ACCESS_CODES,
   CLOSE_POLICY_VIOLATION,
-  isTerminalClose,
+  classifyClose,
+  CLOSE_SERVICE_RESTART,
+  MAX_REAUTH_ATTEMPTS,
+  type CloseVerdict,
   type WireAccess,
 } from "./protocol";
