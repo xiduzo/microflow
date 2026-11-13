@@ -8,7 +8,9 @@
 //! [`NodeEmission`]. No clock, no hashmap iteration, no board IO: identical
 //! input always yields identical output.
 
+use crate::codegen::board::BoardTarget;
 use crate::codegen::wire::{bind_pulses, PulseBinding, SourceExpr};
+use crate::firmata::PinLabel;
 use crate::flow::FlowNode;
 
 /// C++ fragments a single Node contributes to the assembled sketch.
@@ -96,6 +98,62 @@ impl NodeToken for FlowNode {
             .chars()
             .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
             .collect()
+    }
+}
+
+/// The pin an analog-reading Node (Sensor family, Proximity) names in
+/// `data.pin`: an analog channel label (`"A0"`, the default) or a pin number
+/// (`15`, `"15"` — what the editor stores once a pin is picked). The live
+/// runtime reads the same label (`firmata::PinLabel`).
+#[must_use]
+pub fn analog_label(node: &FlowNode) -> PinLabel {
+    match node.data.get("pin") {
+        Some(serde_json::Value::String(s)) => PinLabel::parse(s),
+        Some(serde_json::Value::Number(n)) => {
+            n.as_u64().and_then(|n| u8::try_from(n).ok()).map(PinLabel::Pin)
+        }
+        _ => None,
+    }
+    .unwrap_or(PinLabel::Analog(0))
+}
+
+/// Where an analog label lands on `target`, resolved the way the live runtime
+/// resolves it against the board: `A<n>` is the board's `n`-th analog input; a
+/// number is that pin. Returns `(pin, analog index)` — the pin is `None` for an
+/// `A<n>` the board lacks, the index `None` for a pin that is not an analog
+/// input.
+#[must_use]
+pub fn resolve_analog(label: PinLabel, target: &BoardTarget) -> (Option<u8>, Option<u8>) {
+    let analog = target.analog_input_pins();
+    match label {
+        PinLabel::Analog(index) => match analog.get(index as usize) {
+            Some(&pin) => (Some(pin), Some(index)),
+            None => (None, None),
+        },
+        PinLabel::Pin(pin) => (Some(pin), analog.iter().position(|&p| p == pin).map(|i| i as u8)),
+    }
+}
+
+/// The `const uint8_t {pin_var} = …;` declaration of an analog reader, its
+/// `label` resolved against `target` ([`resolve_analog`]). The resolved pin
+/// number is emitted, never an `A{n}` macro (the ESP32 core lacks `A1`/`A2`);
+/// the analog name stays as a comment. A label the board cannot read still
+/// emits compilable code with a note — validation warns separately.
+#[must_use]
+pub fn analog_pin_declaration(label: PinLabel, target: &BoardTarget, pin_var: &str) -> String {
+    match (label, resolve_analog(label, target)) {
+        (_, (Some(pin), Some(index))) => format!("const uint8_t {pin_var} = {pin}; // A{index}"),
+        (PinLabel::Pin(pin), _) => format!(
+            "const uint8_t {pin_var} = {pin}; // note: pin {pin} is not an analog input on this board"
+        ),
+        (PinLabel::Analog(index), _) => match target.analog_input_pins().first() {
+            Some(first) => format!(
+                "const uint8_t {pin_var} = {first}; // note: A{index} is not available on this board — using its first analog input"
+            ),
+            // A board without analog inputs (none supported today): keep the
+            // requested name so the mismatch is visible in the Sketch.
+            None => format!("const uint8_t {pin_var} = A{index};"),
+        },
     }
 }
 

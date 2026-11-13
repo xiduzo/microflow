@@ -1,21 +1,18 @@
 //! Sensor emitter — mirrors `nodes/sensor/runtime.rs`.
 //!
 //! The live Sensor sets the ANALOG pin mode and reports `analogRead` values.
-//! Its pin is stored as a string (`"A0"` or a numeric pin) and resolved to an
-//! analog *index* via `analog_pin()`. The generated sketch resolves that index
-//! against the board's real analog pin map — the `A{n}` macros are not defined
-//! for every index on every core (the ESP32 core lacks `A1`/`A2`), so emitting
-//! the resolved pin number is the only form that compiles everywhere. The
-//! declaration keeps the `A{n}` name in a trailing comment for readability.
+//! Its pin is an analog label (`"A0"`) or a pin number (`15`, what the editor
+//! stores once a pin is picked), resolved against the board's real pin map
+//! exactly as the runtime resolves it against the connected board
+//! ([`analog_pin_declaration`]). The `A{n}` macros are not defined for every
+//! index on every core (the ESP32 core lacks `A1`/`A2`), so the resolved pin
+//! number is emitted, with the `A{n}` name in a trailing comment.
 //! Each loop, `analogRead(pin)` is stored into an `int` state variable which
 //! downstream Nodes read.
 
 use crate::codegen::board::BoardTarget;
-use crate::codegen::emit::{pin_or_default, NodeEmission, NodeToken};
+use crate::codegen::emit::{analog_label, analog_pin_declaration, NodeEmission, NodeToken};
 use crate::flow::FlowNode;
-
-/// Default analog index matches `nodes/sensor/runtime.rs` (`"A0"` => 0).
-const DEFAULT_PIN: u8 = 0;
 
 /// The Node types backed by this analog-read emitter (see
 /// [`crate::codegen::emit_node`]): the generic Sensor plus the specialised
@@ -24,13 +21,6 @@ const DEFAULT_PIN: u8 = 0;
 /// here.
 pub(crate) const ANALOG_SENSOR_TYPES: [&str; 6] =
     ["Sensor", "Force", "HallEffect", "Ldr", "Potentiometer", "Tilt"];
-
-/// The analog index (`A0` => 0) this Sensor is emitted on — the same
-/// resolution `emit` uses, exposed so validation can never drift from emission.
-#[must_use]
-pub(crate) fn analog_index(node: &FlowNode) -> u8 {
-    pin_or_default(node, DEFAULT_PIN)
-}
 
 /// The C++ `int` variable name holding this Sensor's latest reading.
 #[must_use]
@@ -41,23 +31,9 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
 /// Emit C++ for a Sensor Node.
 #[must_use]
 pub(crate) fn emit(node: &FlowNode, target: &BoardTarget) -> NodeEmission {
-    let index = analog_index(node);
     let pin_var = format!("sensor_{}_pin", node.id_token());
     let value = value_var(node);
-
-    // Resolve the analog index to the board's real pin number. An index the
-    // board lacks is already surfaced as a validation warning; fall back to
-    // the board's first analog input so the Sketch still compiles.
-    let analog = target.analog_input_pins();
-    let pin_decl = match (analog.get(index as usize), analog.first()) {
-        (Some(pin), _) => format!("const uint8_t {pin_var} = {pin}; // A{index}"),
-        (None, Some(first)) => format!(
-            "const uint8_t {pin_var} = {first}; // note: A{index} is not available on this board — using its first analog input"
-        ),
-        // A board without analog inputs (none supported today): keep the
-        // requested name so the mismatch is visible in the Sketch.
-        (None, None) => format!("const uint8_t {pin_var} = A{index};"),
-    };
+    let pin_decl = analog_pin_declaration(analog_label(node), target, &pin_var);
 
     NodeEmission {
         declarations: vec![pin_decl, format!("int {value} = 0;")],
@@ -96,10 +72,20 @@ mod tests {
         assert!(e.declarations.iter().any(|d| d.contains("= 14; // A0")));
     }
 
+    /// A number is the pin the editor picked (15 = the Uno's A1), not an
+    /// analog index: reading "15" as index 15 fell back to A0.
     #[test]
-    fn sensor_resolves_numeric_pin() {
-        let e = emit(&sensor("s-1", json!({ "pin": "2" })), &uno());
-        assert!(e.declarations.iter().any(|d| d.contains("= 16; // A2")));
+    fn sensor_resolves_numeric_pin_as_a_pin() {
+        for pin in [json!(15), json!("15")] {
+            let e = emit(&sensor("s-1", json!({ "pin": pin })), &uno());
+            assert!(e.declarations.iter().any(|d| d.contains("= 15; // A1")), "{:?}", e.declarations);
+        }
+        let e = emit(&sensor("s-1", json!({ "pin": 2 })), &uno());
+        assert!(
+            e.declarations.iter().any(|d| d.contains("= 2;") && d.contains("not an analog input")),
+            "{:?}",
+            e.declarations
+        );
     }
 
     /// On the ESP32 the `A1`/`A2` macros do not exist; the emitted pin is the

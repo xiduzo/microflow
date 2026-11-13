@@ -55,7 +55,7 @@
 //! clock, no IO, deterministic ordering (Nodes in `id` order).
 
 use crate::codegen::board::{BoardCapability, BoardTarget, CoreFamily};
-use crate::codegen::emit::NodeToken;
+use crate::codegen::emit::{analog_label, resolve_analog, NodeToken};
 use crate::codegen::placeholder::CLOUD_NODE_TYPES;
 use crate::firmata::PinLabel;
 use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
@@ -201,9 +201,9 @@ pub struct PinDemand {
 /// validation and emission cannot drift apart. Empty for Nodes without
 /// configurable pins (`I2cDevice` uses the board's fixed SDA/SCL).
 ///
-/// An analog reader's pin keeps the Node's own label (`"A0"` or a pin number)
-/// for the live board to resolve; the sketch side reads it as an analog index
-/// through [`analog_reader_index`].
+/// An analog reader's pin keeps the Node's own label (`"A0"` or a pin number),
+/// resolved against the live board's pin profile there and against the
+/// target's pin map here ([`resolve_analog`]) — the same rule on both sides.
 #[must_use]
 pub fn pin_demands(node: &FlowNode, edges: &[FlowEdge]) -> Vec<PinDemand> {
     let Some(kind) = node.node_type.as_deref() else {
@@ -232,15 +232,8 @@ pub fn pin_demands(node: &FlowNode, edges: &[FlowEdge]) -> Vec<PinDemand> {
         "Rgb" => each(&nodes::rgb::codegen::pins(node), PinUse::Pwm),
         "Matrix" => each(&nodes::matrix::codegen::pins(node), PinUse::Digital),
         "Stepper" => each(&nodes::stepper::codegen::pins(node), PinUse::Digital),
-        k if analog_reader_index(node, k).is_some() => {
-            let label = match node.data.get("pin") {
-                Some(serde_json::Value::String(s)) => PinLabel::parse(s),
-                Some(serde_json::Value::Number(n)) => n.as_u64().and_then(|n| u8::try_from(n).ok()).map(PinLabel::Pin),
-                _ => Some(PinLabel::Analog(0)),
-            };
-            label
-                .map(|pin| vec![PinDemand { field: "", pin, uses: PinUse::AnalogIn }])
-                .unwrap_or_default()
+        k if is_analog_reader(k) => {
+            vec![PinDemand { field: "", pin: analog_label(node), uses: PinUse::AnalogIn }]
         }
         _ => vec![],
     }
@@ -262,16 +255,10 @@ fn emitted_pins(node: &FlowNode, _kind: &str) -> Vec<(&'static str, u8)> {
     pins
 }
 
-/// The analog index an analog-reading Node consumes (`A0` => 0), or `None` for
-/// Nodes that do not read an analog input. Resolved by the Node's own emitter.
-fn analog_reader_index(node: &FlowNode, kind: &str) -> Option<u8> {
-    if nodes::sensor::codegen::ANALOG_SENSOR_TYPES.contains(&kind) {
-        Some(nodes::sensor::codegen::analog_index(node))
-    } else if kind == "Proximity" {
-        Some(nodes::proximity::codegen::analog_index(node))
-    } else {
-        None
-    }
+/// Whether `kind` reads an analog input (the Sensor family, Proximity) — its
+/// pin is an analog label ([`analog_label`]).
+fn is_analog_reader(kind: &str) -> bool {
+    nodes::sensor::codegen::ANALOG_SENSOR_TYPES.contains(&kind) || kind == "Proximity"
 }
 
 /// The single problem a Node raises against `target`, or `None` when it fits.
@@ -284,9 +271,7 @@ fn problem_for(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProble
         // warns instead that it claims the board's primary hardware serial.
         Some("Midi") => midi_serial_problem(node, target),
         Some(k) if CLOUD_NODE_TYPES.contains(&k) => networking_problem(node, k, target),
-        Some(k) if analog_reader_index(node, k).is_some() => {
-            analog_pin_problem(node, k, target)
-        }
+        Some(k) if is_analog_reader(k) => analog_pin_problem(node, k, target),
         // A Servo drives its pin with PWM, so the pin must both exist and be
         // PWM-capable; check existence first for the clearer message. Likewise
         // an Rgb drives all three channel pins with `analogWrite`.
@@ -472,12 +457,13 @@ fn analog_oversubscription_problems(
         let Some(kind) = node.node_type.as_deref() else {
             continue;
         };
-        let Some(index) = analog_reader_index(node, kind) else {
+        if !is_analog_reader(kind) {
             continue;
-        };
-        // Out-of-range indices are reported by the per-Node analog check; skip
-        // them here so a sensor never raises two problems.
-        if (index as usize) >= analog_count {
+        }
+        // A label that does not land on an analog input is reported by the
+        // per-Node analog check; skip it here so a sensor never raises two
+        // problems.
+        if resolve_analog(analog_label(node), target).1.is_none() {
             continue;
         }
         used += 1;
@@ -497,29 +483,29 @@ fn analog_oversubscription_problems(
 }
 
 /// An analog-reading Node (Sensor family, Proximity) reads `analogRead`, so
-/// its analog index must map to an analog-input pin the board offers. The Node
-/// stores an analog index (`A0` => 0); the board exposes analog inputs by pin
-/// number, so the requirement is that the board has at least `index + 1`
-/// analog inputs.
+/// its pin must land on an analog input the board offers: an `A<n>` label
+/// needs at least `n + 1` analog inputs, a pin number must be one of them.
 fn analog_pin_problem(
     node: &FlowNode,
     kind: &str,
     target: &BoardTarget,
 ) -> Option<ValidationProblem> {
-    let index = analog_reader_index(node, kind)?;
-    let analog_count = target.analog_input_pins().len();
-    if (index as usize) < analog_count {
+    let label = analog_label(node);
+    if resolve_analog(label, target).1.is_some() {
         return None;
     }
-    Some(problem(
-        node,
-        kind,
-        ProblemSeverity::Warning,
-        format!(
+    let analog_count = target.analog_input_pins().len();
+    let message = match label {
+        PinLabel::Analog(index) => format!(
             "Node {} ({kind}) reads analog input A{index}, but board target '{}' has only {analog_count} analog input(s)",
             node.id, target.name
         ),
-    ))
+        PinLabel::Pin(pin) => format!(
+            "Node {} ({kind}) reads pin {pin}, which is not an analog input on board target '{}'",
+            node.id, target.name
+        ),
+    };
+    Some(problem(node, kind, ProblemSeverity::Warning, message))
 }
 
 /// Two Nodes emitted onto the same digital pin conflict — two outputs fight
@@ -945,6 +931,18 @@ mod tests {
         assert_eq!(problems.len(), 1);
         assert_eq!(problems[0].node_type, "Potentiometer");
         assert!(problems[0].message.contains("A9"));
+    }
+
+    /// A numeric pin is the pin the editor picked, as the runtime reads it:
+    /// 15 is the Uno's A1 (fits); 7 is no analog input (flagged by pin, not as
+    /// "A7").
+    #[test]
+    fn numeric_analog_pins_are_judged_as_pins() {
+        let uno = target_by_id("uno").unwrap();
+        assert!(validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": 15 }))]), &uno).is_empty());
+        let problems = validate(&flow(vec![node("s-1", "Sensor", json!({ "pin": "7" }))]), &uno);
+        assert_eq!(problems.len(), 1);
+        assert!(problems[0].message.contains("pin 7, which is not an analog input"), "{}", problems[0].message);
     }
 
     /// Two Node ids that sanitize to the same C++ token are refused — the
