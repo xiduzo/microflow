@@ -12,6 +12,10 @@ pub(crate) struct Led {
     config: LedConfig,
     is_on: bool,
     brightness_value: u8,
+    /// Whether the pin is in PWM mode (set by the first `value`). `StandardFirmata`
+    /// ignores digital writes to a PWM pin, so `true`/`false`/`toggle` must put
+    /// it back into OUTPUT first — as Arduino's `digitalWrite` turns PWM off.
+    pwm: bool,
 }
 
 impl Led {
@@ -22,10 +26,21 @@ impl Led {
             config,
             is_on: false,
             brightness_value: 255,
+            pwm: false,
         }
     }
 
+    /// Leave PWM mode before a digital write, or the firmware drops the write.
+    fn digital_mode(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        if self.pwm {
+            ctx.board().set_pin_mode(self.config.pin, pin_mode::OUTPUT)?;
+            self.pwm = false;
+        }
+        Ok(())
+    }
+
     fn turn_on(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        self.digital_mode(ctx)?;
         ctx.board().digital_write(self.config.pin, true)?;
         self.is_on = true;
         self.base.set_value(ComponentValue::Number(1.0));
@@ -33,6 +48,7 @@ impl Led {
     }
 
     fn turn_off(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        self.digital_mode(ctx)?;
         ctx.board().digital_write(self.config.pin, false)?;
         self.is_on = false;
         self.base.set_value(ComponentValue::Number(0.0));
@@ -48,7 +64,12 @@ impl Led {
     }
 
     fn brightness(&mut self, ctx: &mut RuntimeContext, value: u8) -> Result<(), RuntimeError> {
-        ctx.board().set_pin_mode(self.config.pin, pin_mode::PWM)?;
+        // Enter PWM once: `StandardFirmata` answers every PWM `SET_PIN_MODE`
+        // with `analogWrite(pin, 0)`, so re-sending it per value flickers off.
+        if !self.pwm {
+            ctx.board().set_pin_mode(self.config.pin, pin_mode::PWM)?;
+            self.pwm = true;
+        }
         ctx.board().analog_write(self.config.pin, u16::from(value))?;
         self.brightness_value = value;
         self.is_on = value > 0;
@@ -109,5 +130,79 @@ impl ComponentBuilder for Led {
     type Config = LedConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::{MODE_OUTPUT, MODE_PWM};
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn led_on(pin: u8) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("led", "Led", json!({ "pin": pin }))], vec![]);
+        rig
+    }
+
+    #[test]
+    fn initialize_makes_the_pin_an_output_driven_low() {
+        let rig = led_on(13);
+        assert_eq!(rig.board.pin(13).mode(), Some(MODE_OUTPUT));
+        assert!(!rig.board.pin(13).is_high());
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    #[test]
+    fn true_false_and_toggle_drive_the_pin() {
+        let mut rig = led_on(13);
+        rig.dispatch("led", "true", true);
+        assert!(rig.board.pin(13).is_high());
+        rig.dispatch("led", "false", true);
+        assert!(!rig.board.pin(13).is_high());
+        rig.dispatch("led", "toggle", true);
+        assert!(rig.board.pin(13).is_high());
+        rig.dispatch("led", "toggle", true);
+        assert!(!rig.board.pin(13).is_high());
+        assert_eq!(rig.last_value("led"), Some(&ComponentValue::Number(0.0)));
+    }
+
+    #[test]
+    fn value_sets_pwm_duty_on_a_pwm_pin() {
+        let mut rig = led_on(9);
+        rig.dispatch("led", "value", 128.0);
+        assert_eq!(rig.board.pin(9).pwm(), Some(128));
+        rig.dispatch("led", "value", 300.0);
+        assert_eq!(rig.board.pin(9).pwm(), Some(255), "clamped to 8 bits");
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    /// The firmware drops a digital write to a pin in PWM mode, so after a
+    /// `value` the `true` / `false` / `toggle` ports used to go dead.
+    #[test]
+    fn digital_ports_still_work_after_a_brightness_value() {
+        let mut rig = led_on(9);
+        rig.dispatch("led", "value", 40.0);
+        rig.dispatch("led", "true", true);
+        assert_eq!(rig.board.pin(9).mode(), Some(MODE_OUTPUT));
+        assert!(rig.board.pin(9).is_high());
+        rig.dispatch("led", "value", 200.0);
+        assert_eq!(rig.board.pin(9).mode(), Some(MODE_PWM));
+        assert_eq!(rig.board.pin(9).pwm(), Some(200));
+        rig.dispatch("led", "false", true);
+        assert!(!rig.board.pin(9).is_high());
+    }
+
+    /// On a pin without PWM (pin 13 on an Uno) `StandardFirmata` refuses the
+    /// PWM mode and drops the analog write, so `value` does nothing; a sketch's
+    /// `analogWrite` on the same pin thresholds at 128 instead.
+    #[test]
+    #[ignore = "open (no track): Led value on a non-PWM pin is dropped by the firmware; the runtime has no pin capabilities to fall back to digital"]
+    fn value_on_a_pin_without_pwm_still_lights_the_led() {
+        let mut rig = led_on(13);
+        rig.dispatch("led", "value", 200.0);
+        assert!(rig.board.pin(13).level(), "{:?}", rig.board.violations());
     }
 }
