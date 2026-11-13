@@ -52,9 +52,8 @@ pub use error::*;
 
 use hardware::HardwareService;
 use mqtt::MqttManager;
-use runtime::host::{self, BoardLink};
+use runtime::host::{self, ActorLink};
 use runtime::services::MqttPublisher;
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use tauri::Listener;
 use tokio::sync::Mutex as TokioMutex;
@@ -127,12 +126,13 @@ pub fn run() {
     // broker pool as the one held on `AppState`.
     let mqtt_publisher: Arc<dyn MqttPublisher> = Arc::new(mqtt_manager.clone());
 
-    // The runtime actor channel + its shared connected flag. The channel is
-    // created here so the `Send + Sync` sender can live on `AppState` (and the
-    // hardware `BoardLink`); the actor *thread* is spawned in `setup`, where the
-    // `AppHandle` + Tokio runtime handle are available.
+    // The runtime actor channel, plus the channel the actor reports a failed
+    // board session on (to the hardware board link, which owns connection
+    // state). Created here so the `Send + Sync` sender can live on `AppState`
+    // (and the hardware `ActorLink`); the actor *thread* is spawned in `setup`,
+    // where the `AppHandle` + Tokio runtime handle are available.
     let (actor_tx, actor_rx) = tokio::sync::mpsc::unbounded_channel::<host::ActorMsg>();
-    let board_connected = Arc::new(AtomicBool::new(false));
+    let (session_ended_tx, session_ended_rx) = std::sync::mpsc::channel::<hardware::SessionId>();
 
     // Clones the actor thread captures (cloud factory services); the originals
     // move into `AppState`.
@@ -208,24 +208,29 @@ pub fn run() {
             host::run_actor(
                 actor_rx,
                 actor_tx.clone(),
-                Arc::clone(&board_connected),
+                session_ended_tx,
                 app.handle().clone(),
                 rt_handle,
                 actor_publisher,
             );
 
-            // Hardware monitoring drives the actor through a `BoardLink`: on
-            // Firmata detection it sends `Connect{port, pins_json}`, on USB
-            // removal / implicit reset `Disconnect`. The board-state observer
-            // that used to mutate `AppState` in-process is now a no-op — the
-            // actor owns connection + pending-flow state; the monitor still emits
+            // Hardware monitoring owns the board connection (the board link)
+            // and drives the actor through an `ActorLink`: on Firmata detection
+            // it sends `Connect{port, pins_json, session}`, on the board's own
+            // port leaving / a lost session `Disconnect`. The board-state
+            // observer that used to mutate `AppState` in-process is a no-op —
+            // the actor owns pending-flow state; the monitor emits
             // `board-state` to the frontend itself.
-            let board_link = BoardLink::new(actor_tx.clone(), Arc::clone(&board_connected));
             let observer: hardware::BoardStateObserver = Arc::new(|_state| {});
             hardware_service
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .start_monitoring(app.handle().clone(), board_link, observer);
+                .start_monitoring(
+                    app.handle().clone(),
+                    ActorLink::new(actor_tx.clone()),
+                    session_ended_rx,
+                    observer,
+                );
 
             // Publish the flow tools to agent CLIs over MCP. A failure here
             // costs Ask AI its CLI providers and nothing else, so it is logged

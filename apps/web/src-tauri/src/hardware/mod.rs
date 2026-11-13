@@ -7,7 +7,8 @@
 //!
 //! ```text
 //! hardware/
-//! ├── mod.rs           - Module exports and HardwareService
+//! ├── mod.rs           - Module exports, HardwareService, the desktop LinkIo adapter
+//! ├── board_link.rs    - BoardLink: the one owner of board connection state
 //! ├── types.rs         - Shared types (BoardState, events, etc.)
 //! ├── port_monitor.rs  - Serial port discovery and monitoring
 //! ├── firmata.rs       - Firmata protocol detection
@@ -16,28 +17,32 @@
 //!
 //! # Design Principles
 //!
-//! 1. **Single Responsibility**: Each submodule has one job
+//! 1. **One owner of connection state**: [`board_link`] decides which port is
+//!    the board and whether it is connected; port scans and the runtime actor
+//!    only feed it facts
 //! 2. **Dependency Inversion**: `HardwareService` orchestrates, submodules don't know each other
 //! 3. **Event Centralization**: All Tauri events flow through `events.rs`
 //! 4. **Clean Boundaries**: Flasher module is called, never calls back
 
+mod board_link;
 mod events;
 mod firmata;
 mod port_monitor;
 mod types;
 
+pub use board_link::SessionId;
 pub use events::{BoardStateObserver, EventEmitter};
 pub use port_monitor::{PortMonitor, SerialPortInfo};
 pub use types::BoardState;
 
-use crate::flasher::{BoardConfig, BoardType, Flasher};
-use crate::runtime::host::BoardLink;
-use microflow_core::bringup::{Action as BringUpAction, BringUp, Event as BringUpEvent, Phase};
-use std::collections::HashMap;
+use crate::flasher::{BoardType, Flasher};
+use crate::runtime::host::ActorLink;
+use board_link::{BoardLink, LinkIo};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Central orchestrator for all hardware operations.
 ///
@@ -52,7 +57,7 @@ pub struct HardwareService {
 impl HardwareService {
     const POLL_INTERVAL_MS: u64 = 250;
 
-    #[must_use] 
+    #[must_use]
     pub fn new() -> Self {
         Self {
             app_handle: None,
@@ -62,14 +67,16 @@ impl HardwareService {
     }
 
     /// Start monitoring for hardware changes.
-    /// The `board` is shared with the runtime - when Firmata is detected,
-    /// the connection is stored directly in this handle. The `observer` runs
-    /// in-process on every `board-state` transition (before the Tauri emit) so
-    /// the host can mutate `AppState` without listening to its own event bus.
+    /// When Firmata is detected the open port is handed to the runtime actor
+    /// through `actor`; the actor reports a failed session back on
+    /// `session_ended`. The `observer` runs in-process on every `board-state`
+    /// transition (before the Tauri emit) so the host can mutate `AppState`
+    /// without listening to its own event bus.
     pub fn start_monitoring(
         &mut self,
         app_handle: tauri::AppHandle,
-        board: BoardLink,
+        actor: ActorLink,
+        session_ended: Receiver<SessionId>,
         observer: BoardStateObserver,
     ) {
         if self.monitoring.load(Ordering::Relaxed) {
@@ -82,7 +89,11 @@ impl HardwareService {
 
         let monitoring = Arc::clone(&self.monitoring);
         let handle = thread::spawn(move || {
-            HardwareMonitorLoop::new(app_handle, monitoring, board, observer).run();
+            let io = DesktopLinkIo {
+                events: EventEmitter::with_observer(app_handle, observer),
+                actor,
+            };
+            HardwareMonitorLoop { monitoring, link: BoardLink::new(io), session_ended }.run();
         });
 
         self.monitor_handle = Some(handle);
@@ -126,262 +137,83 @@ impl Drop for HardwareService {
 // Monitor Loop - Background orchestration
 // ============================================================================
 
-/// Encapsulates the monitoring loop and board lifecycle management.
-///
-/// The bring-up *policy* (probe → flash-if-missing → connect → reconnect and
-/// the `BoardState` transitions) lives in [`microflow_core::bringup`], shared
-/// with the browser host; this loop is the desktop adapter that performs its
-/// actions with real serial/flasher I/O.
+/// The poll loop: every tick it feeds the [`BoardLink`] the facts — sessions
+/// the runtime reported ended, then the ports present — and the link decides.
 struct HardwareMonitorLoop {
-    events: EventEmitter,
     monitoring: Arc<AtomicBool>,
-    board: BoardLink,
-    known_devices: HashMap<String, SerialPortInfo>,
-    bringup: BringUp,
-    /// Port name of the current bring-up attempt / live connection.
-    attempt_port: Option<String>,
-    /// Recognised board type of the current attempt (flash target).
-    attempt_board: Option<BoardType>,
-    /// Full `Connected` payload from the latest successful probe, published
-    /// when the machine says `Phase::Connected`.
-    last_connected: Option<BoardState>,
+    link: BoardLink<DesktopLinkIo>,
+    session_ended: Receiver<SessionId>,
 }
 
 impl HardwareMonitorLoop {
-    fn new(
-        app_handle: tauri::AppHandle,
-        monitoring: Arc<AtomicBool>,
-        board: BoardLink,
-        observer: BoardStateObserver,
-    ) -> Self {
-        Self {
-            events: EventEmitter::with_observer(app_handle, observer),
-            monitoring,
-            board,
-            known_devices: HashMap::new(),
-            bringup: BringUp::new(),
-            attempt_port: None,
-            attempt_board: None,
-            last_connected: None,
-        }
-    }
-
     fn run(&mut self) {
         log::info!("Hardware monitor loop started");
 
-        // Initial scan
-        self.scan_initial_ports();
-
-        // Poll loop
         let interval = Duration::from_millis(HardwareService::POLL_INTERVAL_MS);
         while self.monitoring.load(Ordering::Relaxed) {
-            self.poll_for_changes();
+            self.tick();
             thread::sleep(interval);
         }
 
         log::info!("Hardware monitor loop ended");
     }
 
-    fn scan_initial_ports(&mut self) {
+    fn tick(&mut self) {
+        let now = Instant::now();
+        while let Ok(session) = self.session_ended.try_recv() {
+            self.link.session_ended(session, now);
+        }
         match PortMonitor::get_ports() {
-            Ok(ports) => {
-                log::info!("Found {} initial ports", ports.len());
-                for port in ports {
-                    self.handle_port_connected(port);
-                }
-            }
-            Err(e) => log::error!("Failed to get initial ports: {e}"),
+            Ok(ports) => self.link.scan(ports, now),
+            Err(e) => log::debug!("Port scan failed: {e}"),
         }
     }
+}
 
-    fn poll_for_changes(&mut self) {
-        let Ok(current_ports) = PortMonitor::get_ports() else { return };
+/// The desktop implementation of the board link's [`LinkIo`] seam: real serial
+/// probe, real flasher, the runtime actor, and Tauri events. Owns the I/O and
+/// its timing (boot/settle sleeps) only — no decisions.
+struct DesktopLinkIo {
+    events: EventEmitter,
+    actor: ActorLink,
+}
 
-        let current_map: HashMap<String, SerialPortInfo> = current_ports
-            .into_iter()
-            .map(|p| (PortMonitor::canonical_id(&p.port_name), p))
-            .collect();
-
-        // Detect implicit disconnect: board reset without USB disconnect.
-        // The reader thread sets is_connected=false on I/O error, but the USB port
-        // stays present, so the normal disconnect detection never fires.
-        if !self.board.is_connected() {
-            let stale: Vec<_> = self
-                .known_devices
-                .iter()
-                .filter(|(id, port)| port.has_firmata == Some(true) && current_map.contains_key(*id))
-                .map(|(id, _)| id.clone())
-                .collect();
-            for id in stale {
-                if let Some(port) = self.known_devices.remove(&id) {
-                    log::info!("Board on {} lost connection without USB disconnect, re-detecting", port.port_name);
-                    // ScheduleRetry is a no-op here: this poll loop *is* the
-                    // retry (the port re-enters `handle_port_connected` next tick).
-                    self.drive(BringUpEvent::ConnectionLost);
-                }
-            }
+impl LinkIo for DesktopLinkIo {
+    fn probe(&mut self, port: &str, after_flash: bool, session: SessionId) -> Option<BoardState> {
+        if after_flash {
+            // Wait for the board to reboot into the fresh sketch.
+            thread::sleep(Duration::from_millis(2500));
         }
-
-        // Detect new ports (including any cleared by implicit disconnect above)
-        for (device_id, port) in &current_map {
-            if !self.known_devices.contains_key(device_id) {
-                self.handle_port_connected(port.clone());
-            }
-        }
-
-        // Detect disconnected ports
-        let disconnected: Vec<_> = self
-            .known_devices
-            .iter()
-            .filter(|(id, _)| !current_map.contains_key(*id))
-            .map(|(_, port)| port.clone())
-            .collect();
-
-        for port in disconnected {
-            self.handle_port_disconnected(&port);
-        }
-
-        // Update known devices (preserve has_firmata)
-        self.known_devices = current_map
-            .into_iter()
-            .map(|(id, mut port)| {
-                if let Some(known) = self.known_devices.get(&id) {
-                    port.has_firmata = known.has_firmata;
-                }
-                (id, port)
-            })
-            .collect();
+        let detected = firmata::detect(port)?;
+        // The actor seeds its codec from the pin table and (re)applies the
+        // active flow against the fresh board.
+        self.actor.connect_board(detected.port, detected.pins_json, session);
+        log::info!("Board on {port} handed to runtime actor as session {session}");
+        Some(detected.state)
     }
 
-    fn handle_port_connected(&mut self, mut port: SerialPortInfo) {
-        let device_id = PortMonitor::canonical_id(&port.port_name);
-
-        // Skip system ports entirely (Bluetooth, debug consoles, etc.)
-        if PortMonitor::should_skip_firmata_test(&port.port_name) {
-            log::debug!("Skipping system port: {}", port.port_name);
-            port.has_firmata = Some(false);
-            self.known_devices.insert(device_id, port);
-            return;
-        }
-
-        let board_type = port
-            .usb_ids()
-            .and_then(|(vid, pid)| BoardConfig::detect_from_usb(vid, pid));
-
-        // Only USB ports are bring-up candidates; and while a board is live the
-        // machine ignores new ports (it must not steal the connection).
-        if port.is_usb() && !self.bringup.is_connected() {
-            log::info!("Bring-up candidate on {} (board: {board_type:?})", port.port_name);
-            self.attempt_port = Some(port.port_name.clone());
-            self.attempt_board = board_type;
-            self.drive(BringUpEvent::PortReady {
-                board: board_type.map(|b| b.as_str().to_string()),
-                // The desktop always flashes recognised boards with no Firmata,
-                // and surfaces their failures (a recognised board that won't
-                // connect is worth an error; a random serial device is not).
-                auto_flash: board_type.is_some(),
-                explicit: board_type.is_some(),
-            });
-        } else if !port.is_usb() {
-            log::debug!("Skipping non-USB port: {}", port.port_name);
-        }
-
-        port.has_firmata = Some(self.bringup.is_connected());
-        self.known_devices.insert(device_id, port.clone());
-
-        log::info!(
-            "Port connected: {} (Firmata: {})",
-            port.port_name,
-            port.has_firmata.unwrap_or(false)
-        );
-        self.events.port_connected(&port);
+    fn flash(&mut self, port: &str, board: BoardType) -> Result<(), String> {
+        // Small delay for port readiness after the failed probe.
+        thread::sleep(Duration::from_millis(500));
+        let result = Flasher::flash_standard_firmata(port, board).map_err(|e| e.to_string())?;
+        log::info!("Flash successful: {}", result.message);
+        Ok(())
     }
 
-    fn handle_port_disconnected(&mut self, port: &SerialPortInfo) {
-        log::info!("Port disconnected: {}", port.port_name);
+    fn close(&mut self) {
+        self.actor.disconnect();
+    }
+
+    fn board_state(&mut self, state: &BoardState) {
+        self.events.board_state(state);
+    }
+
+    fn port_connected(&mut self, port: &SerialPortInfo) {
+        self.events.port_connected(port);
+    }
+
+    fn port_disconnected(&mut self, port: &SerialPortInfo) {
         self.events.port_disconnected(port);
-
-        if port.has_firmata == Some(true) {
-            self.drive(BringUpEvent::PortGone);
-        }
-    }
-
-    /// Feed one event into the shared bring-up machine and perform the actions
-    /// it returns. Actions that resolve synchronously (probe, flash) feed their
-    /// result straight back in, so one `PortReady` drives the whole bring-up.
-    fn drive(&mut self, event: BringUpEvent) {
-        for action in self.bringup.handle(event) {
-            self.perform(action);
-        }
-    }
-
-    fn perform(&mut self, action: BringUpAction) {
-        let port_name = self.attempt_port.clone().unwrap_or_default();
-        match action {
-            BringUpAction::Probe { after_flash } => {
-                if after_flash {
-                    // Wait for the board to reboot into the fresh sketch.
-                    thread::sleep(Duration::from_millis(2500));
-                }
-                match firmata::detect(&port_name) {
-                    Some(detected) => {
-                        // Hand the open port + pin table to the runtime actor,
-                        // which seeds its codec and (re)applies the active flow.
-                        self.board.connect_board(detected.port, detected.pins_json);
-                        self.last_connected = Some(detected.state);
-                        self.drive(BringUpEvent::ProbeOk);
-                    }
-                    None => self.drive(BringUpEvent::ProbeFailed),
-                }
-            }
-            BringUpAction::Flash { board } => {
-                // Small delay for port readiness after the failed probe.
-                thread::sleep(Duration::from_millis(500));
-                let board_type = self
-                    .attempt_board
-                    .or_else(|| BoardType::from_id(&board));
-                let result = match board_type {
-                    Some(bt) => Flasher::flash_standard_firmata(&port_name, bt)
-                        .map_err(|e| e.to_string()),
-                    None => Err(format!("unknown board type '{board}'")),
-                };
-                match result {
-                    Ok(result) => {
-                        log::info!("Flash successful: {}", result.message);
-                        self.drive(BringUpEvent::FlashOk);
-                    }
-                    Err(detail) => {
-                        log::error!("Flash failed: {detail}");
-                        self.drive(BringUpEvent::FlashFailed { detail });
-                    }
-                }
-            }
-            BringUpAction::ClosePort => self.board.disconnect(),
-            // The 250ms poll loop is the desktop's retry mechanism already.
-            BringUpAction::ScheduleRetry => {}
-            // The desktop flasher reports no incremental progress today.
-            BringUpAction::NotifyFlashProgress { .. } => {}
-            BringUpAction::Notify { phase } => self.publish(&phase),
-        }
-    }
-
-    /// Map a machine [`Phase`] onto the `board-state` event, filling host-side
-    /// payloads (probe result, port name). `Error.detail` passes through
-    /// verbatim — the UI shows it in full (commit `7c8f7e2`).
-    fn publish(&self, phase: &Phase) {
-        match phase {
-            Phase::Connecting => self.events.board_connecting(),
-            Phase::Flashing { board } => {
-                let port = self.attempt_port.as_deref().unwrap_or_default();
-                self.events.board_flashing(port, board);
-            }
-            Phase::Connected => match &self.last_connected {
-                Some(state) => self.events.board_state(state),
-                None => self.events.board_error("probe succeeded but produced no board state"),
-            },
-            Phase::Disconnected => self.events.board_disconnected(),
-            Phase::Error { detail } => self.events.board_error(detail),
-        }
     }
 }
 
