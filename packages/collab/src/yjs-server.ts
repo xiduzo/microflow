@@ -366,7 +366,7 @@ export class YjsServer {
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
 
-    const syncMessageType = syncProtocol.readSyncMessage(
+    syncProtocol.readSyncMessage(
       decoder,
       encoder,
       room.doc,
@@ -378,11 +378,10 @@ export class YjsServer {
       connection.socket.send(encoding.toUint8Array(encoder));
     }
 
-    // If we received an update, schedule persistence
-    if (syncMessageType === syncProtocol.messageYjsUpdate) {
-      room.isDirty = true;
-      this.schedulePersist(connection.flowId, room);
-    }
+    // Persistence is not decided here. Both step 2 (a reconnecting client's
+    // offline edits) and update frames write into the doc; inspecting the
+    // message type missed step 2 and those edits were never saved. The doc's
+    // own `update` event marks the room dirty — see `loadRoom`.
   }
 
   private handleAwarenessMessage(
@@ -679,8 +678,13 @@ export class YjsServer {
       firstDirtyAt: migrated > 0 ? Date.now() : null,
     };
 
-    // Set up doc update broadcasting
+    // Set up doc update broadcasting. The same event is the dirty signal:
+    // Yjs emits it only when a transaction actually changed the document, so
+    // every accepted edit is persisted whichever sync message carried it.
     doc.on("update", (update: Uint8Array, origin: unknown) => {
+      room.isDirty = true;
+      this.schedulePersist(flowId, room);
+
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
       syncProtocol.writeUpdate(encoder, update);
