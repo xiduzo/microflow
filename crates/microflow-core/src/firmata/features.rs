@@ -25,7 +25,7 @@ pub const PIN_MODE_PIXEL: u8 = 0x51;
 /// A firmware extension a node depends on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FirmwareFeature {
-    /// WS2812 / NeoPixel strips (sysex `0x51`).
+    /// WS2812 (`NeoPixel`) LED strips (sysex `0x51`).
     Pixel,
     /// `AccelStepper` motors (sysex `0x62`).
     AccelStepper,

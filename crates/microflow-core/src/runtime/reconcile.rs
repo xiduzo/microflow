@@ -286,11 +286,11 @@ pub fn plan_board(
     i2c_reads.sort_unstable_by_key(|r| (r.address, r.register, r.length));
 
     BoardPlan {
-        analog_enable,
         analog_disable,
         digital_disable,
         i2c_config_delay,
         sampling_interval_ms,
+        analog_enable,
         digital_enable,
         i2c_stops,
         i2c_reads,

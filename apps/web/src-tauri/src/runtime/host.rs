@@ -678,13 +678,11 @@ mod tests {
 
     impl Write for ScriptedPort {
         fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            match self.write_error {
-                Some(kind) => Err(kind.into()),
-                None => {
-                    self.written.lock().unwrap().extend_from_slice(buf);
-                    Ok(buf.len())
-                }
+            if let Some(kind) = self.write_error {
+                return Err(kind.into());
             }
+            self.written.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
         }
         fn flush(&mut self) -> std::io::Result<()> {
             Ok(())
