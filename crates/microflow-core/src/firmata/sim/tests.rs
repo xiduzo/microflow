@@ -351,12 +351,13 @@ mod through_the_runtime {
         }
     }
 
-    fn resetting_badge(rig: &SimRig, node: &str) -> Option<Option<String>> {
+    /// The last runtime-origin diagnostic sent for `node`, if any was.
+    fn resetting_badge(rig: &SimRig, node: &str) -> Option<crate::runtime::NodeDiagnostic> {
         rig.diagnostics()
             .iter()
             .rev()
             .find(|d| d.node == node && d.origin == crate::runtime::DiagnosticOrigin::Runtime)
-            .map(|d| d.message.clone())
+            .cloned()
     }
 
     fn relay_rig() -> SimRig {
@@ -376,11 +377,11 @@ mod through_the_runtime {
         let mut rig = relay_rig();
         reset_repeatedly(&mut rig, 2);
         assert!(rig.board.pin(7).is_high(), "two resets: still restored");
-        assert_eq!(resetting_badge(&rig, "relay"), None);
+        assert!(resetting_badge(&rig, "relay").is_none());
 
         reset_repeatedly(&mut rig, 1);
         assert!(!rig.board.pin(7).is_high(), "the third reset in 30 s holds it off");
-        let badge = resetting_badge(&rig, "relay").flatten().expect("a badge on the held node");
+        let badge = resetting_badge(&rig, "relay").and_then(|d| d.message).expect("a badge on the held node");
         assert!(badge.contains("keeps resetting") && badge.contains("power supply"), "{badge}");
 
         // Still resetting: still held, and the value to restore is not lost.
@@ -392,7 +393,7 @@ mod through_the_runtime {
         rig.board.inject_output(&[0xF9, 2, 5]);
         rig.pump();
         assert!(rig.board.pin(7).is_high(), "restored once the board is quiet");
-        assert_eq!(resetting_badge(&rig, "relay"), Some(None), "badge cleared");
+        assert!(resetting_badge(&rig, "relay").is_some_and(|d| d.message.is_none()), "badge cleared");
         assert!(rig.events().is_empty(), "nothing emitted: {:?}", rig.events());
     }
 
@@ -406,7 +407,7 @@ mod through_the_runtime {
             rig.pump();
             assert!(rig.board.pin(7).is_high());
         }
-        assert_eq!(resetting_badge(&rig, "relay"), None);
+        assert!(resetting_badge(&rig, "relay").is_none());
     }
 
     /// A flow update ends the storm: the badge clears and the count restarts.
@@ -414,9 +415,9 @@ mod through_the_runtime {
     fn a_flow_update_ends_a_reset_storm() {
         let mut rig = relay_rig();
         reset_repeatedly(&mut rig, 3);
-        assert!(resetting_badge(&rig, "relay").flatten().is_some());
+        assert!(resetting_badge(&rig, "relay").is_some_and(|d| d.message.is_some()));
         rig.apply_flow(vec![node("relay", "Relay", json!({ "pin": 7 }))], vec![]);
-        assert_eq!(resetting_badge(&rig, "relay"), Some(None));
+        assert!(resetting_badge(&rig, "relay").is_some_and(|d| d.message.is_none()));
         rig.dispatch("relay", "true", true);
         reset_repeatedly(&mut rig, 1);
         assert!(rig.board.pin(7).is_high(), "a fresh count: one reset is restored");
