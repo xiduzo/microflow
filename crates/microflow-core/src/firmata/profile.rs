@@ -34,6 +34,11 @@ pub const UNO_FIRST_ANALOG_PIN: u8 = 14;
 /// The capability-response terminator for one pin.
 const END_OF_PIN: u8 = 127;
 
+/// Firmata addresses a pin with one 7-bit byte (`SET_PIN_MODE`, the analog
+/// mapping), so no board has more pins than this. A longer description is
+/// line noise and is cut here, which also keeps every pin number a `u8`.
+pub const MAX_PINS: usize = 128;
+
 /// One pin's entry in the seed both hosts hand the runtime, and the pin list
 /// the UI shows. `analogChannel` is the analog channel the pin reads (`A0` =
 /// 0), or `-1` when the pin is not an analog input.
@@ -104,7 +109,8 @@ pub struct PinProfile {
 impl PinProfile {
     /// A profile of `pins`, indexed by Firmata pin number.
     #[must_use]
-    pub fn new(pins: Vec<PinCaps>) -> Self {
+    pub fn new(mut pins: Vec<PinCaps>) -> Self {
+        pins.truncate(MAX_PINS);
         let mut profile = Self { pins, channel_pins: Vec::new() };
         profile.index_channels();
         profile
@@ -149,6 +155,7 @@ impl PinProfile {
     /// channel it reads or `127` for none. A mapping longer than the profile
     /// (its capability response was lost) adds pins of unknown modes.
     pub fn apply_analog_mapping(&mut self, body: &[u8]) {
+        let body = body.get(..MAX_PINS).unwrap_or(body);
         if self.pins.len() < body.len() {
             self.pins.resize_with(body.len(), PinCaps::default);
         }
@@ -158,29 +165,19 @@ impl PinProfile {
         self.index_channels();
     }
 
-    /// Rebuild a profile from the hosts' [`PinInfo`] seed.
-    ///
-    /// Accepts the projection hosts sent before boards were described, where
-    /// `analogChannel` carried the *pin index*: when every analog entry equals
-    /// its own pin and none is pin 0 (no real board numbers its first analog
-    /// channel after its own pin), the values are renumbered in pin order.
+    /// Rebuild a profile from the hosts' [`PinInfo`] seed. `analogChannel` is
+    /// the board's channel (both hosts project it from this profile on every
+    /// connect; seeds are never stored). An entry past [`MAX_PINS`] is dropped.
     #[must_use]
     pub fn from_pin_infos(infos: &[PinInfo]) -> Self {
-        let len = infos.iter().map(|p| p.pin + 1).max().unwrap_or(0);
+        let infos = || infos.iter().filter(|p| p.pin < MAX_PINS);
+        let len = infos().map(|p| p.pin + 1).max().unwrap_or(0);
         let mut pins = vec![PinCaps::default(); len];
-        let analog: Vec<&PinInfo> = infos.iter().filter(|p| p.analog_channel >= 0).collect();
-        let legacy = !analog.is_empty()
-            && analog.iter().all(|p| p.analog_channel as usize == p.pin && p.pin > 0);
-        let mut ranked: Vec<usize> = analog.iter().map(|p| p.pin).collect();
-        ranked.sort_unstable();
-        for info in infos {
-            let caps = &mut pins[info.pin];
-            caps.modes = info.supported_modes.iter().map(|&mode| Mode { mode, resolution: 0 }).collect();
-            caps.analog_channel = match info.analog_channel {
-                c if c < 0 => None,
-                _ if legacy => ranked.iter().position(|&p| p == info.pin).map(|r| r as u8),
-                c => u8::try_from(c).ok(),
-            };
+        for info in infos() {
+            if let Some(caps) = pins.get_mut(info.pin) {
+                caps.modes = info.supported_modes.iter().map(|&mode| Mode { mode, resolution: 0 }).collect();
+                caps.analog_channel = u8::try_from(info.analog_channel).ok();
+            }
         }
         Self::new(pins)
     }
@@ -221,11 +218,12 @@ impl PinProfile {
         self.caps(pin)?.analog_channel
     }
 
-    /// The pin that reads analog channel `channel`. With no board described,
-    /// the Uno layout (`14 + channel`).
+    /// The pin that reads analog channel `channel`. With no board described at
+    /// all, the Uno layout (`14 + channel`); a described board without that
+    /// channel has none.
     #[must_use]
     pub fn analog_pin(&self, channel: u8) -> Option<u8> {
-        if self.channel_pins.is_empty() {
+        if self.pins.is_empty() {
             return UNO_FIRST_ANALOG_PIN.checked_add(channel);
         }
         self.channel_pins.get(channel as usize).copied().flatten()
@@ -367,13 +365,23 @@ mod tests {
     }
 
     #[test]
-    fn seed_round_trips_and_reads_the_old_pin_index_projection() {
+    fn seed_round_trips_and_takes_channels_as_given() {
         let infos = vec![info(0, &[MODE_INPUT], -1), info(1, &[MODE_ANALOG], 0), info(2, &[MODE_ANALOG], 1)];
         assert_eq!(PinProfile::from_pin_infos(&infos).pin_infos(), infos);
 
-        let legacy: Vec<PinInfo> = (0..20).map(|p| info(p, &[], if p >= 14 { p as i32 } else { -1 })).collect();
-        let profile = PinProfile::from_pin_infos(&legacy);
-        assert_eq!(profile.analog_pin(0), Some(14));
-        assert_eq!(profile.analog_channel(19), Some(5));
+        // A channel equal to its own pin is taken as given.
+        let profile = PinProfile::from_pin_infos(&[info(0, &[MODE_ANALOG], 0), info(1, &[MODE_ANALOG], 1)]);
+        assert_eq!(profile.analog_pin(1), Some(1));
+        // A pin number past Firmata's 7-bit range is dropped, not allocated.
+        let profile = PinProfile::from_pin_infos(&[info(usize::MAX, &[], -1), info(3, &[], -1)]);
+        assert_eq!(profile.len(), 4);
+    }
+
+    #[test]
+    fn a_described_board_without_analog_inputs_has_no_a0() {
+        let digital_only = PinProfile::from_pin_infos(&[info(0, &[MODE_INPUT], -1)]);
+        assert_eq!(digital_only.analog_pin(0), None);
+        assert_eq!(digital_only.resolve(PinLabel::Analog(0)), None);
+        assert_eq!(PinProfile::default().analog_pin(0), Some(14), "only an undescribed board assumes an Uno");
     }
 }

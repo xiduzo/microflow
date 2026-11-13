@@ -68,9 +68,13 @@ fn judge(demand: &PinDemand, pins: &PinProfile) -> Option<(DiagnosticLevel, Stri
         PinUse::Digital => (pins.supports(pin, MODE_OUTPUT) == Some(false)
             && pins.supports(pin, MODE_INPUT) == Some(false))
         .then(|| (DiagnosticLevel::Error, format!("{name} cannot be used as a digital pin on this board"))),
-        PinUse::Servo => (pins.supports(pin, MODE_SERVO) == Some(false))
-            .then(|| (DiagnosticLevel::Error, format!("{name} cannot drive a servo on this board"))),
-        PinUse::AnalogIn => (pins.analog_count() > 0 && pins.analog_channel(pin).is_none()).then(|| {
+        // `StandardFirmata` attaches a servo to any digital pin (its
+        // `setPinModeCallback` checks only `IS_PIN_DIGITAL`), so a pin that
+        // advertises OUTPUT but not SERVO is not an error.
+        PinUse::Servo => (pins.supports(pin, MODE_SERVO) == Some(false)
+            && pins.supports(pin, MODE_OUTPUT) == Some(false))
+        .then(|| (DiagnosticLevel::Error, format!("{name} cannot drive a servo on this board"))),
+        PinUse::AnalogIn => pins.analog_channel(pin).is_none().then(|| {
             (DiagnosticLevel::Error, format!("{name} cannot read analog values on this board — {}", analog_inputs()))
         }),
         PinUse::Pwm => (pins.supports(pin, MODE_PWM) == Some(false)).then(|| {
@@ -101,15 +105,39 @@ mod tests {
     }
 
     #[test]
-    fn servo_on_a_pin_without_servo_is_an_error_until_moved() {
+    fn servo_on_a_pin_that_is_not_digital_is_an_error_until_moved() {
         let mut rig = rig(BoardLayout::uno());
-        rig.apply_flow(vec![node("s", "Servo", json!({ "pin": 14 }))], vec![]);
+        rig.apply_flow(vec![node("s", "Servo", json!({ "pin": 0 }))], vec![]);
         let (level, message) = badge(&rig, "s").expect("badged");
         assert_eq!(level, DiagnosticLevel::Error);
-        assert!(message.unwrap().contains("Pin 14 cannot drive a servo"));
+        assert!(message.unwrap().contains("Pin 0 cannot drive a servo"));
 
         rig.apply_flow(vec![node("s", "Servo", json!({ "pin": 9 }))], vec![]);
         assert_eq!(badge(&rig, "s"), Some((DiagnosticLevel::Error, None)), "moving the servo clears it");
+    }
+
+    /// `StandardFirmata` attaches a servo to any digital pin, A0 included;
+    /// only a board that does not even list the pin as digital is refused.
+    #[test]
+    fn servo_on_any_digital_pin_is_fine() {
+        let mut rig = rig(BoardLayout::uno());
+        rig.apply_flow(vec![node("s", "Servo", json!({ "pin": 14 }))], vec![]);
+        assert_eq!(badge(&rig, "s"), None);
+        rig.dispatch("s", "value", 30.0);
+        assert_eq!(rig.board.pin(14).servo(), Some(30), "{:?}", rig.board.violations());
+    }
+
+    #[test]
+    fn analog_read_on_a_board_without_analog_inputs_says_so() {
+        let digital_only = PinProfile::from_pin_infos(&[crate::firmata::PinInfo {
+            pin: 0,
+            supported_modes: vec![MODE_INPUT, MODE_OUTPUT],
+            analog_channel: -1,
+        }]);
+        let sensor = node("pot", "Sensor", json!({ "pin": "A0" }));
+        let (level, message) = problem(&sensor, &[], &digital_only).expect("judged");
+        assert_eq!(level, DiagnosticLevel::Error);
+        assert!(message.contains("this board has no analog inputs"), "{message}");
     }
 
     #[test]

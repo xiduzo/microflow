@@ -910,8 +910,8 @@ mod tests {
     fn switch_read_token(t: crate::nodes::switch::config::SwitchType) -> &'static str {
         use crate::nodes::switch::config::SwitchType::{NC, NO};
         match t {
-            NO => "== HIGH",
-            NC => "== LOW",
+            NO => "== LOW",
+            NC => "== HIGH",
         }
     }
 
@@ -930,23 +930,30 @@ mod tests {
         }
     }
 
-    /// The live Switch closes on the same level the sketch reads as closed.
-    /// They disagreed: the runtime read NO as closed-on-LOW, the sketch (and
-    /// johnny-five) closed-on-HIGH.
+    /// The live Switch closes on the same level the sketch reads as closed,
+    /// and both on the level the Switch docs give (NC: HIGH is active). The
+    /// sketch used to read every type the other way round.
     #[cfg(feature = "runtime")]
     #[test]
     fn switch_runtime_closes_on_the_level_the_sketch_reads() {
         use crate::firmata::sim::rig::{node as rig_node, SimRig};
         use crate::firmata::sim::{BoardLayout, SimBoard};
         use crate::runtime::ComponentValue;
-        for (wire, closed_on_high) in [("NO", true), ("NC", false)] {
+        for (wire, closed_on_high) in [("NO", false), ("NC", true)] {
             let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
             rig.apply_flow(vec![rig_node("sw", "Switch", json!({ "pin": 2, "type": wire }))], vec![]);
+            // Drive the line LOW, then HIGH: the second edge must be reported,
+            // so an absent report cannot pass for "open".
+            rig.advance(100);
+            rig.board.drive_pin(2, false);
+            rig.pump();
             rig.advance(100);
             rig.take_events();
             rig.board.drive_pin(2, true);
             rig.pump();
-            let live_closed = rig.last_value("sw") == Some(&ComponentValue::Bool(true));
+            let Some(&ComponentValue::Bool(live_closed)) = rig.last_value("sw") else {
+                panic!("live Switch `{wire}` reported nothing for LOW -> HIGH: {:?}", rig.events());
+            };
             assert_eq!(live_closed, closed_on_high, "live Switch `{wire}` with the line HIGH");
 
             let e = crate::nodes::switch::codegen::emit(&node("Switch", json!({ "type": wire })));

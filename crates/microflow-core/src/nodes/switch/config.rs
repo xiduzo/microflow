@@ -3,25 +3,29 @@
 use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
+/// The editor's default is `NC` (`switch.schema.ts`), so a node stored
+/// without a `type` means the same thing to the editor, the live runtime and
+/// the sketch.
 #[derive(Debug, Default, Clone, Serialize, Deserialize, PartialEq)]
 pub(crate) enum SwitchType {
     /// Normally Open — circuit is open when not actuated
-    #[default]
     NO,
     /// Normally Closed — circuit is closed when not actuated
+    #[default]
     NC,
 }
 
 impl SwitchType {
-    /// The pin level that reads as "closed" — the one truth table the live
-    /// runtime and the emitted sketch both apply, so they cannot disagree.
-    /// johnny-five's semantics, on a plain `INPUT` with an external pull-down:
-    /// a NO contact pulls the line HIGH when actuated; NC inverts it.
+    /// The pin level that reads as "closed" (the node's `true`) — the one
+    /// truth table the live runtime and the emitted sketch both apply, so they
+    /// cannot disagree. It is the live runtime's long-standing behaviour and
+    /// what the Switch docs describe for the editor's default, NC: HIGH is
+    /// active, LOW inactive. NO is the inverse: LOW is closed.
     #[must_use]
     pub(crate) fn closed_when_high(&self) -> bool {
         match self {
-            SwitchType::NO => true,
-            SwitchType::NC => false,
+            SwitchType::NO => false,
+            SwitchType::NC => true,
         }
     }
 }

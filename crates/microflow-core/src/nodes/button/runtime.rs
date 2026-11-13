@@ -290,6 +290,28 @@ mod sim_tests {
         assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
     }
 
+    /// A0 can do analog, but a Button on it is a digital input: press and
+    /// release register through the digital port reports (the runtime types
+    /// the change by the pin's mode — `pin_changes_are_typed_by_the_pins_current_mode`).
+    #[test]
+    fn a_button_on_an_analog_capable_pin_reads_digital() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("btn", "Button", json!({ "pin": 14 }))], vec![]);
+        rig.pump();
+        assert_eq!(rig.board.pin(14).mode(), Some(MODE_INPUT));
+        rig.advance(100);
+        rig.take_events();
+        rig.board.drive_pin(14, true);
+        rig.pump();
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "true"]);
+        assert_eq!(rig.last_value("btn"), Some(&ComponentValue::Bool(true)));
+        rig.take_events();
+        rig.advance(100);
+        rig.board.drive_pin(14, false);
+        rig.pump();
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "false"]);
+    }
+
     #[test]
     fn contact_bounce_settles_to_one_press() {
         let mut rig = button(json!({ "pin": 6 }));

@@ -1,10 +1,10 @@
 //! Switch emitter — mirrors `nodes/switch/runtime.rs`.
 //!
 //! The live Switch is a latching on/off toggle (unlike the momentary Button).
-//! It sets `pinMode(pin, INPUT)` and reports digital reads. A Normally-Open (NO)
-//! switch reads HIGH when actuated; a Normally-Closed (NC) switch is wired
-//! inverted, so the emitted state inverts the raw read to match the runtime's
-//! `SwitchType`. Downstream Nodes read the resulting `bool` state variable.
+//! It sets `pinMode(pin, INPUT)` and reports digital reads, closed on the level
+//! `SwitchType::closed_when_high` names (NC: HIGH, NO: LOW) — the truth table
+//! the runtime applies too. Downstream Nodes read the resulting `bool` state
+//! variable.
 
 use super::config::SwitchConfig;
 use crate::codegen::emit::{NodeEmission, NodeToken};
@@ -32,8 +32,8 @@ pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let pin = config.pin;
     let pin_var = format!("switch_{}_pin", node.id_token());
     let state = state_var(node);
-    // NO: actuated reads HIGH. NC: the contact is inverted, so actuated reads
-    // LOW — the truth table the runtime applies too.
+    // NC: HIGH is closed; NO: LOW is closed — the truth table the runtime
+    // applies too.
     let level = if config.switch_type.closed_when_high() { "HIGH" } else { "LOW" };
     let read_expr = format!("(digitalRead({pin_var}) == {level})");
 
@@ -65,15 +65,16 @@ mod tests {
 
     #[test]
     fn switch_input_mode_and_reads() {
+        // No `type`: NC, the editor's default — closed on HIGH.
         let e = emit(&switch("sw-1", json!({ "pin": 2 })));
         assert!(e.setup.iter().any(|s| s.contains("pinMode") && s.contains("INPUT")));
-        assert!(e.loop_body.iter().any(|l| l.contains("digitalRead") && l.contains("HIGH")));
+        assert!(e.loop_body.iter().any(|l| l.contains("digitalRead") && l.contains("== HIGH")));
     }
 
     #[test]
-    fn switch_nc_inverts_read() {
-        let e = emit(&switch("sw-1", json!({ "pin": 2, "type": "NC" })));
-        assert!(e.loop_body.iter().any(|l| l.contains("LOW")));
+    fn switch_no_inverts_read() {
+        let e = emit(&switch("sw-1", json!({ "pin": 2, "type": "NO" })));
+        assert!(e.loop_body.iter().any(|l| l.contains("== LOW")));
     }
 
     #[test]

@@ -43,7 +43,7 @@ fn edge(source: &str, source_handle: &str, target: &str, target_handle: &str) ->
 
 /// Number of digital pins before the analog block, matching the Uno/Mega
 /// layout the desktop detection and the web session hand over: `analogChannel`
-/// is `-1` on a digital pin and the pin's own number on an analog one, so `A0`
+/// is `-1` on a digital pin and the analog channel on an analog one, so `A0`
 /// is pin `FIRST_ANALOG_PIN`.
 const FIRST_ANALOG_PIN: i64 = 14;
 /// Analog channels seeded, i.e. `A0`..`A15` — a Mega-shaped board.
@@ -57,7 +57,7 @@ fn seed_board(runtime: &mut FlowRuntime) {
             json!({
                 "pin": pin,
                 "supportedModes": [],
-                "analogChannel": if pin >= FIRST_ANALOG_PIN { pin } else { -1 },
+                "analogChannel": if pin >= FIRST_ANALOG_PIN { pin - FIRST_ANALOG_PIN } else { -1 },
             })
         })
         .collect();

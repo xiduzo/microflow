@@ -35,20 +35,3 @@ impl Default for ProximityConfig {
         }
     }
 }
-
-impl ProximityConfig {
-    /// Get the pin number for analog operations
-    /// Handles both legacy "A0" format and new numeric format
-    #[must_use]
-    pub(crate) fn analog_pin(&self) -> u8 {
-        // If it starts with 'A' or 'a', strip it and parse (legacy format)
-        if self.pin.starts_with('A') || self.pin.starts_with('a') {
-            // Legacy format like "A0" - but this shouldn't happen anymore
-            // since UI now sends actual pin numbers
-            self.pin[1..].parse().unwrap_or(0)
-        } else {
-            // New format: actual pin number (e.g., "14" for A0 on Arduino Uno)
-            self.pin.parse().unwrap_or(0)
-        }
-    }
-}
