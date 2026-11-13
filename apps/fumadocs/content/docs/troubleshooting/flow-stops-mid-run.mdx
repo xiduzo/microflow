@@ -37,7 +37,7 @@ See [Node badges](/docs/troubleshooting/node-badges) for every message.
 
 If the desktop app shows *"The flow runtime crashed and was restarted"*, the flow engine hit a bug. Studio switched the board's outputs off, started a fresh engine and loaded your flow into it again. The flow keeps running; outputs come back as the flow drives them.
 
-If the engine crashes three times within a minute, Studio stops it and shows *"The flow runtime keeps crashing, so it was stopped"*. The board is not driven until you click **Reload**. Something in the flow keeps triggering the bug: undo your last change, then [report it](https://github.com/xiduzo/microflow/issues).
+If the engine crashes three times within a minute, Studio stops it and shows *"The flow runtime keeps crashing, so it was stopped"*. The board is not driven until you click **Reload** in that message. Reloading the window does not restart the engine: the message shows again. Something in the flow keeps triggering the bug: undo your last change, then [report it](https://github.com/xiduzo/microflow/issues).
 
 The browser has no automatic restart. When the flow engine stops there, reload the page.
 

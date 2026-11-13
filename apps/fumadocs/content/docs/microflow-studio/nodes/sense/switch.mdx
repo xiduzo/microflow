@@ -20,16 +20,14 @@ The wiring examples are for illustrative purposes, it might not work with your p
 
 **Understanding switch states:**
 
-Different switches work in different ways. Here's how to understand what your microcontroller sees:
+The microcontroller only reads a level on the pin: HIGH (1) or LOW (0). The node's **Type** setting decides which level counts as closed. The node then reports `true` for closed and `false` for open:
 
-| Switch Type | Switch Position | What the Microcontroller Reads |
-|-------------|-----------------|-------------------------------|
-| Normally Open (NO) | On (pressed/flipped) | HIGH (1) - meaning "active" |
-| Normally Open (NO) | Off (not pressed) | LOW (0) - meaning "inactive" |
-| Normally Closed (NC) | On (pressed/flipped) | LOW (0) - meaning "inactive" (opposite!) |
-| Normally Closed (NC) | Off (not pressed) | HIGH (1) - meaning "active" (opposite!) |
+| Type setting | Pin reads HIGH (1) | Pin reads LOW (0) |
+|--------------|--------------------|-------------------|
+| Normally Closed (NC), the default | `true` (closed) | `false` (open) |
+| Normally Open (NO) | `false` (open) | `true` (closed) |
 
-**What does this mean?** Normally Closed switches work backwards - when they're "on" they send LOW, and when they're "off" they send HIGH. This is just how that type of switch is wired internally.
+**What does this mean?** NC and NO are opposites. With NC, HIGH is closed. With NO, LOW is closed. If the node reports `false` when you expect `true`, change the Type setting. The live flow and an exported sketch use the same table, so the switch behaves the same in both.
 
 ### 2 pin on-off switch
 
