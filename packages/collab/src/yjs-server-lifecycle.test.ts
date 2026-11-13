@@ -183,20 +183,31 @@ describe("YjsServer persist ceiling", () => {
     const peer = newPeer();
     peer.connection = await server.join("flow-busy", socketFor(peer), "user-a", true);
 
-    peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
-    expect(store.saves.length).toBe(0);
+    // An edit every 5ms for 60ms: the debounce never gets its quiet period.
+    for (let i = 0; i < 12; i++) {
+      peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set(`n${i}`, i)));
+      await new Promise((r) => setTimeout(r, 5));
+    }
 
-    await new Promise((r) => setTimeout(r, 30));
-
-    // The next edit after the ceiling forces the write rather than re-arming.
-    peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n2", 2)));
-    await new Promise((r) => setTimeout(r, 5));
-
-    expect(store.saves.length).toBe(1);
+    // The ceiling wrote the room mid-stream, more than once.
+    expect(store.saves.length).toBeGreaterThanOrEqual(2);
     const persisted = new Y.Doc();
     Y.applyUpdate(persisted, store.saves[0]!.state);
-    expect(persisted.getMap("nodes").get("n1")).toBe(1);
-    expect(persisted.getMap("nodes").get("n2")).toBe(2);
+    expect(persisted.getMap("nodes").get("n0")).toBe(0);
+  });
+
+  test("the ceiling holds even when the room goes quiet right after an edit", async () => {
+    const store = new MemoryRoomStore();
+    const server = new YjsServer({ store, persistDebounce: 10_000, persistMaxWait: 20 });
+
+    const peer = newPeer();
+    peer.connection = await server.join("flow-quiet", socketFor(peer), "user-a", true);
+
+    // One edit, then silence: no later edit arrives to notice the ceiling.
+    peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
+    await new Promise((r) => setTimeout(r, 40));
+
+    expect(store.saves.length).toBe(1);
   });
 
   test("a failed persist leaves the room dirty so the next attempt retries", async () => {
@@ -212,23 +223,31 @@ describe("YjsServer persist ceiling", () => {
         return inner.save(flowId, state);
       },
     };
-    const server = new YjsServer({ store, persistDebounce: 5, persistMaxWait: 10_000 });
+    const server = new YjsServer({
+      store,
+      persistDebounce: 5,
+      persistMaxWait: 10_000,
+      persistRetryBase: 25,
+    });
 
     const peer = newPeer();
     peer.connection = await server.join("flow-flaky", socketFor(peer), "user-a", true);
 
+    // Saved at ~5ms and fails; the backoff retry is due at ~30ms.
     peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n1", 1)));
     await new Promise((r) => setTimeout(r, 20));
     expect(inner.saves.length).toBe(0);
 
+    // An edit during the backoff rides along with the pending retry.
     peer.connection.receive(updateMessage((doc) => doc.getMap("nodes").set("n2", 2)));
-    await new Promise((r) => setTimeout(r, 20));
+    await new Promise((r) => setTimeout(r, 40));
 
     // The retry carries both edits — the first was never dropped.
     expect(inner.saves.length).toBe(1);
     const persisted = new Y.Doc();
     Y.applyUpdate(persisted, inner.saves[0]!.state);
     expect(persisted.getMap("nodes").get("n1")).toBe(1);
+    expect(persisted.getMap("nodes").get("n2")).toBe(2);
   });
 });
 

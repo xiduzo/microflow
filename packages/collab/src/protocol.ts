@@ -41,3 +41,11 @@ export const MESSAGE_ACK = 4;
  * mid-session — so a removed collaborator stops hammering the server.
  */
 export const CLOSE_ACCESS_DENIED = 4401;
+
+/**
+ * Standard WebSocket "Service Restart" (RFC 6455 registry). The server sends
+ * it from `YjsServer.shutdown()` when the process is going down. Retryable on
+ * purpose: the client reconnects to the next instance and re-sends, as sync
+ * step 2, anything the store lacks.
+ */
+export const CLOSE_SERVICE_RESTART = 1012;
