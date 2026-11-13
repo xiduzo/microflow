@@ -12,7 +12,7 @@ export const Route = createFileRoute("/flow/$flowId/circuit")({
         if (!session.data) {
             throw redirect({
                 to: "/login",
-                search: { redirect: `/${params.flowId}/circuit` },
+                search: { redirect: `/flow/${params.flowId}/circuit` },
             });
         }
 
