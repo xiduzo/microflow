@@ -172,6 +172,63 @@ impl ComponentBuilder for Sensor {
 }
 
 #[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_ANALOG;
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn sensor(layout: BoardLayout, pin: &str, threshold: u16) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(layout));
+        rig.apply_flow(
+            vec![node("pot", "Sensor", json!({ "pin": pin, "type": "analog", "threshold": threshold }))],
+            vec![],
+        );
+        rig
+    }
+
+    fn read(rig: &mut SimRig, pin: u8, value: u16) -> Option<ComponentValue> {
+        rig.take_events();
+        rig.board.set_analog(pin, value);
+        rig.sample();
+        rig.last_value("pot").cloned()
+    }
+
+    #[test]
+    fn uno_a0_streams_readings_past_the_threshold() {
+        let mut rig = sensor(BoardLayout::uno(), "A0", 10);
+        assert_eq!(rig.board.pin(14).mode(), Some(MODE_ANALOG));
+        assert!(rig.board.is_reporting_analog(0));
+        assert_eq!(read(&mut rig, 14, 512), Some(ComponentValue::Number(512.0)));
+        assert_eq!(read(&mut rig, 14, 515), None, "below the threshold");
+        assert_eq!(read(&mut rig, 14, 530), Some(ComponentValue::Number(530.0)));
+    }
+
+    /// The "A0" label resolves to the Uno's pin 14 on every board; on a Mega
+    /// A0 is pin 54 and pin 14 is a plain digital pin.
+    #[test]
+    #[ignore = "track I: the A<n> label resolves to 14 + n on every board (Mega A0 = 54, Leonardo A0 = 18)"]
+    fn mega_a0_label_reads_pin_54() {
+        let mut rig = sensor(BoardLayout::mega2560(), "A0", 1);
+        assert!(rig.board.is_reporting_analog(0));
+        assert_eq!(read(&mut rig, 54, 700), Some(ComponentValue::Number(700.0)));
+    }
+
+    /// Even with the right pin number, the codec decodes analog channel n as
+    /// pin 14 + n, so a Mega/Leonardo reading lands on the wrong pin.
+    #[test]
+    #[ignore = "track I: codec maps ANALOG_MESSAGE channel n to pin 14 + n regardless of the board's analog mapping"]
+    fn mega_and_leonardo_analog_readings_reach_the_sensor() {
+        for (layout, pin) in [(BoardLayout::mega2560(), 54u8), (BoardLayout::leonardo(), 18)] {
+            let mut rig = sensor(layout, &pin.to_string(), 1);
+            assert!(rig.board.is_reporting_analog(0));
+            assert_eq!(read(&mut rig, pin, 321), Some(ComponentValue::Number(321.0)), "pin {pin}");
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

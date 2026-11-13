@@ -274,6 +274,96 @@ impl ComponentBuilder for I2cDevice {
 }
 
 #[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, I2cQuery, SimBoard};
+    use crate::runtime::{ComponentValue, DiagnosticLevel};
+    use serde_json::json;
+
+    fn device(id: &str, address: u8, register: u8, autoread: bool) -> crate::flow::FlowNode {
+        node(
+            id,
+            "I2cDevice",
+            json!({
+                "address": address, "register": register, "readLength": 2,
+                "output": "raw", "freq": 50, "autoread": autoread,
+            }),
+        )
+    }
+
+    fn bytes(values: &[u8]) -> ComponentValue {
+        ComponentValue::Array(values.iter().map(|&b| ComponentValue::Number(f64::from(b))).collect())
+    }
+
+    #[test]
+    fn continuous_read_streams_the_register_every_sample() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0x12, 0x34]);
+        rig.apply_flow(vec![device("tcs", 0x29, 0x14, true)], vec![]);
+        assert!(rig.board.i2c_enabled());
+        assert_eq!(rig.board.sampling_interval_ms(), 50);
+        assert_eq!(
+            rig.board.i2c_queries(),
+            &[I2cQuery { address: 0x29, register: Some(0x14), length: 2 }]
+        );
+        rig.sample();
+        assert_eq!(rig.last_value("tcs"), Some(&bytes(&[0x12, 0x34])));
+        rig.board.i2c_device(0x29).set_registers(0x14, &[0xAB, 0xCD]);
+        rig.sample();
+        assert_eq!(rig.last_value("tcs"), Some(&bytes(&[0xAB, 0xCD])));
+    }
+
+    #[test]
+    fn a_device_that_stops_answering_raises_then_clears_a_diagnostic() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x40).set_registers(0, &[1, 2]);
+        rig.apply_flow(vec![device("sht", 0x40, 0, true)], vec![]);
+        rig.sample();
+        rig.take_events();
+
+        rig.board.i2c_device(0x40).set_nack(true);
+        rig.sample();
+        rig.sample();
+        assert_eq!(rig.diagnostics().len(), 1, "raised once: {:?}", rig.diagnostics());
+        assert!(matches!(rig.diagnostics()[0].level, DiagnosticLevel::Error));
+        assert!(rig.last_value("sht").is_none(), "a NACK keeps the last good value");
+
+        rig.board.i2c_device(0x40).set_nack(false).set_registers(0, &[3, 4]);
+        rig.sample();
+        assert_eq!(rig.diagnostics().len(), 2);
+        assert!(rig.diagnostics()[1].message.is_none(), "cleared");
+        assert_eq!(rig.last_value("sht"), Some(&bytes(&[3, 4])));
+    }
+
+    /// The board-level view of the drain-then-arm reconcile: adding a second
+    /// device keeps the first one streaming, removing one leaves the other.
+    #[test]
+    fn devices_on_one_bus_keep_streaming_as_the_flow_changes() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![device("a", 0x40, 0, true)], vec![]);
+        rig.apply_flow(vec![device("a", 0x40, 0, true), device("b", 0x29, 0x14, true)], vec![]);
+        let mut addresses: Vec<u8> = rig.board.i2c_queries().iter().map(|q| q.address).collect();
+        addresses.sort_unstable();
+        assert_eq!(addresses, vec![0x29, 0x40]);
+
+        rig.apply_flow(vec![device("b", 0x29, 0x14, true)], vec![]);
+        let addresses: Vec<u8> = rig.board.i2c_queries().iter().map(|q| q.address).collect();
+        assert_eq!(addresses, vec![0x29]);
+    }
+
+    #[test]
+    fn trigger_reads_once_when_autoread_is_off() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.i2c_device(0x48).set_registers(0x05, &[7, 8]);
+        rig.apply_flow(vec![device("adc", 0x48, 0x05, false)], vec![]);
+        assert!(rig.board.i2c_queries().is_empty(), "nothing streams until triggered");
+        rig.dispatch("adc", "trigger", true);
+        assert_eq!(rig.board.i2c_device(0x48).writes(), &[vec![0x05]], "register pointer first");
+        assert_eq!(rig.last_value("adc"), Some(&bytes(&[7, 8])));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 

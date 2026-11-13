@@ -122,6 +122,9 @@ pub struct FlowRouter {
     /// `(target, target_handle)` → the source ids feeding that input, in edge
     /// order. Snapshot delivery reads this instead of scanning the edge list.
     input_map: EdgeMap<Arc<str>>,
+    /// The edge list as set, kept for graph questions the hot-path indexes
+    /// cannot answer (which emitters sit on a cycle — the turn budget).
+    edges: Vec<FlowEdge>,
 }
 
 impl FlowRouter {
@@ -130,6 +133,7 @@ impl FlowRouter {
         Self {
             edge_map: EdgeMap::new(),
             input_map: EdgeMap::new(),
+            edges: Vec::new(),
         }
     }
 
@@ -152,12 +156,20 @@ impl FlowRouter {
                 .insert(&edge.target, &edge.target_handle, Arc::from(edge.source.as_str()));
             self.edge_map.insert(&edge.source, &edge.source_handle, target);
         }
+        self.edges = edges;
+    }
+
+    /// The edge list as last set.
+    #[must_use]
+    pub fn edges(&self) -> &[FlowEdge] {
+        &self.edges
     }
 
     /// Drop all edges and clear the lookup indexes.
     pub fn clear(&mut self) {
         self.edge_map.clear();
         self.input_map.clear();
+        self.edges.clear();
     }
 
     /// Plan the dispatch calls produced by one outgoing event.

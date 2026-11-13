@@ -8,6 +8,7 @@ import {
 } from "./board-controller-core";
 import type { BoardState } from "@/lib/bindings/BoardState";
 import type { BringUpAction, BringUpEvent } from "./wasm";
+import { FakeClock } from "./link-fakes";
 
 // A fake port. Only `getInfo` is ever read by the controller itself.
 function fakePort(label = "usb1") {
@@ -18,7 +19,10 @@ function fakeConnection(port: unknown) {
   return {
     port,
     session: {},
+    pinSeed: "[]",
+    phase: "ready",
     write: async () => {},
+    attachInbound: () => {},
     disconnect: async () => {},
   } as never;
 }
@@ -29,6 +33,7 @@ function fakeReactor(): ReactorHandle & { disposed: boolean; flows: unknown[] } 
     flows: [] as unknown[],
     applyFlow(flow: unknown) {
       reactor.flows.push(flow);
+      return { ok: true as const };
     },
     feedBytes() {},
     dispatchToNode() {},
@@ -113,6 +118,8 @@ function harness(overrides: Partial<BoardControllerDeps["serial"]> = {}): Harnes
     track: ((event: string, data?: Record<string, unknown>) => {
       tracked.push({ event, data });
     }) as never,
+    clock: new FakeClock(),
+    onPageLifecycle: () => () => {},
     isDesktop: () => false,
   };
 
@@ -314,6 +321,28 @@ describe("engine fault", () => {
     controller.pushFlowUpdate({ nodes: [], edges: [] } as never);
     await controller.settled();
     expect(h.reactors).toHaveLength(1);
+  });
+});
+
+describe("flow update results", () => {
+  test("ok while no runtime exists yet; the runtime's verdict once one does; a failure after a fault", async () => {
+    const h = harness();
+    const controller = new BoardController(h.deps);
+    const flow = { nodes: [], edges: [] } as never;
+
+    // Stored and applied on attach — nothing for the dispatcher to retry.
+    expect(controller.pushFlowUpdate(flow)).toEqual({ ok: true });
+
+    controller.start();
+    await controller.settled();
+    h.reactors[0].applyFlow = () => ({ ok: false, error: "rejected" });
+    expect(controller.pushFlowUpdate(flow)).toEqual({ ok: false, error: "rejected" });
+
+    h.faultEngine("The flow engine stopped: unreachable");
+    expect(controller.pushFlowUpdate(flow)).toEqual({
+      ok: false,
+      error: "The flow engine stopped: unreachable",
+    });
   });
 });
 

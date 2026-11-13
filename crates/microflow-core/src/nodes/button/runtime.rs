@@ -199,8 +199,12 @@ impl HardwareComponent for Button {
         value: ComponentValue,
         ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        if let Some(pressed) = value.as_bool() {
-            self.process_state(pressed, ctx);
+        // A pull-up button reads active-low: the line rests HIGH and a press
+        // pulls it to ground. Invert to a logical "pressed", as the emitted
+        // sketch does (`digitalRead(pin) == LOW`); without it the node reported
+        // pressed at rest and released while held.
+        if let Some(high) = value.as_bool() {
+            self.process_state(high != self.config.is_pullup, ctx);
         }
         Ok(())
     }
@@ -210,6 +214,97 @@ impl ComponentBuilder for Button {
     type Config = ButtonConfig;
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError> {
         Ok(Self::new(id, config))
+    }
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::{MODE_INPUT, MODE_PULLUP};
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn button(data: serde_json::Value) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("btn", "Button", data)], vec![]);
+        rig.pump();
+        rig
+    }
+
+    /// Change the line at least one debounce window after the last edge.
+    fn set_line(rig: &mut SimRig, high: Option<bool>) {
+        rig.advance(100);
+        match high {
+            Some(level) => rig.board.drive_pin(6, level),
+            None => rig.board.release_pin(6),
+        }
+        rig.pump();
+    }
+
+    #[test]
+    fn press_hold_and_release_on_a_plain_input() {
+        let mut rig = button(json!({ "pin": 6, "holdtime": 300 }));
+        assert_eq!(rig.board.pin(6).mode(), Some(MODE_INPUT));
+        assert!(rig.board.is_reporting_digital(0));
+        set_line(&mut rig, Some(true));
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "true"]);
+        rig.take_events();
+        rig.advance(300);
+        assert_eq!(rig.handles_from("btn"), vec!["hold"]);
+        rig.take_events();
+        set_line(&mut rig, Some(false));
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "false"]);
+    }
+
+    /// With the internal pull-up the line rests HIGH and a press pulls it LOW;
+    /// the node read the raw level, so it showed pressed at rest and released
+    /// while held.
+    #[test]
+    fn pullup_button_reads_active_low() {
+        let mut rig = button(json!({ "pin": 6, "isPullup": true }));
+        assert_eq!(rig.board.pin(6).mode(), Some(MODE_PULLUP));
+        rig.advance(100);
+        assert_ne!(
+            rig.last_value("btn"),
+            Some(&ComponentValue::Bool(true)),
+            "the idle (HIGH) line must settle as released: {:?}",
+            rig.events()
+        );
+        rig.take_events();
+        set_line(&mut rig, Some(false));
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "true"]);
+        rig.take_events();
+        set_line(&mut rig, None);
+        assert_eq!(rig.handles_from("btn"), vec!["value", "event", "false"]);
+    }
+
+    /// `update_flow` enables `REPORT_DIGITAL` (setup phase) before `initialize`
+    /// sets the pin's input mode, and `StandardFirmata` answers the enable at
+    /// once with the port masked to its *input* pins — so the first report
+    /// carries the pin as LOW. For a pull-up input that is a phantom press at
+    /// every flow start (settled by the debounce one window later).
+    #[test]
+    #[ignore = "track J: digital reporting is enabled before input pin modes, so the first port report reads every new input LOW"]
+    fn pullup_button_does_not_flash_pressed_at_startup() {
+        let mut rig = button(json!({ "pin": 6, "isPullup": true }));
+        rig.advance(100);
+        assert!(!rig.handles_from("btn").contains(&"true"), "{:?}", rig.events());
+    }
+
+    #[test]
+    fn contact_bounce_settles_to_one_press() {
+        let mut rig = button(json!({ "pin": 6 }));
+        rig.advance(100);
+        for level in [true, false, true, false, true] {
+            rig.board.drive_pin(6, level);
+            rig.pump();
+            rig.advance(5);
+        }
+        rig.advance(100);
+        let presses = rig.handles_from("btn").iter().filter(|h| **h == "true").count();
+        assert_eq!(presses, 1, "{:?}", rig.events());
+        assert!(!rig.handles_from("btn").contains(&"false"));
     }
 }
 

@@ -12,7 +12,13 @@ function makeDoc(initial: Record<string, unknown> = {}) {
       stored = { ...stored, ...data };
     },
   };
-  return { doc, writes, get stored() { return stored; } };
+  return {
+    doc,
+    writes,
+    get stored() { return stored; },
+    /** A peer's edit: lands in the doc without going through this committer. */
+    remote(data: Record<string, unknown>) { stored = { ...stored, ...data }; return stored; },
+  };
 }
 
 /** Manual scheduler standing in for requestAnimationFrame. */
@@ -24,19 +30,80 @@ function makeScheduler() {
   };
 }
 
-function make(initial: Record<string, unknown> = {}, readOnly = false) {
+function make(
+  initial: Record<string, unknown> = {},
+  readOnly = false,
+  defaults: Record<string, unknown> = {},
+) {
   const fake = makeDoc(initial);
   const { schedule, flush } = makeScheduler();
-  const committer = createNodeDataCommitter({ doc: fake.doc, nodeId: "n1", readOnly, schedule });
+  // Seeded the way `useNodeControls` seeds it: from the doc data at mount.
+  const committer = createNodeDataCommitter({
+    doc: fake.doc,
+    nodeId: "n1",
+    readOnly,
+    schedule,
+    initial: { doc: initial, controls: defaults },
+  });
   return { committer, fake, flush };
 }
 
+describe("createNodeDataCommitter — opening a node", () => {
+  it("writes nothing when the controls mount with the doc's values", () => {
+    const { committer, fake, flush } = make({ label: "a", speed: 1 });
+    // The mount commit: Leva reports its starting values, which are the doc's.
+    committer.commit({ label: "a", speed: 1 });
+    flush();
+    expect(fake.writes).toEqual([]);
+  });
+
+  it("writes nothing for a control default the doc does not hold", () => {
+    // An older node, from before the `speed` control existed: Leva shows its
+    // default, the doc has no key. Opening the node is not an edit.
+    const { committer, fake, flush } = make({ label: "a" }, false, { label: "a", speed: 1 });
+    committer.commit({ label: "a", speed: 1 });
+    flush();
+    expect(fake.writes).toEqual([]);
+  });
+
+  it("still writes the first real change after mount", () => {
+    const { committer, fake, flush } = make({ label: "a", speed: 1 });
+    committer.commit({ label: "a", speed: 1 });
+    flush();
+    committer.commit({ label: "a", speed: 2 });
+    flush();
+    expect(fake.writes).toEqual([{ speed: 2 }]);
+  });
+});
+
+describe("createNodeDataCommitter — pending edits versus a doc change", () => {
+  it("does not replay a peer's value over a key the user has an unflushed edit on", () => {
+    const { committer, fake, flush } = make({ label: "a", speed: 1 });
+    committer.commit({ label: "typed", speed: 1 }); // the user's keystroke, not flushed yet
+
+    // A peer's edit lands in the same frame.
+    const docData = fake.remote({ label: "peer", speed: 5 });
+    const patch = committer.reconcile(docData, { label: "typed", speed: 1 });
+
+    // `label` is the user's pending intent: keep it. `speed` is untouched
+    // locally: take the peer's.
+    expect(patch).toEqual({ speed: 5 });
+    flush();
+    // Only the edited key is written — the stale `speed: 1` the pending values
+    // still carried must not clobber the peer's `5`.
+    expect(fake.writes).toEqual([{ label: "typed" }]);
+    expect(fake.stored).toEqual({ label: "typed", speed: 5 });
+  });
+});
+
 describe("createNodeDataCommitter", () => {
-  it("writes control values as a per-field patch through updateNodeData", () => {
+  it("writes the changed control values as a per-field patch through updateNodeData", () => {
     const { committer, fake, flush } = make({ label: "old", speed: 1 });
     committer.commit({ label: "new", speed: 1 });
     flush();
-    expect(fake.writes).toEqual([{ label: "new", speed: 1 }]);
+    // Only the field that changed: an unchanged key re-sent would overwrite a
+    // peer's concurrent edit to it (ADR-0019).
+    expect(fake.writes).toEqual([{ label: "new" }]);
   });
 
   it("coalesces scheduled commits so only the latest values are written", () => {
@@ -52,7 +119,7 @@ describe("createNodeDataCommitter", () => {
     const { committer, fake, flush } = make({ label: "a", speed: 1 });
     committer.commit({ label: "a", speed: 1 });
     flush();
-    expect(fake.writes).toHaveLength(1);
+    expect(fake.writes).toHaveLength(0); // the mount commit writes nothing
 
     // A peer renames the node; the doc data shifts under the controls.
     const patch = committer.reconcile(
@@ -64,7 +131,7 @@ describe("createNodeDataCommitter", () => {
     // The hook replays the patch into Leva, whose new values trigger a commit.
     committer.commit({ label: "remote", speed: 1 });
     flush();
-    expect(fake.writes).toHaveLength(1); // suppressed — nothing new to say
+    expect(fake.writes).toHaveLength(0); // suppressed — nothing new to say
   });
 
   it("reconcile reports nothing for the echo of our own write", () => {

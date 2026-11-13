@@ -62,6 +62,13 @@ impl ComponentRegistry {
         self.entries.contains_key(instance)
     }
 
+    /// Register a hand-written factory — for runtime tests that need a node
+    /// with a behaviour no catalog node has (e.g. one whose start fails).
+    #[cfg(test)]
+    pub(crate) fn register_test_factory(&mut self, name: &str, factory: Factory) {
+        self.entries.insert(name.to_string(), factory);
+    }
+
     fn register<B: ComponentBuilder>(&mut self, name: &'static str) {
         self.entries.insert(name.to_string(), make_factory::<B>(name));
         self.declared.insert(name.to_string(), (B::ports(), B::emits()));

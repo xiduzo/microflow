@@ -341,6 +341,104 @@ describe("FlowUpdateDispatcher", () => {
     dispatcher.destroy();
   });
 
+  test("a failed send is retried with the current doc, then reported once", async () => {
+    const doc = FlowDocument.createEmpty();
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const retry = new ManualDispatchScheduler();
+    const reported: string[] = [];
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+      { scheduler: retry, maxAttempts: 3, onGiveUp: (error) => reported.push(error) },
+    );
+
+    sender.scriptError("down 1");
+    scheduler.flush();
+    await Promise.resolve();
+    expect(retry.hasPending).toBe(true);
+
+    // Nothing changed, so only the retry scheduler drives the next attempts.
+    sender.scriptError("down 2");
+    retry.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(2);
+    expect(reported).toEqual([]);
+
+    sender.scriptError("down 3");
+    retry.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(3);
+    expect(reported).toEqual(["down 3"]);
+    expect(retry.hasPending).toBe(false);
+
+    dispatcher.destroy();
+  });
+
+  test("a retry that succeeds stops retrying and is remembered", async () => {
+    const doc = FlowDocument.createEmpty();
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const retry = new ManualDispatchScheduler();
+    const reported: string[] = [];
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+      { scheduler: retry, maxAttempts: 3, onGiveUp: (error) => reported.push(error) },
+    );
+
+    sender.scriptError("blip");
+    scheduler.flush();
+    await Promise.resolve();
+    retry.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(2);
+    expect(retry.hasPending).toBe(false);
+
+    // Delivered: an unchanged doc is not sent again.
+    dispatcher.refresh();
+    scheduler.flush();
+    await Promise.resolve();
+    expect(sender.sent).toHaveLength(2);
+    expect(reported).toEqual([]);
+
+    dispatcher.destroy();
+  });
+
+  test("a document change supersedes a pending retry", async () => {
+    const doc = FlowDocument.createEmpty();
+    const sender = new RecordingFlowUpdateSender();
+    const scheduler = new ManualDispatchScheduler();
+    const retry = new ManualDispatchScheduler();
+    const dispatcher = new FlowUpdateDispatcher(
+      makeSession(doc),
+      emptySnapshot,
+      sender,
+      scheduler,
+      EMPTY_REGISTRY,
+      { scheduler: retry, maxAttempts: 3, onGiveUp: () => {} },
+    );
+
+    sender.scriptError("down");
+    scheduler.flush();
+    await Promise.resolve();
+    expect(retry.hasPending).toBe(true);
+
+    doc.addNode(mkNode("n1"));
+    expect(retry.hasPending).toBe(false);
+    scheduler.flush();
+    await Promise.resolve();
+    expect(sender.sent.at(-1)!.nodes.map((n) => n.id)).toEqual(["n1"]);
+
+    dispatcher.destroy();
+  });
+
   test("destroy unobserves doc and cancels pending dispatch", async () => {
     const doc = FlowDocument.createEmpty();
     const sender = new RecordingFlowUpdateSender();

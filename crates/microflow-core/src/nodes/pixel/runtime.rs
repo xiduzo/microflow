@@ -315,3 +315,68 @@ impl ComponentBuilder for Pixel {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, ColorOrder, Extension, SimBoard};
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn strip(data: serde_json::Value) -> SimRig {
+        let board = SimBoard::new(BoardLayout::uno()).with_extension(Extension::Pixel);
+        let mut rig = SimRig::connect(board);
+        rig.apply_flow(vec![node("strip", "Pixel", data)], vec![]);
+        rig
+    }
+
+    fn shown(rig: &SimRig) -> Vec<u32> {
+        rig.board.pixel_strip().expect("strip configured").shown.clone()
+    }
+
+    /// The node's value is its own model of the strip; it must match what the
+    /// LEDs show.
+    fn assert_value_matches_strip(rig: &SimRig) {
+        let expected: Vec<ComponentValue> =
+            shown(rig).iter().map(|c| ComponentValue::String(format!("#{c:06X}"))).collect();
+        assert_eq!(rig.last_value("strip"), Some(&ComponentValue::Array(expected)));
+    }
+
+    #[test]
+    fn initialize_configures_the_strip_and_shows_it_dark() {
+        let rig = strip(json!({ "pin": 6, "length": 4, "color_order": "RGB" }));
+        let s = rig.board.pixel_strip().expect("configured");
+        assert_eq!((s.pin, s.color_order, s.shown.len()), (6, ColorOrder::Rgb, 4));
+        assert_eq!(shown(&rig), vec![0; 4]);
+        assert!(rig.board.refused_sysex().is_empty());
+    }
+
+    #[test]
+    fn colour_input_fills_the_strip_or_sets_each_pixel() {
+        let mut rig = strip(json!({ "pin": 6, "length": 3 }));
+        rig.dispatch("strip", "color", ComponentValue::String("#FF0000".into()));
+        assert_eq!(shown(&rig), vec![0xFF0000; 3]);
+        assert_value_matches_strip(&rig);
+        let colours = ["#00FF00", "#00F"].map(|c| ComponentValue::String(c.into()));
+        rig.dispatch("strip", "color", ComponentValue::Array(colours.to_vec()));
+        assert_eq!(shown(&rig), vec![0x00FF00, 0x0000FF, 0xFF0000]);
+        assert_value_matches_strip(&rig);
+    }
+
+    #[test]
+    fn presets_shift_and_reset() {
+        let presets = json!([["#110000", "#002200", "#000033"]]);
+        let mut rig = strip(json!({ "pin": 6, "length": 3, "presets": presets }));
+        rig.dispatch("strip", "value", 0.0);
+        assert_eq!(shown(&rig), vec![0x110000, 0x002200, 0x000033]);
+        rig.dispatch("strip", "set", 1.0);
+        assert_eq!(shown(&rig), vec![0x000033, 0x110000, 0x002200]);
+        assert_value_matches_strip(&rig);
+        rig.dispatch("strip", "set", -1.0);
+        assert_eq!(shown(&rig), vec![0x110000, 0x002200, 0x000033]);
+        assert_value_matches_strip(&rig);
+        rig.dispatch("strip", "reset", true);
+        assert_eq!(shown(&rig), vec![0; 3]);
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+}

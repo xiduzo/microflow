@@ -238,6 +238,25 @@ export function runtimeRelevantKey(update: FlowUpdate): string {
 // FlowUpdateDispatcher class — desktop-only observer + scheduler + sender
 // =========================================================================
 
+/** What the dispatcher does when a send fails. */
+export type DispatchRetryPolicy = {
+  /** Paces the retries; production waits a fixed delay, tests flush by hand. */
+  scheduler: DispatchScheduler;
+  /** Consecutive failed sends after which the dispatcher stops retrying and
+   *  reports the failure. The next document change or `refresh` tries again. */
+  maxAttempts: number;
+  /** Called once per run of failures that exhausts `maxAttempts`. */
+  onGiveUp: (error: string) => void;
+};
+
+/** No retries and nowhere to report — the dispatcher's behaviour before
+ *  retries existed, kept as the default so tests opt in explicitly. */
+const NO_RETRY: DispatchRetryPolicy = {
+  scheduler: { schedule: () => {}, cancel: () => {} },
+  maxAttempts: 1,
+  onGiveUp: () => {},
+};
+
 /**
  * Observes the `FlowSession`'s doc for any Y-update (local edits AND
  * remote sync arrivals), schedules a dispatch via the injected
@@ -263,6 +282,7 @@ export class FlowUpdateDispatcher {
     private readonly sender: FlowUpdateSender,
     private readonly scheduler: DispatchScheduler,
     private readonly registry: NodeAdapterRegistry,
+    private readonly retry: DispatchRetryPolicy = NO_RETRY,
   ) {
     this.unobserve = session.doc.onAnyChange(() => this.requestDispatch());
     // Fire once on mount so the runtime sees the current flow.
@@ -273,22 +293,30 @@ export class FlowUpdateDispatcher {
    *  recognised as stale rather than overwriting a newer key. */
   private dispatchSequence = 0;
   private latestDispatchSequence = 0;
+  /** Consecutive failed sends of the latest update; 0 after any success. */
+  private failedAttempts = 0;
 
   private requestDispatch(): void {
     if (this.destroyed) return;
-    this.scheduler.schedule(() => {
-      if (this.destroyed) return;
-      const update = buildFlowUpdate(this.session.doc, this.snapshotProvider(), this.registry);
-      // Skip when nothing the runtime cares about changed — a pure node
-      // move/selection must not churn downstream MQTT/Figma subscriptions.
-      // Forced dispatches (`dispatchNow`) deliberately bypass this.
-      // The key is computed once and handed to `send`: it is a full
-      // JSON serialisation of the flow, and computing it again on the way out
-      // doubled that cost on every accepted change from anyone in the room.
-      const key = runtimeRelevantKey(update);
-      if (key === this.lastDispatchKey) return;
-      void this.send(update, key);
-    });
+    // A fresh request supersedes a pending retry: it sends the current doc.
+    this.retry.scheduler.cancel();
+    this.failedAttempts = 0;
+    this.scheduler.schedule(() => this.dispatchCurrent());
+  }
+
+  private dispatchCurrent(): void {
+    if (this.destroyed) return;
+    const update = buildFlowUpdate(this.session.doc, this.snapshotProvider(), this.registry);
+    // Skip when nothing the runtime cares about changed — a pure node
+    // move/selection must not churn downstream MQTT/Figma subscriptions.
+    // Forced dispatches (`dispatchNow`) deliberately bypass this.
+    // The key is computed once and handed to `send`: it is a full
+    // JSON serialisation of the flow, and computing it again on the way out
+    // doubled that cost on every accepted change from anyone in the room.
+    // A failed send never records its key, so a retry is never skipped here.
+    const key = runtimeRelevantKey(update);
+    if (key === this.lastDispatchKey) return;
+    void this.send(update, key);
   }
 
   /** Schedule a dispatch although the document did not change — for host
@@ -321,11 +349,30 @@ export class FlowUpdateDispatcher {
       if (sequence > this.latestDispatchSequence) {
         this.latestDispatchSequence = sequence;
         this.lastDispatchKey = precomputedKey ?? runtimeRelevantKey(update);
+        this.failedAttempts = 0;
       }
     } else {
       console.error("[FLOW-DISPATCH] failed:", result.error);
+      // Only the newest send decides: an older one failing after a newer one
+      // was issued has nothing left to retry.
+      if (sequence === this.dispatchSequence) this.onSendFailed(result.error);
     }
     return result;
+  }
+
+  /**
+   * A failed send used to leave the runtime on a stale flow until the next
+   * edit, with only a console line to show for it. Retry the current doc a
+   * bounded number of times, then report once and wait for the next change.
+   */
+  private onSendFailed(error: string): void {
+    if (this.destroyed) return;
+    this.failedAttempts += 1;
+    if (this.failedAttempts >= this.retry.maxAttempts) {
+      this.retry.onGiveUp(error);
+      return;
+    }
+    this.retry.scheduler.schedule(() => this.dispatchCurrent());
   }
 
   destroy(): void {
@@ -333,5 +380,6 @@ export class FlowUpdateDispatcher {
     this.destroyed = true;
     this.unobserve();
     this.scheduler.cancel();
+    this.retry.scheduler.cancel();
   }
 }

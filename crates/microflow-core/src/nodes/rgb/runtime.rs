@@ -152,3 +152,49 @@ impl ComponentBuilder for Rgb {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use serde_json::json;
+
+    fn rgb(is_anode: bool) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![node(
+                "rgb",
+                "Rgb",
+                json!({ "pins": { "red": 9, "green": 10, "blue": 11 }, "isAnode": is_anode }),
+            )],
+            vec![],
+        );
+        rig
+    }
+
+    fn duty(rig: &SimRig) -> (Option<u16>, Option<u16>, Option<u16>) {
+        (rig.board.pin(9).pwm(), rig.board.pin(10).pwm(), rig.board.pin(11).pwm())
+    }
+
+    #[test]
+    fn channels_and_alpha_set_pwm_duty() {
+        let mut rig = rgb(false);
+        assert_eq!(duty(&rig), (Some(0), Some(0), Some(0)), "starts off");
+        rig.dispatch("rgb", "red", 200.0);
+        rig.dispatch("rgb", "blue", 100.0);
+        assert_eq!(duty(&rig), (Some(200), Some(0), Some(100)));
+        rig.dispatch("rgb", "alpha", 50.0);
+        assert_eq!(duty(&rig), (Some(100), Some(0), Some(50)));
+        rig.dispatch("rgb", "off", true);
+        assert_eq!(duty(&rig), (Some(0), Some(0), Some(0)));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    #[test]
+    fn common_anode_inverts_every_channel() {
+        let mut rig = rgb(true);
+        assert_eq!(duty(&rig), (Some(255), Some(255), Some(255)), "off = all high");
+        rig.dispatch("rgb", "green", 55.0);
+        assert_eq!(duty(&rig), (Some(255), Some(200), Some(255)));
+    }
+}

@@ -189,6 +189,52 @@ impl ComponentBuilder for Switch {
 }
 
 #[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_INPUT;
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn switch(kind: &str) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.board.drive_pin(2, true);
+        rig.apply_flow(vec![node("sw", "Switch", json!({ "pin": 2, "type": kind }))], vec![]);
+        rig.pump();
+        // The first port report reads the pin LOW (see the Button's startup
+        // test); the debounce settles the real level one window later.
+        rig.advance(100);
+        rig
+    }
+
+    fn flip(rig: &mut SimRig, high: bool) -> Option<ComponentValue> {
+        rig.take_events();
+        rig.advance(100);
+        rig.board.drive_pin(2, high);
+        rig.pump();
+        rig.last_value("sw").cloned()
+    }
+
+    /// The runtime's documented wiring: the line is pulled up, NO closes to
+    /// ground. (The emitted sketch reads NO as closed-on-HIGH — see the report.)
+    #[test]
+    fn normally_open_closes_when_the_line_goes_low() {
+        let mut rig = switch("NO");
+        assert_eq!(rig.board.pin(2).mode(), Some(MODE_INPUT));
+        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(true)));
+        assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(false)));
+    }
+
+    #[test]
+    fn normally_closed_closes_when_the_line_goes_high() {
+        let mut rig = switch("NC");
+        assert_eq!(rig.last_value("sw"), Some(&ComponentValue::Bool(true)), "{:?}", rig.events());
+        assert_eq!(flip(&mut rig, false), Some(ComponentValue::Bool(false)));
+        assert_eq!(flip(&mut rig, true), Some(ComponentValue::Bool(true)));
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::firmata::FirmataClient;

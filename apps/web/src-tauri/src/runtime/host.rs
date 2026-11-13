@@ -19,6 +19,7 @@
 //!
 //! [`Effects`]: microflow_core::runtime::Effects
 
+use crate::hardware::SessionId;
 use crate::runtime::services::MqttPublisher;
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::subscriptions::MidiListener;
@@ -29,7 +30,7 @@ use microflow_core::runtime::{
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
@@ -47,12 +48,14 @@ const READ_TIMEOUT_MS: u64 = 10;
 /// to one `FlowRuntime` entry point.
 pub enum ActorMsg {
     /// A board connected: seed the codec's pin table (`FirmataSession.pinsJson`
-    /// shape) and take ownership of the open port for raw read/write.
+    /// shape) and take ownership of the open port for raw read/write, as the
+    /// board link's `session`.
     Connect {
         port: Box<dyn serialport::SerialPort>,
         pins_json: String,
+        session: SessionId,
     },
-    /// The board disconnected: drop the port, keep the flow state.
+    /// The board link ended the connection: drop the port, keep the flow state.
     Disconnect,
     /// A flow update (`flow_update` command). Replies with the active subscriber
     /// wirings so the command can (un)subscribe MQTT.
@@ -98,14 +101,15 @@ pub enum ActorMsg {
 }
 
 /// Spawn the actor thread. The caller owns the channel (so the `Send + Sync`
-/// sender can live on `AppState` + the hardware `BoardLink`) and the `connected`
-/// flag the hardware monitor reads (the actor clears it on a serial read error,
-/// driving implicit-disconnect detection). The `!Send` `FlowRuntime` is built
-/// inside the thread, so nothing unsendable crosses the spawn boundary.
+/// sender can live on `AppState` + the hardware [`ActorLink`]) and the
+/// `session_ended` sender: the actor reports a serial I/O failure on it as a
+/// fact, and the hardware board link — the one owner of connection state —
+/// decides what it means. The `!Send` `FlowRuntime` is built inside the thread,
+/// so nothing unsendable crosses the spawn boundary.
 pub fn run_actor(
     rx: UnboundedReceiver<ActorMsg>,
     self_tx: UnboundedSender<ActorMsg>,
-    connected: Arc<AtomicBool>,
+    session_ended: Sender<SessionId>,
     app: AppHandle,
     rt_handle: Handle,
     mqtt_publisher: Arc<dyn MqttPublisher>,
@@ -113,58 +117,112 @@ pub fn run_actor(
     std::thread::Builder::new()
         .name("microflow-runtime".into())
         .spawn(move || {
-            let actor = Actor::new(app, rt_handle, mqtt_publisher, self_tx, connected);
+            let actor = Actor::new(app, rt_handle, mqtt_publisher, self_tx, session_ended);
             actor.run(rx);
             log::info!("[actor] runtime thread stopped");
         })
         .expect("spawn microflow-runtime thread");
 }
 
-/// The hardware monitor + detection's seam to the runtime actor, replacing the
-/// old `Arc<BoardHandle>`. `connect_board` / `disconnect` send `ActorMsg`s; the
-/// `connected` flag is shared with the actor (which also clears it on a serial
-/// error) so the monitor's implicit-disconnect detection still fires.
+/// The hardware board link's seam to the runtime actor: hands it a detected
+/// board's port and takes it back. Holds no connection state of its own — the
+/// board link owns that; the actor only reports facts back, by [`SessionId`].
 #[derive(Clone)]
-pub struct BoardLink {
+pub struct ActorLink {
     actor: UnboundedSender<ActorMsg>,
-    connected: Arc<AtomicBool>,
 }
 
-impl BoardLink {
+impl ActorLink {
     #[must_use]
-    pub fn new(actor: UnboundedSender<ActorMsg>, connected: Arc<AtomicBool>) -> Self {
-        Self { actor, connected }
+    pub fn new(actor: UnboundedSender<ActorMsg>) -> Self {
+        Self { actor }
     }
 
-    /// Hand the freshly-detected board (open port + `pins_json`) to the actor.
-    pub fn connect_board(&self, port: Box<dyn serialport::SerialPort>, pins_json: String) {
-        self.connected.store(true, Ordering::Release);
-        let _ = self.actor.send(ActorMsg::Connect { port, pins_json });
+    /// Hand the freshly-detected board (open port + `pins_json`) to the actor as
+    /// `session`.
+    pub fn connect_board(
+        &self,
+        port: Box<dyn serialport::SerialPort>,
+        pins_json: String,
+        session: SessionId,
+    ) {
+        let _ = self.actor.send(ActorMsg::Connect { port, pins_json, session });
     }
 
-    /// Tell the actor the board went away.
+    /// Tell the actor to drop the board's port.
     pub fn disconnect(&self) {
-        self.connected.store(false, Ordering::Release);
         let _ = self.actor.send(ActorMsg::Disconnect);
     }
+}
 
+/// The serial byte stream the actor needs from a port. `Box<dyn SerialPort>`
+/// is one; a test stands in a fake.
+pub trait SerialIo: Read + Write + Send {}
+impl<T: Read + Write + Send + ?Sized> SerialIo for T {}
+
+/// A serial I/O failure ended the session (already reported).
+#[derive(Debug)]
+pub struct SessionEnded;
+
+/// One live board connection as the actor holds it: the open port plus the
+/// session id the board link minted for it. The first real I/O failure is
+/// reported — once, by id — to the board link, which decides what it means;
+/// the caller drops the session.
+pub struct BoardSession {
+    id: SessionId,
+    port: Box<dyn SerialIo>,
+    ended: Sender<SessionId>,
+}
+
+impl BoardSession {
     #[must_use]
-    pub fn is_connected(&self) -> bool {
-        self.connected.load(Ordering::Acquire)
+    pub fn new(id: SessionId, port: Box<dyn SerialIo>, ended: Sender<SessionId>) -> Self {
+        Self { id, port, ended }
+    }
+
+    /// Read whatever arrived; `Ok(0)` when nothing did within the port timeout.
+    ///
+    /// # Errors
+    /// [`SessionEnded`] on a real I/O failure, after reporting it.
+    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, SessionEnded> {
+        match self.port.read(buf) {
+            Ok(n) => Ok(n),
+            Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => Ok(0),
+            Err(e) => Err(self.end("read", &e)),
+        }
+    }
+
+    /// Write `bytes` in full. No `flush()`: on macOS it blocks (`tcdrain`) until
+    /// the bytes finish transmitting, so flushing every outbound batch made a
+    /// 60fps oscillator's write take longer than its tick period and starve the
+    /// serial read (see `Actor::run`). `write_all` hands the bytes to the OS in
+    /// order; the kernel transmits them — synchronous drain isn't needed.
+    ///
+    /// # Errors
+    /// [`SessionEnded`] on an I/O failure, after reporting it.
+    pub fn write(&mut self, bytes: &[u8]) -> Result<(), SessionEnded> {
+        self.port.write_all(bytes).map_err(|e| self.end("write", &e))
+    }
+
+    fn end(&self, op: &str, error: &std::io::Error) -> SessionEnded {
+        log::warn!("[actor] serial {op} error on session {}: {error}; dropping board", self.id);
+        let _ = self.ended.send(self.id);
+        SessionEnded
     }
 }
 
 /// Owns the `!Send` `FlowRuntime` + the serial port; lives entirely on one thread.
 struct Actor {
     rt: FlowRuntime,
-    /// Open serial port while a board is connected; `None` otherwise.
-    port: Option<Box<dyn serialport::SerialPort>>,
+    /// The board connection while one is live; `None` otherwise.
+    session: Option<BoardSession>,
     /// Last flow, re-applied on (re)connect for clean board init.
     last_flow: Option<FlowUpdate>,
     app: AppHandle,
     rt_handle: Handle,
     self_tx: UnboundedSender<ActorMsg>,
-    connected: Arc<AtomicBool>,
+    /// Where a [`BoardSession`] reports its own end (to the board link).
+    session_ended: Sender<SessionId>,
     /// Monotonic clock origin; `now_ms` is elapsed-since-start.
     start: Instant,
     /// Live host timers keyed by wakeup id, so cancellations + fired timers
@@ -191,7 +249,7 @@ impl Actor {
         rt_handle: Handle,
         mqtt_publisher: Arc<dyn MqttPublisher>,
         self_tx: UnboundedSender<ActorMsg>,
-        connected: Arc<AtomicBool>,
+        session_ended: Sender<SessionId>,
     ) -> Self {
         let cloud = CloudPerformer::new(mqtt_publisher, rt_handle.clone());
         // Cloud nodes are sans-IO and auto-registered by core (the `cloud`
@@ -199,12 +257,12 @@ impl Actor {
         // their recorded requests.
         Self {
             rt: FlowRuntime::new(),
-            port: None,
+            session: None,
             last_flow: None,
             app,
             rt_handle,
             self_tx,
-            connected,
+            session_ended,
             start: Instant::now(),
             timers: HashMap::new(),
             cloud,
@@ -232,7 +290,7 @@ impl Actor {
                         if !self.handle(msg) {
                             return;
                         }
-                        if self.port.is_some() {
+                        if self.session.is_some() {
                             self.pump_port();
                         }
                     }
@@ -243,7 +301,7 @@ impl Actor {
 
             // Idle: keep reading while connected; block for the next message when
             // disconnected (no busy spin).
-            if self.port.is_some() {
+            if self.session.is_some() {
                 self.pump_port();
             } else {
                 match rx.blocking_recv() {
@@ -261,7 +319,7 @@ impl Actor {
     /// Process one message. Returns `false` on shutdown.
     fn handle(&mut self, msg: ActorMsg) -> bool {
         match msg {
-            ActorMsg::Connect { port, pins_json } => {
+            ActorMsg::Connect { port, pins_json, session } => {
                 // Abort timers from the previous runtime instance — the rebuild
                 // below mints fresh wakeup ids, so stale timers would double-fire
                 // (e.g. an interval ticking twice as fast after a replug).
@@ -281,9 +339,9 @@ impl Actor {
                 log::info!("[actor] seeded pins_json: {pins_json}");
                 let mut port = port;
                 let _ = port.set_timeout(Duration::from_millis(READ_TIMEOUT_MS));
-                self.port = Some(port);
-                self.connected.store(true, Ordering::Release);
-                log::info!("[actor] board connected");
+                self.session =
+                    Some(BoardSession::new(session, Box::new(port), self.session_ended.clone()));
+                log::info!("[actor] board connected (session {session})");
 
                 if let Some(flow) = self.last_flow.clone() {
                     self.set_now();
@@ -292,8 +350,7 @@ impl Actor {
                 }
             }
             ActorMsg::Disconnect => {
-                self.port = None;
-                self.connected.store(false, Ordering::Release);
+                self.session = None;
                 log::info!("[actor] board disconnected");
             }
             ActorMsg::FlowUpdate { flow, reply } => {
@@ -355,23 +412,15 @@ impl Actor {
     /// Read available serial bytes into the codec and apply the resulting turn.
     fn pump_port(&mut self) {
         let mut buf = [0u8; 256];
-        let result = match self.port.as_mut() {
-            Some(port) => port.read(&mut buf),
-            None => return,
-        };
-        match result {
-            Ok(n) if n > 0 => {
+        let Some(session) = self.session.as_mut() else { return };
+        match session.read(&mut buf) {
+            Ok(0) => {}
+            Ok(n) => {
                 self.set_now();
                 let effects = self.rt.feed_bytes(&buf[..n]);
                 self.apply(effects);
             }
-            Ok(_) => {}
-            Err(e) if matches!(e.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => {}
-            Err(e) => {
-                log::warn!("[actor] serial read error: {e}; dropping board");
-                self.port = None;
-                self.connected.store(false, Ordering::Release);
-            }
+            Err(SessionEnded) => self.session = None,
         }
     }
 
@@ -388,16 +437,9 @@ impl Actor {
 /// *order* these fire in is owned by `Effects::apply`, not here.
 impl EffectsSink for Actor {
     fn write_bytes(&mut self, bytes: &[u8]) {
-        if let Some(port) = self.port.as_mut() {
-            // No `flush()`: on macOS it blocks (`tcdrain`) until the bytes finish
-            // transmitting, so flushing every outbound batch made a 60fps
-            // oscillator's write take longer than its tick period and starve the
-            // serial read (see `run`). `write_all` hands the bytes to the OS in
-            // order; the kernel transmits them — synchronous drain isn't needed.
-            if let Err(e) = port.write_all(bytes) {
-                log::warn!("[actor] serial write error: {e}; dropping board");
-                self.port = None;
-                self.connected.store(false, Ordering::Release);
+        if let Some(session) = self.session.as_mut() {
+            if session.write(bytes).is_err() {
+                self.session = None;
             }
         }
     }
@@ -558,6 +600,78 @@ mod tests {
             }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
+    }
+
+    /// A port whose reads replay a script and whose writes succeed or fail.
+    struct ScriptedPort {
+        reads: std::collections::VecDeque<std::io::Result<Vec<u8>>>,
+        write_error: Option<ErrorKind>,
+    }
+
+    impl Read for ScriptedPort {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            match self.reads.pop_front() {
+                Some(Ok(bytes)) => {
+                    buf[..bytes.len()].copy_from_slice(&bytes);
+                    Ok(bytes.len())
+                }
+                Some(Err(e)) => Err(e),
+                None => Err(ErrorKind::TimedOut.into()),
+            }
+        }
+    }
+
+    impl Write for ScriptedPort {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            match self.write_error {
+                Some(kind) => Err(kind.into()),
+                None => Ok(buf.len()),
+            }
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn session(port: ScriptedPort) -> (BoardSession, std::sync::mpsc::Receiver<SessionId>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        (BoardSession::new(7, Box::new(port), tx), rx)
+    }
+
+    #[test]
+    fn session_read_timeout_is_no_data_not_an_end() {
+        let (mut s, ended) = session(ScriptedPort {
+            reads: [Err(ErrorKind::TimedOut.into()), Ok(vec![0xF9, 2, 5])].into(),
+            write_error: None,
+        });
+        let mut buf = [0u8; 8];
+        assert_eq!(s.read(&mut buf).unwrap(), 0);
+        assert_eq!(s.read(&mut buf).unwrap(), 3);
+        assert!(s.write(&[0x90, 0, 0]).is_ok());
+        assert!(ended.try_recv().is_err(), "nothing ended");
+    }
+
+    #[test]
+    fn session_read_error_reports_its_id() {
+        let (mut s, ended) = session(ScriptedPort {
+            reads: [Err(ErrorKind::BrokenPipe.into())].into(),
+            write_error: None,
+        });
+        assert!(s.read(&mut [0u8; 8]).is_err());
+        assert_eq!(ended.try_iter().collect::<Vec<_>>(), vec![7]);
+    }
+
+    #[test]
+    fn session_write_error_reports_its_id() {
+        // A write failure mid-session used to clear a shared flag the monitor
+        // only noticed if the port was tagged `has_firmata`; now it is a fact
+        // the board link receives by session id.
+        let (mut s, ended) = session(ScriptedPort {
+            reads: std::collections::VecDeque::new(),
+            write_error: Some(ErrorKind::BrokenPipe),
+        });
+        assert!(s.write(&[0x90, 0, 0]).is_err());
+        assert_eq!(ended.try_iter().collect::<Vec<_>>(), vec![7]);
     }
 
     #[tokio::test]

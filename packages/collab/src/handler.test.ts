@@ -10,10 +10,16 @@ import * as decoding from "lib0/decoding";
  * everything below is about the transport, not persistence.
  */
 const saved: unknown[] = [];
+const tx = {
+  select: () => ({
+    from: () => ({ where: () => ({ for: async () => [{ ydoc: null }] }) }),
+  }),
+  update: () => ({ set: () => ({ where: async (w: unknown) => saved.push(w) }) }),
+};
 mock.module("@microflow/db", () => ({
   db: {
     query: { flow: { findFirst: async () => ({ id: "flow-1", ydoc: null }) } },
-    update: () => ({ set: () => ({ where: async (w: unknown) => saved.push(w) }) }),
+    transaction: async (run: (t: typeof tx) => Promise<void>) => run(tx),
   },
 }));
 

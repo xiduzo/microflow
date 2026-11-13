@@ -99,3 +99,38 @@ impl ComponentBuilder for Relay {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_OUTPUT;
+    use serde_json::json;
+
+    fn relay(kind: &str) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("relay", "Relay", json!({ "pin": 10, "type": kind }))], vec![]);
+        rig
+    }
+
+    #[test]
+    fn normally_open_relay_energises_the_coil_to_open() {
+        let mut rig = relay("NO");
+        assert_eq!(rig.board.pin(10).mode(), Some(MODE_OUTPUT));
+        assert!(!rig.board.pin(10).is_high(), "starts closed: coil off");
+        rig.dispatch("relay", "true", true);
+        assert!(rig.board.pin(10).is_high());
+        rig.dispatch("relay", "toggle", true);
+        assert!(!rig.board.pin(10).is_high());
+    }
+
+    #[test]
+    fn normally_closed_relay_holds_the_coil_while_closed() {
+        let mut rig = relay("NC");
+        assert!(rig.board.pin(10).is_high(), "starts closed: coil on");
+        rig.dispatch("relay", "true", true);
+        assert!(!rig.board.pin(10).is_high());
+        rig.dispatch("relay", "false", true);
+        assert!(rig.board.pin(10).is_high());
+    }
+}

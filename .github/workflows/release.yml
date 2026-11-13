@@ -14,7 +14,25 @@ permissions:
   contents: write
 
 jobs:
+  # Release gate: the same checks pull requests run, on the tagged commit.
+  # Nothing below starts (no draft release, no version bump on main, no
+  # build) unless both pass. Note: build-tauri builds main as bump-version
+  # leaves it, which is the tagged commit plus the version bump only when the
+  # tag was pushed on main's head (the normal release flow).
+  rust:
+    name: Gate / Rust
+    uses: ./.github/workflows/rust.yml
+    permissions:
+      contents: read
+
+  typescript:
+    name: Gate / TypeScript
+    uses: ./.github/workflows/typescript.yml
+    permissions:
+      contents: read
+
   create-release:
+    needs: [rust, typescript]
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}

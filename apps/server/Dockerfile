@@ -17,5 +17,8 @@ RUN bun run build
 ENV NODE_ENV=production
 EXPOSE 3000
 
-# Run migrations then start the server
-CMD ["sh", "-c", "bun run ../../packages/db/src/migrate.ts && bun run start"]
+# Run migrations then start the server. `exec` makes bun PID 1: otherwise `sh`
+# holds PID 1, ignores the SIGTERM a deploy sends, and the server is SIGKILLed
+# after the grace period without saving live collaboration rooms. Runs the
+# built file directly (what `bun run start` does) so no wrapper sits between.
+CMD ["sh", "-c", "bun run ../../packages/db/src/migrate.ts && exec bun run dist/index.mjs"]

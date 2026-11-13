@@ -111,3 +111,26 @@ impl ComponentBuilder for Motion {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::firmata::MODE_INPUT;
+    use serde_json::json;
+
+    #[test]
+    fn pir_output_edges_become_true_and_false() {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::mega2560()));
+        rig.apply_flow(vec![node("pir", "Motion", json!({ "pin": 30 }))], vec![]);
+        assert_eq!(rig.board.pin(30).mode(), Some(MODE_INPUT));
+        assert!(rig.board.is_reporting_digital(3), "pin 30 lives on port 3");
+        rig.board.drive_pin(30, true);
+        rig.pump();
+        assert_eq!(rig.handles_from("pir"), vec!["value", "event", "true"]);
+        rig.take_events();
+        rig.board.drive_pin(30, false);
+        rig.pump();
+        assert_eq!(rig.handles_from("pir"), vec!["value", "event", "false"]);
+    }
+}

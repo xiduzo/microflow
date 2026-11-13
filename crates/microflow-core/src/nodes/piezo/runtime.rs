@@ -245,3 +245,62 @@ impl ComponentBuilder for Piezo {
         Ok(Self::new(id, config))
     }
 }
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    fn piezo(data: serde_json::Value) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(vec![node("bz", "Piezo", data)], vec![]);
+        rig
+    }
+
+    #[test]
+    fn buzz_sounds_for_its_duration_then_falls_silent() {
+        let mut rig = piezo(json!({ "pin": 11, "type": "buzz", "duration": 300 }));
+        assert!(!rig.board.pin(11).is_high());
+        rig.dispatch("bz", "trigger", true);
+        rig.advance(0);
+        assert!(rig.board.pin(11).is_high(), "tone starts on the first _note");
+        rig.advance(299);
+        assert!(rig.board.pin(11).is_high());
+        rig.advance(1);
+        assert!(!rig.board.pin(11).is_high(), "silent once the duration is up");
+        assert_eq!(rig.last_value("bz"), Some(&ComponentValue::Bool(false)));
+        assert!(rig.pending_wakeups().is_empty());
+    }
+
+    #[test]
+    fn song_plays_notes_and_rests_at_tempo() {
+        // 60 bpm: one beat = 1000ms.
+        let song = json!([["c4", 1], [null, 1], ["e4", 1]]);
+        let mut rig = piezo(json!({ "pin": 8, "type": "song", "tempo": 60, "song": song }));
+        rig.dispatch("bz", "trigger", true);
+        let mut levels = Vec::new();
+        for _ in 0..4 {
+            rig.advance(0);
+            levels.push(rig.board.pin(8).is_high());
+            rig.advance(1000);
+        }
+        assert_eq!(levels, vec![true, false, true, false]);
+        assert!(rig.pending_wakeups().is_empty());
+    }
+
+    #[test]
+    fn stop_silences_and_cancels_the_rest_of_the_song() {
+        let song = json!([["a4", 4], ["b4", 4]]);
+        let mut rig = piezo(json!({ "pin": 8, "type": "song", "tempo": 60, "song": song }));
+        rig.dispatch("bz", "trigger", true);
+        rig.advance(0);
+        assert!(rig.board.pin(8).is_high());
+        rig.dispatch("bz", "stop", true);
+        assert!(!rig.board.pin(8).is_high());
+        assert!(rig.pending_wakeups().is_empty(), "{:?}", rig.pending_wakeups());
+        rig.advance(10_000);
+        assert!(!rig.board.pin(8).is_high());
+    }
+}
