@@ -13,15 +13,18 @@
 //! The plan is split into two phases because per-node `HardwareComponent::initialize`
 //! (device power-on writes) must run *between* them: a device is configured before
 //! its continuous read is armed.
-//! - **setup** (before init): analog reporting, digital reporting *off*, I2C bus
-//!   config, sampling interval.
-//! - **arm** (after init): digital reporting *on*, then drain existing continuous
-//!   reads and start the desired set.
+//! - **setup** (before init): reporting *off*, I2C bus config, sampling interval.
+//! - **arm** (after init): reporting *on*, then drain existing continuous reads
+//!   and start the desired set.
 //!
-//! Digital reporting is switched on only after the pins are in their input mode.
-//! `StandardFirmata` answers `REPORT_DIGITAL` at once with the port masked to its
-//! *input* pins, so a port enabled before `initialize` reports every new input as
-//! LOW — a pull-up button reads that as a press at every flow start.
+//! Reporting is switched on only after `initialize` has put each pin in the mode
+//! it reports in, because `StandardFirmata` answers an enable at once:
+//! `REPORT_DIGITAL` with the port masked to its *input* pins, so a port enabled
+//! first reports every new input as LOW (a pull-up button reads that as a press
+//! at every flow start); `REPORT_ANALOG` with an `analogRead` of a pin that may
+//! still be a driven output from the previous flow. Every "configure, then
+//! stream" pair follows the same rule: the I2C bus config (setup) precedes the
+//! continuous reads (arm).
 
 use crate::runtime::board::BoardWriter;
 use crate::runtime::wiring::{BoardWiring, I2cContinuousRead, ListenerWiring};
@@ -52,8 +55,6 @@ pub struct DesiredBoard {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct BoardPlan {
     // --- setup phase (before per-node initialize) ---
-    /// Analog channels to start reporting (pin numbers; independent per channel).
-    pub analog_enable: Vec<u8>,
     /// Analog channels to stop reporting.
     pub analog_disable: Vec<u8>,
     /// Digital ports to stop reporting, as pin selectors (`port * 8`).
@@ -63,6 +64,9 @@ pub struct BoardPlan {
     /// The global sampling interval (ms) to set, if any component voted.
     pub sampling_interval_ms: Option<i32>,
     // --- arm phase (after per-node initialize) ---
+    /// Analog channels to start reporting (pin numbers; independent per channel).
+    /// After initialize, so the first report reads the pin as an analog input.
+    pub analog_enable: Vec<u8>,
     /// Digital ports to start reporting, as pin selectors (`port * 8`). After
     /// initialize, so the board's immediate answer reads the inputs' real level.
     pub digital_enable: Vec<u8>,
@@ -148,14 +152,6 @@ impl BoardPlan {
     /// A failed op is logged and skipped rather than aborting the phase: one
     /// unusable pin must not stop the rest of the board coming up.
     pub fn encode_setup(&self, writer: &mut impl BoardWriter) {
-        for &pin in &self.analog_enable {
-            // A failure here (pin not flagged analog in the seeded table) means
-            // the board will never stream this pin — surface it; a silent drop
-            // here cost a full debugging session.
-            if let Err(e) = writer.enable_analog_reporting(pin) {
-                log::warn!("enable analog reporting failed for pin {pin}: {e}");
-            }
-        }
         for &pin in &self.analog_disable {
             let _ = writer.disable_analog_reporting(pin);
         }
@@ -174,11 +170,19 @@ impl BoardPlan {
         }
     }
 
-    /// Emit the **arm** phase: switch digital reporting on, then drain every
+    /// Emit the **arm** phase: switch reporting on, then drain every
     /// previously-armed continuous read and start the desired set. Runs *after*
-    /// per-node initialize, so each input pin is in its mode before its port
-    /// reports and each device is configured before its stream starts.
+    /// per-node initialize, so each input pin is in its mode before it reports
+    /// and each device is configured before its stream starts.
     pub fn encode_arm(&self, writer: &mut impl BoardWriter) {
+        for &pin in &self.analog_enable {
+            // A failure here (pin not flagged analog in the seeded table) means
+            // the board will never stream this pin — surface it; a silent drop
+            // here cost a full debugging session.
+            if let Err(e) = writer.enable_analog_reporting(pin) {
+                log::warn!("enable analog reporting failed for pin {pin}: {e}");
+            }
+        }
         for &sel in &self.digital_enable {
             if let Err(e) = writer.enable_digital_reporting(sel) {
                 log::warn!("enable digital reporting failed for selector {sel}: {e}");
@@ -322,7 +326,7 @@ mod tests {
     }
 
     fn arm_bytes(plan: &BoardPlan) -> Vec<u8> {
-        let mut client = client_with_analog(&[]);
+        let mut client = client_with_analog(&[14, 15]);
         let mut out = Vec::new();
         plan.encode_arm(&mut BufferBoardWriter::new(&mut client, &mut out));
         out
@@ -467,12 +471,12 @@ mod tests {
     }
 
     #[test]
-    fn setup_emits_reporting_then_bus_then_rate() {
+    fn setup_emits_reporting_off_then_bus_then_rate() {
         // Field order is the apply order. Reporting toggles first, then the I2C
         // bus config, then the shared sampling rate — a rate set before the bus
         // is configured is a rate the bus never honours.
         let plan = BoardPlan {
-            analog_enable: vec![14],
+            analog_disable: vec![14],
             digital_disable: vec![8],
             i2c_config_delay: Some(100),
             sampling_interval_ms: Some(40),
@@ -480,8 +484,8 @@ mod tests {
         };
         let bytes = setup_bytes(&plan, &[14]);
 
-        // REPORT_ANALOG(channel 0) | REPORT_DIGITAL(port 1) off | then two sysex.
-        assert_eq!(&bytes[0..2], &[0xC0, 0x01], "analog reporting first");
+        // REPORT_ANALOG(channel 0) off | REPORT_DIGITAL(port 1) off | two sysex.
+        assert_eq!(&bytes[0..2], &[0xC0, 0x00], "analog reporting off first");
         assert_eq!(&bytes[2..4], &[0xD1, 0x00], "digital reporting off second");
         let sysex_start = bytes.iter().position(|&b| b == 0xF0).expect("a sysex follows");
         assert_eq!(sysex_start, 4, "reporting toggles precede every sysex");
@@ -492,31 +496,31 @@ mod tests {
     }
 
     #[test]
-    fn setup_skips_an_analog_pin_the_board_cannot_stream() {
-        // Pin 14 is not flagged analog in the seeded table, so the op fails.
+    fn arm_skips_an_analog_pin_the_board_cannot_stream() {
+        // Pin 16 is not flagged analog in the seeded table, so the op fails.
         // One unusable pin must not stop the rest of the phase.
         let plan = BoardPlan {
-            analog_enable: vec![14],
-            digital_disable: vec![0],
+            analog_enable: vec![16],
+            digital_enable: vec![0],
             ..Default::default()
         };
-        let bytes = setup_bytes(&plan, &[]);
-        assert_eq!(bytes, vec![0xD0, 0x00], "digital reporting still emitted");
+        assert_eq!(arm_bytes(&plan), vec![0xD0, 0x01], "digital reporting still emitted");
     }
 
     #[test]
-    fn digital_reporting_is_switched_on_in_the_arm_phase_before_any_stream() {
-        // `StandardFirmata` answers REPORT_DIGITAL with the port masked to its
-        // input pins, so it must follow `initialize`'s pin modes — and it goes
-        // first in the arm phase, ahead of the I2C drain and arm.
+    fn reporting_is_switched_on_in_the_arm_phase_before_any_stream() {
+        // `StandardFirmata` answers an enable at once, so it must follow
+        // `initialize`'s pin modes — and it opens the arm phase, ahead of the
+        // I2C drain and arm.
         let plan = BoardPlan {
+            analog_enable: vec![15],
             digital_enable: vec![0],
             i2c_stops: vec![0x68],
             ..Default::default()
         };
-        assert!(setup_bytes(&plan, &[]).is_empty(), "no enable before initialize");
+        assert!(setup_bytes(&plan, &[15]).is_empty(), "no enable before initialize");
         let arm = arm_bytes(&plan);
-        assert_eq!(&arm[0..2], &[0xD0, 0x01], "digital reporting opens the arm phase");
+        assert_eq!(&arm[0..4], &[0xC1, 0x01, 0xD0, 0x01], "reporting opens the arm phase");
     }
 
     /// `[addr, mode << 3]` — the two bytes that identify an I2C request's target
@@ -553,18 +557,64 @@ mod tests {
         // every device's power-on writes.
         let plan = BoardPlan {
             analog_enable: vec![14],
+            analog_disable: vec![15],
             i2c_config_delay: Some(0),
             i2c_stops: vec![0x68],
             i2c_reads: vec![I2cContinuousRead { address: 0x68, register: 0x3B, length: 6 }],
             ..Default::default()
         };
-        let setup = setup_bytes(&plan, &[14]);
+        let setup = setup_bytes(&plan, &[14, 15]);
         let arm = arm_bytes(&plan);
         assert!(!setup.is_empty() && !arm.is_empty());
         assert!(
             !setup.windows(2).any(|w| w == i2c_op(0x68, I2C_MODE_READ_CONTINUOUS)),
             "no arm in the setup phase"
         );
-        assert!(!arm.contains(&0xC0), "no reporting toggle in the arm phase");
+        assert!(!setup.windows(2).any(|w| w == [0xC0, 0x01]), "no enable in the setup phase");
+        assert!(!arm.windows(2).any(|w| w == [0xC1, 0x00]), "no disable in the arm phase");
+        assert!(!arm.contains(&0x78), "no bus config in the arm phase");
+    }
+
+    /// Through `update_flow`, every pin is in its mode before its reporting is
+    /// switched on, and the bus is configured before its continuous read — the
+    /// same order whether the flow is applied fresh or re-applied.
+    #[test]
+    fn update_flow_sets_modes_before_it_switches_reporting_on() {
+        use crate::flow::{FlowNode, FlowUpdate, Position};
+        use crate::runtime::FlowRuntime;
+        let node = |id: &str, instance: &str, data: serde_json::Value| FlowNode {
+            id: id.into(),
+            node_type: Some(instance.into()),
+            data,
+            position: Position { x: 0.0, y: 0.0 },
+        };
+        let mut rt = FlowRuntime::new();
+        let pins: Vec<_> = (0..20)
+            .map(|p| serde_json::json!({ "pin": p, "analogChannel": if p >= 14 { p } else { -1 } }))
+            .collect();
+        rt.seed_pins(&serde_json::Value::Array(pins).to_string()).unwrap();
+        let bytes = rt
+            .update_flow(FlowUpdate {
+                nodes: vec![
+                    node("btn", "Button", serde_json::json!({ "pin": 6, "isPullup": true })),
+                    node("pot", "Sensor", serde_json::json!({ "pin": "A1" })),
+                    node(
+                        "dev",
+                        "I2cDevice",
+                        serde_json::json!({ "address": 0x29, "register": 0x14, "readLength": 2 }),
+                    ),
+                ],
+                edges: vec![],
+            })
+            .outbound_bytes;
+        let at = |needle: &[u8]| {
+            bytes
+                .windows(needle.len())
+                .position(|w| w == needle)
+                .unwrap_or_else(|| panic!("{needle:02X?} not in {bytes:02X?}"))
+        };
+        assert!(at(&[0xF4, 6, 11]) < at(&[0xD0, 0x01]), "pull-up mode before its port reports");
+        assert!(at(&[0xF4, 15, 2]) < at(&[0xC1, 0x01]), "analog mode before its channel reports");
+        assert!(at(&[0xF0, 0x78]) < at(&[0x29, 0x10]), "bus config before the continuous read");
     }
 }
