@@ -16,31 +16,43 @@
 //! connection it is about, so a late report from a previous connection cannot
 //! tear down the current one.
 //!
-//! All I/O — the Firmata probe, flashing, handing the port to the runtime, and
-//! the Tauri events — sits behind the [`LinkIo`] seam: the desktop adapter in
-//! `hardware/mod.rs` performs it for real, a fake in the tests records it. The
-//! bring-up *policy* stays in [`microflow_core::bringup`]; this module is the
-//! desktop adapter's bookkeeping around it.
+//! A probe blocks (a failed one for ~12s: two bauds × DTR reset + three
+//! queries), so a scan makes **at most one** bring-up attempt, and retry delays
+//! are measured from when the probe *returned* — port facts are read again
+//! between probes. A lost board is retried at 0/1/2/4/8s; after that the link
+//! shows an error ("not responding") and keeps one quiet probe every 30s while
+//! the port stays present.
+//!
+//! All I/O — the Firmata probe, flashing, handing the port to the runtime, the
+//! Tauri events, and the clock — sits behind the [`LinkIo`] seam: the desktop
+//! adapter in `hardware/mod.rs` performs it for real, a fake in the tests
+//! records it. The bring-up *policy* stays in [`microflow_core::bringup`]; this
+//! module is the desktop adapter's bookkeeping around it.
 
 use super::port_monitor::{PortMonitor, SerialPortInfo};
 use super::types::BoardState;
 use crate::flasher::{BoardConfig, BoardType};
 use microflow_core::bringup::{Action, BringUp, Event, Phase};
 use std::collections::BTreeMap;
+use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 /// Identifies one live board connection, minted by the link per probe. The
 /// runtime actor holds the port under it and reports failures by it.
 pub type SessionId = u64;
 
-/// Reconnect attempts after the live connection drops with the port still
+/// Fast reconnect attempts after the live connection drops with the port still
 /// present (board reset, serial I/O error). The first is immediate.
 const RETRY_ATTEMPTS: u32 = 5;
-/// Backoff base: attempt `n ≥ 1` waits `RETRY_BASE × 2^(n-1)` (1s, 2s, 4s, 8s).
+/// Backoff base: attempt `n ≥ 1` waits `RETRY_BASE × 2^(n-1)` (1s, 2s, 4s, 8s)
+/// after the previous probe returned.
 const RETRY_BASE: Duration = Duration::from_secs(1);
+/// Once the fast attempts are spent: one quiet probe this long after the last
+/// one returned, for as long as the lost board's port stays present.
+const SLOW_RETRY: Duration = Duration::from_secs(30);
 
 /// Everything the board link does to the outside world — the seam that keeps
-/// it testable without a board, a serial port or a Tauri app.
+/// it testable without a board, a serial port, a Tauri app or real time.
 pub trait LinkIo {
     /// Run the Firmata probe on `port`. On success the implementation has handed
     /// the open connection to the runtime as `session` and returns its
@@ -58,6 +70,9 @@ pub trait LinkIo {
     fn port_connected(&mut self, port: &SerialPortInfo);
     /// A serial port went away.
     fn port_disconnected(&mut self, port: &SerialPortInfo);
+    /// The current time. Read after a probe returns, so retry delays start
+    /// when the (blocking) probe ended, not when the scan began.
+    fn now(&self) -> Instant;
 }
 
 /// A port the link has seen, and whether it may still be tried as the board.
@@ -71,8 +86,16 @@ struct KnownPort {
 /// A pending reconnect to the port the board was lost on.
 struct Retry {
     port: String,
+    /// Attempts made so far.
     attempt: u32,
     due: Instant,
+}
+
+impl Retry {
+    /// The fast attempts are spent: probes are now quiet and 30s apart.
+    fn is_slow(&self) -> bool {
+        self.attempt >= RETRY_ATTEMPTS
+    }
 }
 
 /// The single owner of the desktop board connection. See the module docs.
@@ -93,8 +116,9 @@ pub struct BoardLink<Io: LinkIo> {
     session: Option<SessionId>,
     next_session: SessionId,
     retry: Option<Retry>,
-    /// Time of the fact being processed (drives retry scheduling).
-    now: Instant,
+    /// A slow (post-error) reconnect is in flight: only `Connected` is
+    /// published, so the "not responding" error stays up between probes.
+    quiet: bool,
 }
 
 impl<Io: LinkIo> BoardLink<Io> {
@@ -109,7 +133,7 @@ impl<Io: LinkIo> BoardLink<Io> {
             session: None,
             next_session: 0,
             retry: None,
-            now: Instant::now(),
+            quiet: false,
         }
     }
 
@@ -143,9 +167,9 @@ impl<Io: LinkIo> BoardLink<Io> {
 
     /// Fact: these ports are present now. Departures first (only the board's
     /// own port leaving is `PortGone`), then arrivals, then — while no board is
-    /// connected — a due reconnect retry or the next untried candidate.
-    pub fn scan(&mut self, ports: Vec<SerialPortInfo>, now: Instant) {
-        self.now = now;
+    /// connected — at most one attempt: a due reconnect, else the next untried
+    /// candidate.
+    pub fn scan(&mut self, ports: Vec<SerialPortInfo>) {
         let current: BTreeMap<String, SerialPortInfo> = ports
             .into_iter()
             .map(|p| (PortMonitor::canonical_id(&p.port_name), p))
@@ -188,14 +212,21 @@ impl<Io: LinkIo> BoardLink<Io> {
     /// port. Ends the live connection (and schedules a reconnect) only if
     /// `session` *is* the live connection — a late report from an earlier one
     /// is ignored.
-    pub fn session_ended(&mut self, session: SessionId, now: Instant) {
+    pub fn session_ended(&mut self, session: SessionId) {
         if self.session != Some(session) {
             log::debug!("Ignoring end of stale session {session} (live: {:?})", self.session);
             return;
         }
-        self.now = now;
         log::info!("Board session {session} ended without the port leaving; reconnecting");
         self.drive(Event::ConnectionLost);
+    }
+
+    /// Feed every session end the runtime reported since the last call — the
+    /// monitor tick's first step.
+    pub fn drain_session_ends(&mut self, ended: &Receiver<SessionId>) {
+        for session in ended.try_iter() {
+            self.session_ended(session);
+        }
     }
 
     fn is_board(&self, id: &str) -> bool {
@@ -205,6 +236,8 @@ impl<Io: LinkIo> BoardLink<Io> {
     fn port_left(&mut self, id: &str) {
         let Some(known) = self.ports.remove(id) else { return };
         log::info!("Port disconnected: {}", known.info.port_name);
+        // A port that comes back is a replug: a fresh candidate, not the tail
+        // end of an old reconnect.
         if self.retry.as_ref().is_some_and(|r| r.port == id) {
             self.retry = None;
         }
@@ -217,18 +250,18 @@ impl<Io: LinkIo> BoardLink<Io> {
         self.io.port_disconnected(&info);
     }
 
-    /// While no board is connected, try the due reconnect first, then every
-    /// untried candidate in order, until one connects or none are left.
+    /// While no board is connected, make one bring-up attempt: the due
+    /// reconnect first, else the next untried candidate. One per scan, so the
+    /// next scan's port facts are read between (blocking) probes.
     fn bring_up_next(&mut self) {
-        while !self.is_connected() {
-            if let Some(port) = self.take_due_retry() {
-                self.attempt(&port, true);
-                continue;
-            }
-            let Some(id) = self.ports.iter().find(|(_, k)| !k.probed).map(|(id, _)| id.clone())
-            else {
-                break;
-            };
+        if self.is_connected() {
+            return;
+        }
+        if self.retry.as_ref().is_some_and(|r| r.due <= self.io.now()) {
+            self.reconnect();
+        } else if let Some(id) =
+            self.ports.iter().find(|(_, k)| !k.probed).map(|(id, _)| id.clone())
+        {
             self.attempt(&id, false);
         }
         if self.is_connected() {
@@ -236,26 +269,39 @@ impl<Io: LinkIo> BoardLink<Io> {
         }
     }
 
-    /// The pending retry if it is due, re-armed for the attempt after it.
-    fn take_due_retry(&mut self) -> Option<String> {
-        let retry = self.retry.as_mut()?;
-        if retry.due > self.now {
-            return None;
+    /// One reconnect attempt at the lost board's port, then re-arm the retry
+    /// from when the probe returned. The attempt that spends the fast budget
+    /// surfaces the "not responding" error; later (slow) attempts are quiet.
+    fn reconnect(&mut self) {
+        let Some((port, slow)) = self.retry.as_ref().map(|r| (r.port.clone(), r.is_slow()))
+        else {
+            return;
+        };
+        self.quiet = slow;
+        self.attempt(&port, true);
+        self.quiet = false;
+        if self.is_connected() {
+            return;
         }
-        let port = retry.port.clone();
+        let now = self.io.now();
+        let Some(retry) = self.retry.as_mut() else { return };
         retry.attempt += 1;
-        if retry.attempt < RETRY_ATTEMPTS {
-            retry.due = self.now + backoff(retry.attempt);
-        } else {
-            log::warn!("Giving up reconnecting to {port} after {RETRY_ATTEMPTS} attempts");
-            self.retry = None;
+        let delay = if retry.is_slow() { SLOW_RETRY } else { backoff(retry.attempt) };
+        retry.due = now + delay;
+        if retry.attempt == RETRY_ATTEMPTS {
+            let name = self.ports.get(&port).map_or(port.as_str(), |k| k.info.port_name.as_str());
+            log::warn!(
+                "Board on {name} not responding after {RETRY_ATTEMPTS} attempts; probing every {}s",
+                SLOW_RETRY.as_secs()
+            );
+            let error = not_responding(name);
+            self.io.board_state(&BoardState::Error { error: Some(error) });
         }
-        Some(port)
     }
 
     /// Start one bring-up attempt on `id`. A `reconnect` is a background
     /// attempt at a board that had Firmata moments ago: it never flashes and
-    /// never surfaces an error.
+    /// never surfaces the machine's error.
     fn attempt(&mut self, id: &str, reconnect: bool) {
         let Some(known) = self.ports.get_mut(id) else { return };
         known.probed = true;
@@ -323,7 +369,7 @@ impl<Io: LinkIo> BoardLink<Io> {
             }
             Action::ScheduleRetry => {
                 if let Some(port) = self.board.clone() {
-                    self.retry = Some(Retry { port, attempt: 0, due: self.now });
+                    self.retry = Some(Retry { port, attempt: 0, due: self.io.now() });
                 }
             }
             // The desktop flasher reports no incremental progress today.
@@ -344,6 +390,9 @@ impl<Io: LinkIo> BoardLink<Io> {
     /// payloads (probe result, port name). `Error.detail` passes through
     /// verbatim — the UI shows it in full (commit `7c8f7e2`).
     fn publish(&mut self, phase: &Phase) {
+        if self.quiet && *phase != Phase::Connected {
+            return;
+        }
         let state = match phase {
             Phase::Connecting => BoardState::Connecting {},
             Phase::Flashing { board } => {
@@ -365,7 +414,7 @@ fn is_candidate(info: &SerialPortInfo) -> bool {
     info.is_usb() && !PortMonitor::should_skip_firmata_test(&info.port_name)
 }
 
-/// Delay before reconnect attempt `attempt` (0 = immediate).
+/// Delay before fast reconnect attempt `attempt` (0 = immediate).
 fn backoff(attempt: u32) -> Duration {
     match attempt {
         0 => Duration::ZERO,
@@ -373,20 +422,29 @@ fn backoff(attempt: u32) -> Duration {
     }
 }
 
+fn not_responding(port_name: &str) -> String {
+    format!(
+        "The board on {port_name} is not responding. Replug it or press its reset button."
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::{HashMap, HashSet};
 
-    /// Records every side effect; probes answer from a scripted table.
-    #[derive(Default)]
+    /// Records every side effect; probes answer from a scripted table and take
+    /// `probe_cost` of fake time.
     struct FakeIo {
+        clock: Instant,
+        probe_cost: Duration,
         /// Ports whose probe finds Firmata.
         firmata: HashSet<String>,
         /// Remaining probe failures per port before it answers.
         fail_next: HashMap<String, u32>,
-        /// Every probe, in order — on real hardware each is a DTR reset.
-        probes: Vec<String>,
+        /// Every probe (port, start time), in order — on real hardware each is
+        /// a DTR reset.
+        probes: Vec<(String, Instant)>,
         flashes: Vec<String>,
         closes: u32,
         states: Vec<BoardState>,
@@ -396,7 +454,8 @@ mod tests {
 
     impl LinkIo for FakeIo {
         fn probe(&mut self, port: &str, _after_flash: bool, _session: SessionId) -> Option<BoardState> {
-            self.probes.push(port.to_string());
+            self.probes.push((port.to_string(), self.clock));
+            self.clock += self.probe_cost;
             if let Some(n) = self.fail_next.get_mut(port).filter(|n| **n > 0) {
                 *n -= 1;
                 return None;
@@ -418,6 +477,9 @@ mod tests {
         }
         fn port_disconnected(&mut self, port: &SerialPortInfo) {
             self.left.push(port.port_name.clone());
+        }
+        fn now(&self) -> Instant {
+            self.clock
         }
     }
 
@@ -455,15 +517,36 @@ mod tests {
     }
 
     fn link_with_firmata(ports: &[&str]) -> BoardLink<FakeIo> {
-        let io = FakeIo {
+        BoardLink::new(FakeIo {
+            clock: Instant::now(),
+            probe_cost: Duration::ZERO,
             firmata: ports.iter().map(|p| (*p).to_string()).collect(),
-            ..FakeIo::default()
-        };
-        BoardLink::new(io)
+            fail_next: HashMap::new(),
+            probes: Vec::new(),
+            flashes: Vec::new(),
+            closes: 0,
+            states: Vec::new(),
+            appeared: Vec::new(),
+            left: Vec::new(),
+        })
+    }
+
+    /// Advance the fake clock by `ms` (never backwards past a probe) and scan.
+    fn scan_after(link: &mut BoardLink<FakeIo>, ms: u64, ports: Vec<SerialPortInfo>) {
+        link.io_mut().clock += Duration::from_millis(ms);
+        link.scan(ports);
+    }
+
+    fn probes(link: &BoardLink<FakeIo>) -> Vec<&str> {
+        link.io().probes.iter().map(|(port, _)| port.as_str()).collect()
     }
 
     fn is_disconnected(state: &BoardState) -> bool {
         matches!(state, BoardState::Disconnected {})
+    }
+
+    fn is_error(state: &BoardState) -> bool {
+        matches!(state, BoardState::Error { .. })
     }
 
     #[test]
@@ -471,16 +554,15 @@ mod tests {
         // The live bug: a port that appeared while the board was connected was
         // tagged `has_firmata`, so unplugging it sent `PortGone` and dropped the
         // board — which then re-probed with a DTR reset (reboot, flow state lost).
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
         assert_eq!(link.board_port(), Some(UNO));
 
-        link.scan(vec![uno(UNO), gps()], t0 + Duration::from_millis(250));
-        link.scan(vec![uno(UNO)], t0 + Duration::from_millis(500));
+        scan_after(&mut link, 250, vec![uno(UNO), gps()]);
+        scan_after(&mut link, 250, vec![uno(UNO)]);
 
         assert_eq!(link.board_port(), Some(UNO), "board stays connected");
-        assert_eq!(link.io().probes, vec![UNO], "no re-probe, so no DTR reset");
+        assert_eq!(probes(&link), vec![UNO], "no re-probe, so no DTR reset");
         assert_eq!(link.io().closes, 0);
         assert!(!link.io().states.iter().any(is_disconnected));
         assert_eq!(link.io().left, vec![GPS], "the port event still reaches the UI");
@@ -488,12 +570,11 @@ mod tests {
 
     #[test]
     fn unrelated_port_present_at_startup_unplug_keeps_board_connected() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![gps(), uno(UNO)], t0);
+        link.scan(vec![gps(), uno(UNO)]);
         assert_eq!(link.board_port(), Some(UNO));
 
-        link.scan(vec![uno(UNO)], t0 + Duration::from_millis(250));
+        scan_after(&mut link, 250, vec![uno(UNO)]);
 
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().closes, 0);
@@ -502,18 +583,17 @@ mod tests {
 
     #[test]
     fn board_unplug_disconnects_then_replug_reconnects() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
         assert!(link.is_connected());
 
-        link.scan(vec![], t0 + Duration::from_millis(250));
+        scan_after(&mut link, 250, vec![]);
         assert!(!link.is_connected());
         assert_eq!(link.io().closes, 1);
         assert!(link.io().states.last().is_some_and(is_disconnected));
         assert_eq!(link.io().probes.len(), 1, "an unplug does not retry");
 
-        link.scan(vec![uno(UNO)], t0 + Duration::from_millis(500));
+        scan_after(&mut link, 250, vec![uno(UNO)]);
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().probes.len(), 2);
         assert!(matches!(link.io().states.last(), Some(BoardState::Connected { .. })));
@@ -521,124 +601,179 @@ mod tests {
 
     #[test]
     fn lost_session_retries_with_backoff_until_the_board_answers() {
-        let t0 = Instant::now();
-        let at = |ms: u64| t0 + Duration::from_millis(ms);
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], at(0));
+        link.scan(vec![uno(UNO)]);
         link.io_mut().fail_next.insert(UNO.to_string(), 3);
 
-        link.session_ended(1, at(1_000));
+        link.session_ended(1);
         assert!(!link.is_connected());
-        let probes = |link: &BoardLink<FakeIo>| link.io().probes.len();
+        let count = |link: &BoardLink<FakeIo>| link.io().probes.len();
 
-        link.scan(vec![uno(UNO)], at(1_000)); // attempt 0: immediate, fails
-        assert_eq!(probes(&link), 2);
-        link.scan(vec![uno(UNO)], at(1_500));
-        assert_eq!(probes(&link), 2, "backing off");
-        link.scan(vec![uno(UNO)], at(2_000)); // attempt 1 (+1s), fails
-        assert_eq!(probes(&link), 3);
-        link.scan(vec![uno(UNO)], at(3_900));
-        assert_eq!(probes(&link), 3, "backing off");
-        link.scan(vec![uno(UNO)], at(4_000)); // attempt 2 (+2s), fails
-        assert_eq!(probes(&link), 4);
-        link.scan(vec![uno(UNO)], at(7_999));
-        assert_eq!(probes(&link), 4, "backing off");
-        link.scan(vec![uno(UNO)], at(8_000)); // attempt 3 (+4s), answers
-        assert_eq!(probes(&link), 5);
+        scan_after(&mut link, 0, vec![uno(UNO)]); // attempt 0: immediate, fails
+        assert_eq!(count(&link), 2);
+        scan_after(&mut link, 999, vec![uno(UNO)]);
+        assert_eq!(count(&link), 2, "backing off");
+        scan_after(&mut link, 1, vec![uno(UNO)]); // attempt 1 (+1s), fails
+        assert_eq!(count(&link), 3);
+        scan_after(&mut link, 1_999, vec![uno(UNO)]);
+        assert_eq!(count(&link), 3, "backing off");
+        scan_after(&mut link, 1, vec![uno(UNO)]); // attempt 2 (+2s), fails
+        assert_eq!(count(&link), 4);
+        scan_after(&mut link, 3_999, vec![uno(UNO)]);
+        assert_eq!(count(&link), 4, "backing off");
+        scan_after(&mut link, 1, vec![uno(UNO)]); // attempt 3 (+4s), answers
+        assert_eq!(count(&link), 5);
         assert_eq!(link.board_port(), Some(UNO));
 
         assert!(link.io().flashes.is_empty(), "a reconnect never flashes");
-        assert!(
-            !link.io().states.iter().any(|s| matches!(s, BoardState::Error { .. })),
-            "a reconnect never surfaces an error"
-        );
-        link.scan(vec![uno(UNO)], at(60_000));
-        assert_eq!(probes(&link), 5, "no retry once connected");
+        assert!(!link.io().states.iter().any(is_error), "recovered before the error");
+        scan_after(&mut link, 60_000, vec![uno(UNO)]);
+        assert_eq!(count(&link), 5, "no retry once connected");
     }
 
     #[test]
-    fn reconnect_gives_up_after_bounded_attempts() {
-        let t0 = Instant::now();
+    fn backoff_is_measured_from_when_the_slow_probe_returned() {
+        // A failed real probe blocks ~12s. Delays counted from the scan that
+        // started it would all be spent by the next tick: five back-to-back
+        // probes, a minute of DTR resets with the monitor thread blocked.
+        let probe_cost = Duration::from_secs(12);
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
+        link.io_mut().probe_cost = probe_cost;
         link.io_mut().fail_next.insert(UNO.to_string(), u32::MAX);
-        link.session_ended(1, t0);
+        link.session_ended(1);
 
-        for second in 0..120 {
-            link.scan(vec![uno(UNO)], t0 + Duration::from_secs(second));
+        // A 250ms monitor tick for ten simulated minutes.
+        let mut ticks = 0;
+        while link.io().clock < link.io().probes[0].1 + Duration::from_secs(600) {
+            scan_after(&mut link, 250, vec![uno(UNO)]);
+            ticks += 1;
         }
+        assert!(ticks > 1_000, "ports were scanned between probes");
 
-        assert_eq!(link.io().probes.len(), 1 + RETRY_ATTEMPTS as usize);
-        assert!(!link.is_connected());
+        let starts: Vec<Instant> = link.io().probes[1..].iter().map(|(_, at)| *at).collect();
+        let gaps: Vec<u64> = starts
+            .windows(2)
+            .map(|w| (w[1] - (w[0] + probe_cost)).as_millis().try_into().unwrap())
+            .collect();
+        // Fast backoff, then the slow cadence — each gap within one tick.
+        let expected = [1_000, 2_000, 4_000, 8_000, 30_000, 30_000];
+        assert!(gaps.len() >= expected.len(), "{gaps:?}");
+        for (gap, want) in gaps.iter().zip(expected) {
+            assert!((want..want + 250).contains(gap), "gap {gap}ms, expected ~{want}ms ({gaps:?})");
+        }
+    }
+
+    #[test]
+    fn spent_retries_surface_an_error_then_keep_probing_quietly() {
+        let mut link = link_with_firmata(&[UNO]);
+        link.scan(vec![uno(UNO)]);
+        link.io_mut().fail_next.insert(UNO.to_string(), 6);
+        link.session_ended(1);
+
+        for _ in 0..(50 * 4) {
+            scan_after(&mut link, 250, vec![uno(UNO)]);
+        }
+        // 5 fast attempts (immediately, then +1/2/4/8s) then one slow one at +30s.
+        assert_eq!(link.io().probes.len(), 1 + RETRY_ATTEMPTS as usize + 1);
+        let errors: Vec<&BoardState> = link.io().states.iter().filter(|s| is_error(s)).collect();
+        assert_eq!(errors.len(), 1, "one error when the fast budget is spent");
+        match errors[0] {
+            BoardState::Error { error: Some(e) } => assert!(e.contains("not responding"), "{e}"),
+            other => panic!("unexpected {other:?}"),
+        }
+        assert!(link.io().states.last().is_some_and(is_error), "the error stays up while quiet");
+
+        // The second slow probe (+30s) finds the board: it reconnects.
+        for _ in 0..(31 * 4) {
+            scan_after(&mut link, 250, vec![uno(UNO)]);
+        }
+        assert_eq!(link.board_port(), Some(UNO));
+        assert!(matches!(link.io().states.last(), Some(BoardState::Connected { .. })));
+        assert!(link.io().flashes.is_empty());
     }
 
     #[test]
     fn retry_stops_when_the_port_leaves() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
         link.io_mut().fail_next.insert(UNO.to_string(), u32::MAX);
-        link.session_ended(1, t0);
-        link.scan(vec![uno(UNO)], t0);
+        link.session_ended(1);
+        link.scan(vec![uno(UNO)]);
         assert_eq!(link.io().probes.len(), 2);
 
-        link.scan(vec![], t0 + Duration::from_secs(1));
-        link.scan(vec![], t0 + Duration::from_secs(30));
+        scan_after(&mut link, 1_000, vec![]);
+        scan_after(&mut link, 30_000, vec![]);
         assert_eq!(link.io().probes.len(), 2, "no retry against an absent port");
+    }
+
+    #[test]
+    fn one_probe_per_scan_so_port_facts_are_read_between_probes() {
+        let adapter = |name: &str| usb(name, 0x067b, 0x2303);
+        let (a, b, c) = ("/dev/cu.usbserial-a", "/dev/cu.usbserial-b", "/dev/cu.usbserial-c");
+        let mut link = link_with_firmata(&[]);
+        link.io_mut().probe_cost = Duration::from_secs(12);
+
+        link.scan(vec![adapter(a), adapter(b), adapter(c)]);
+        assert_eq!(probes(&link), vec![a]);
+        // `c` is unplugged during that probe: the next scan sees it before
+        // probing anything else.
+        scan_after(&mut link, 250, vec![adapter(a), adapter(b)]);
+        assert_eq!(link.io().left, vec![c]);
+        assert_eq!(probes(&link), vec![a, b]);
+        scan_after(&mut link, 250, vec![adapter(a), adapter(b)]);
+        assert_eq!(probes(&link), vec![a, b]);
     }
 
     #[test]
     fn probe_failure_on_a_new_port_is_not_retried() {
         // An unrelated device is probed once when it appears, never again — each
         // probe is a DTR reset on somebody else's hardware.
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[]);
-        for second in 0..10 {
-            link.scan(vec![gps()], t0 + Duration::from_secs(second));
+        for _ in 0..10 {
+            scan_after(&mut link, 1_000, vec![gps()]);
         }
-        assert_eq!(link.io().probes, vec![GPS]);
+        assert_eq!(probes(&link), vec![GPS]);
         assert!(link.io().flashes.is_empty(), "an unrecognised device is never flashed");
         assert!(link.io().states.last().is_some_and(is_disconnected));
     }
 
     #[test]
     fn two_firmata_boards_keep_the_first_and_fail_over_to_the_second() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO, UNO_2]);
-        link.scan(vec![uno(UNO), uno(UNO_2)], t0);
+        link.scan(vec![uno(UNO), uno(UNO_2)]);
         assert_eq!(link.board_port(), Some(UNO));
-        assert_eq!(link.io().probes, vec![UNO], "the second board is not reset");
+        assert_eq!(probes(&link), vec![UNO], "the second board is not reset");
 
         // The idle board leaving does not touch the live one…
-        link.scan(vec![uno(UNO)], t0 + Duration::from_millis(250));
+        scan_after(&mut link, 250, vec![uno(UNO)]);
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().closes, 0);
 
         // …and when the live board leaves, the untried one takes over.
-        link.scan(vec![uno(UNO), uno(UNO_2)], t0 + Duration::from_millis(500));
-        assert_eq!(link.io().probes, vec![UNO], "arrived while connected: not probed yet");
-        link.scan(vec![uno(UNO_2)], t0 + Duration::from_millis(750));
+        scan_after(&mut link, 250, vec![uno(UNO), uno(UNO_2)]);
+        assert_eq!(probes(&link), vec![UNO], "arrived while connected: not probed yet");
+        scan_after(&mut link, 250, vec![uno(UNO_2)]);
         assert_eq!(link.board_port(), Some(UNO_2));
-        assert_eq!(link.io().probes, vec![UNO, UNO_2]);
+        assert_eq!(probes(&link), vec![UNO, UNO_2]);
     }
 
     #[test]
     fn session_end_surfaces_disconnected_and_stale_ends_are_ignored() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
 
         // A write error mid-session (reported by the actor as session 1 ending).
-        link.session_ended(1, t0);
+        link.session_ended(1);
         assert!(!link.is_connected());
         assert_eq!(link.io().closes, 1);
         assert!(link.io().states.last().is_some_and(is_disconnected));
 
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
         assert_eq!(link.board_port(), Some(UNO), "reconnected as session 2");
 
         // A late report about session 1 must not tear down session 2.
-        link.session_ended(1, t0 + Duration::from_millis(10));
+        link.session_ended(1);
         assert_eq!(link.board_port(), Some(UNO));
         assert_eq!(link.io().closes, 1);
     }
@@ -665,31 +800,27 @@ mod tests {
             }
         }
 
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[UNO]);
-        link.scan(vec![uno(UNO)], t0);
+        link.scan(vec![uno(UNO)]);
 
         let (ended_tx, ended_rx) = std::sync::mpsc::channel();
         let mut session = BoardSession::new(1, Box::new(BrokenPort), ended_tx);
         assert!(session.write(&[0x90, 0x01, 0x00]).is_err());
 
-        for id in ended_rx.try_iter() {
-            link.session_ended(id, t0);
-        }
+        link.drain_session_ends(&ended_rx);
         assert!(!link.is_connected());
         assert!(link.io().states.last().is_some_and(is_disconnected));
     }
 
     #[test]
     fn non_usb_and_system_ports_are_never_probed() {
-        let t0 = Instant::now();
         let mut link = link_with_firmata(&[]);
         let bluetooth = SerialPortInfo {
             port_type: "Bluetooth".to_string(),
             ..usb("/dev/cu.Bluetooth-Incoming-Port", 0, 0)
         };
         let debug_console = usb("/dev/cu.debug-console", 0x1234, 0x0001);
-        link.scan(vec![bluetooth, debug_console], t0);
+        link.scan(vec![bluetooth, debug_console]);
         assert!(link.io().probes.is_empty());
         assert_eq!(link.io().appeared.len(), 2);
     }
