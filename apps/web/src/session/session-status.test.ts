@@ -16,9 +16,9 @@ import {
   bindSessionStatus,
   initialSessionStatusState,
   localSessionStatus,
+  type LocalPersistenceSource,
   type SessionStatusSource,
-} from "./session-status";
-import { makeSession, withLiveAccess } from "./flow-session";
+} from "./session-status";import { makeSession, withLiveAccess } from "./flow-session";
 import type { SyncAdapter } from "./sync-adapter";
 
 // ----------------------------------------------------------------------------
@@ -256,36 +256,70 @@ describe("Flow Session Status", () => {
 // ----------------------------------------------------------------------------
 
 describe("local session status", () => {
-  const flush = () => new Promise((r) => setTimeout(r, 0));
+  type LocalState = LocalPersistenceSource["state"];
 
-  test("a store that loads stays quietly local", async () => {
-    const store = localSessionStatus(Promise.resolve());
-    await flush();
+  /** The `IndexeddbSyncAdapter` state surface, scripted. */
+  function fakeLocal(initial: LocalState = "loading") {
+    const listeners = new Set<(state: LocalState) => void>();
+    const source = {
+      state: initial as LocalState,
+      error: null as Error | null,
+      onStateChange(listener: (state: LocalState) => void) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      move(state: LocalState, error: Error | null = null) {
+        source.state = state;
+        source.error = error;
+        for (const listener of listeners) listener(state);
+      },
+    };
+    return source;
+  }
+
+  test("loading and synced are quietly local", () => {
+    const source = fakeLocal();
+    const store = localSessionStatus(source);
+    expect(store.getSnapshot().kind).toBe("local");
+    source.move("synced");
     expect(store.getSnapshot().kind).toBe("local");
   });
 
-  test("a store that fails to open becomes local-unsaved with its message", async () => {
-    const failure = Object.assign(new Error("This browser would not open local storage."), {
-      reason: "open-failed",
-    });
-    const store = localSessionStatus(Promise.reject(failure));
+  test("a stalled load shows slow, and clears when the load completes late", () => {
+    const source = fakeLocal();
+    const store = localSessionStatus(source);
     let notified = 0;
     store.subscribe(() => notified++);
-    await flush();
 
+    source.move("stalled", new Error("Local storage did not finish loading."));
+    expect(store.getSnapshot()).toMatchObject({
+      kind: "local-slow",
+      localError: "Local storage did not finish loading.",
+    });
+
+    source.move("synced");
+    expect(store.getSnapshot()).toMatchObject({ kind: "local", localError: null });
+    expect(notified).toBe(2);
+  });
+
+  test("a store that fails to open becomes local-unsaved with its message", () => {
+    const source = fakeLocal();
+    const store = localSessionStatus(source);
+    source.move("failed", new Error("This browser would not open local storage."));
     expect(store.getSnapshot()).toMatchObject({
       kind: "local-unsaved",
       localError: "This browser would not open local storage.",
       readOnly: false,
     });
-    expect(notified).toBe(1);
   });
 
-  test("a teardown before load is not a failure", async () => {
-    const destroyed = Object.assign(new Error("closed"), { reason: "destroyed" });
-    const store = localSessionStatus(Promise.reject(destroyed));
-    await flush();
-    expect(store.getSnapshot().kind).toBe("local");
+  test("an adapter already failed when the session is built starts failed", () => {
+    const source = fakeLocal("failed");
+    source.error = new Error("blocked");
+    expect(localSessionStatus(source).getSnapshot()).toMatchObject({
+      kind: "local-unsaved",
+      localError: "blocked",
+    });
   });
 });
 

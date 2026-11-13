@@ -27,6 +27,13 @@ describe("session status copy", () => {
     });
   });
 
+  test("a slow local store is a warning that it is still trying", () => {
+    expect(describe_({ kind: "local-slow", localError: "Still loading." })).toMatchObject({
+      label: "Saving locally is slow",
+      tone: "warn",
+    });
+  });
+
   test("offline counts unsynced changes", () => {
     expect(describe_({ kind: "offline", unsyncedChanges: 1 })?.label).toBe("Offline · 1 unsynced change");
     expect(describe_({ kind: "offline", unsyncedChanges: 3 })?.label).toBe(

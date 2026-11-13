@@ -13,7 +13,12 @@ export type {
 } from "./sync-adapter";
 export { isRemoteSyncAdapter } from "./sync-adapter";
 
-export { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
+export {
+  IndexeddbSyncAdapter,
+  LocalPersistenceError,
+  type LocalPersistenceFailure,
+  type LocalPersistenceState,
+} from "./indexeddb-sync-adapter";
 export { RecordingSyncAdapter } from "./recording-sync-adapter";
 
 export { createLocalSession, createCloudSession } from "./flow-session";

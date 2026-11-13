@@ -26,6 +26,8 @@ export type SessionStatusKind =
   | "local"
   /** A local flow whose on-device storage failed: edits are not kept. */
   | "local-unsaved"
+  /** A local flow whose on-device storage is slow to load; still trying. */
+  | "local-slow"
   /** First connection attempt in progress. */
   | "connecting"
   /** Socket open, sync handshake not finished. */
@@ -62,7 +64,7 @@ export type FlowSessionStatus = {
    * the transport is already reconnecting. Not an error.
    */
   readonly serverRestarting: boolean;
-  /** Set only in `local-unsaved`: why the local flow is not being stored. */
+  /** Set only in `local-unsaved` / `local-slow`: what the local store reported. */
   readonly localError: string | null;
   /**
    * The room's last save failed and it is retrying (`MESSAGE_UNSAVED`
@@ -292,27 +294,46 @@ export function constantSessionStatus(readOnly: boolean): SessionStatusStore {
   return { getSnapshot: () => snapshot, subscribe: () => () => {} };
 }
 
+/** The slice of `IndexeddbSyncAdapter` a local status follows. A fake satisfies it in tests. */
+export type LocalPersistenceSource = {
+  readonly state: "loading" | "stalled" | "synced" | "failed";
+  readonly error: Error | null;
+  onStateChange(listener: (state: LocalPersistenceSource["state"]) => void): () => void;
+};
+
+const FALLBACK_LOCAL_ERROR = "Local storage (IndexedDB) is unavailable.";
+
 /**
- * The status of a local flow, given its persistence's load promise
- * (`IndexeddbSyncAdapter.whenSynced`).
+ * The status of a local flow, following its persistence's load state.
  *
- * Nobody awaits that promise in the editor — the canvas mounts at once — so
- * a store that cannot open (private browsing, blocked site data, another tab
- * holding it) used to leave the user editing a flow that was never saved, in
- * silence. A rejection here turns the status into `local-unsaved` with the
- * failure's message; editing stays possible, the header says it won't keep.
- * A rejection whose `reason` is `"destroyed"` is a teardown, not a failure.
+ * Nobody awaits the load in the editor — the canvas mounts at once — so a
+ * store that cannot open (private browsing, blocked site data) used to leave
+ * the user editing a flow that was never saved, in silence.
+ *
+ * - `loading` / `synced` → `local`: nothing to say.
+ * - `stalled` → `local-slow`: the load outlasted its timeout. Not a failure —
+ *   persistence keeps trying and the status clears when it reaches `synced`.
+ * - `failed` → `local-unsaved`, with the failure's message. Editing stays
+ *   possible; the header says it won't keep.
  */
-export function localSessionStatus(whenSynced: Promise<void>): SessionStatusStore {
-  let snapshot: FlowSessionStatus = { ...LOCAL_STATUS, readOnly: false };
+export function localSessionStatus(source: LocalPersistenceSource): SessionStatusStore {
   const listeners = new Set<() => void>();
-  whenSynced.catch((error: unknown) => {
-    if ((error as { reason?: unknown } | null)?.reason === "destroyed") return;
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : "Local storage (IndexedDB) is unavailable.";
-    snapshot = { ...snapshot, kind: "local-unsaved", localError: message };
+  const derive = (): FlowSessionStatus => {
+    const message = source.error?.message || FALLBACK_LOCAL_ERROR;
+    switch (source.state) {
+      case "stalled":
+        return { ...LOCAL_STATUS, readOnly: false, kind: "local-slow", localError: message };
+      case "failed":
+        return { ...LOCAL_STATUS, readOnly: false, kind: "local-unsaved", localError: message };
+      default:
+        return { ...LOCAL_STATUS, readOnly: false };
+    }
+  };
+  let snapshot = derive();
+  source.onStateChange(() => {
+    const next = derive();
+    if (statusEqual(next, snapshot) && next.localError === snapshot.localError) return;
+    snapshot = next;
     for (const listener of listeners) listener();
   });
   return {

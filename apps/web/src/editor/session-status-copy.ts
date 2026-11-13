@@ -52,6 +52,13 @@ export function describeSessionStatus(status: FlowSessionStatus): SessionStatusC
   switch (status.kind) {
     case "local":
       return null;
+    case "local-slow":
+      return {
+        label: "Saving locally is slow",
+        detail: `${status.localError ?? "Local storage is slow to respond."} Still trying — keep this tab open; this clears once local storage answers.`,
+        tone: "warn",
+        canRetry: false,
+      };
     case "local-unsaved":
       return {
         label: "Not saving locally",

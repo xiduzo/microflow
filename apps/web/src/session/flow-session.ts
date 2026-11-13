@@ -50,7 +50,7 @@ export function createLocalSession(): FlowSession {
   const doc = FlowDocument.createEmpty();
   doc.setMeta({ name: "Local Flow", description: "Local development flow" });
   const sync = new IndexeddbSyncAdapter(doc);
-  return makeSession("local", "local", doc, sync, false, null, localSessionStatus(sync.whenSynced));
+  return makeSession("local", "local", doc, sync, false, null, localSessionStatus(sync));
 }
 
 export type CreateCloudSessionOptions = {
