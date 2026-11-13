@@ -6,7 +6,7 @@
 //! inverted, so the emitted state inverts the raw read to match the runtime's
 //! `SwitchType`. Downstream Nodes read the resulting `bool` state variable.
 
-use super::config::{SwitchConfig, SwitchType};
+use super::config::SwitchConfig;
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::flow::FlowNode;
 
@@ -32,15 +32,10 @@ pub(crate) fn emit(node: &FlowNode) -> NodeEmission {
     let pin = config.pin;
     let pin_var = format!("switch_{}_pin", node.id_token());
     let state = state_var(node);
-    let nc = config.switch_type == SwitchType::NC;
-
     // NO: actuated reads HIGH. NC: the contact is inverted, so actuated reads
-    // LOW — mirror the runtime by inverting the comparison.
-    let read_expr = if nc {
-        format!("(digitalRead({pin_var}) == LOW)")
-    } else {
-        format!("(digitalRead({pin_var}) == HIGH)")
-    };
+    // LOW — the truth table the runtime applies too.
+    let level = if config.switch_type.closed_when_high() { "HIGH" } else { "LOW" };
+    let read_expr = format!("(digitalRead({pin_var}) == {level})");
 
     NodeEmission {
         declarations: vec![

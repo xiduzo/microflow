@@ -12,6 +12,20 @@ pub(crate) enum SwitchType {
     NC,
 }
 
+impl SwitchType {
+    /// The pin level that reads as "closed" — the one truth table the live
+    /// runtime and the emitted sketch both apply, so they cannot disagree.
+    /// johnny-five's semantics, on a plain `INPUT` with an external pull-down:
+    /// a NO contact pulls the line HIGH when actuated; NC inverts it.
+    #[must_use]
+    pub(crate) fn closed_when_high(&self) -> bool {
+        match self {
+            SwitchType::NO => true,
+            SwitchType::NC => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct SwitchConfig {
