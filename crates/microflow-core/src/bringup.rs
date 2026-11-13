@@ -45,9 +45,12 @@ pub enum Event {
     FlashOk,
     /// Flashing failed; `detail` is the driver's error text.
     FlashFailed { detail: String },
-    /// The user said yes to `ConfirmFlash`: flash the offered board. (No is
-    /// `DisconnectRequested`.)
+    /// The user said yes to `ConfirmFlash`: flash the offered board. Ignored
+    /// unless an offer is open.
     FlashConfirmed,
+    /// The user said no to `ConfirmFlash`. Ignored unless an offer is open, so
+    /// a late answer can never tear down a live connection.
+    FlashDeclined,
     /// The live connection dropped mid-session (board reset; port still there).
     ConnectionLost,
     /// The port physically disappeared (USB unplug).
@@ -68,7 +71,7 @@ pub enum Phase {
     /// No Firmata answered, and the device is only *guessed* to be `board` (a
     /// generic USB-serial bridge chip, which other devices use too). Nothing is
     /// flashed until the user confirms: the host asks "flash as `board`?" and
-    /// feeds `FlashConfirmed` on yes, `DisconnectRequested` on no.
+    /// feeds `FlashConfirmed` on yes, `FlashDeclined` on no.
     ConfirmFlash { board: String },
     Connected,
     /// `detail` must reach the user verbatim (commit `7c8f7e2` — board error
@@ -224,6 +227,8 @@ impl BringUp {
             State::AwaitingConfirm(attempt) => match (event, attempt.board.clone()) {
                 // Only an attempt with a board is ever awaiting confirmation.
                 (Event::FlashConfirmed, Some(board)) => self.flash(attempt, board),
+                // The probe already closed the port: nothing to close.
+                (Event::FlashDeclined, _) => vec![notify(Phase::Disconnected)],
                 // Another port came up: it supersedes the open offer.
                 (Event::PortReady { board, auto_flash, explicit }, _) => {
                     self.start(Attempt { board, auto_flash, explicit })
@@ -460,8 +465,23 @@ mod tests {
         let _ = m.handle(port_ready(Some("uno"), false, true));
         let _ = m.handle(Event::ProbeFailed);
         // The probe already closed the port: no ClosePort.
-        assert_eq!(m.handle(Event::DisconnectRequested), vec![notify(Phase::Disconnected)]);
+        assert_eq!(m.handle(Event::FlashDeclined), vec![notify(Phase::Disconnected)]);
         assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+
+        // A disconnect while offering closes nothing either.
+        let _ = m.handle(port_ready(Some("uno"), false, true));
+        let _ = m.handle(Event::ProbeFailed);
+        assert_eq!(m.handle(Event::DisconnectRequested), vec![notify(Phase::Disconnected)]);
+    }
+
+    #[test]
+    fn late_answers_never_touch_a_live_connection() {
+        let mut m = BringUp::new();
+        let _ = m.handle(port_ready(Some("uno"), true, true));
+        let _ = m.handle(Event::ProbeOk);
+        assert_eq!(m.handle(Event::FlashDeclined), vec![]);
+        assert_eq!(m.handle(Event::FlashConfirmed), vec![]);
+        assert!(m.is_connected());
     }
 
     #[test]
