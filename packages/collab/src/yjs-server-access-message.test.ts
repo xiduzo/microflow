@@ -3,7 +3,7 @@ import * as decoding from "lib0/decoding";
 
 import { YjsServer } from "./yjs-server";
 import { MemoryRoomStore } from "./room-store";
-import { ACCESS_CODES, MESSAGE_ACCESS } from "./protocol";
+import { ACCESS_CODES, MESSAGE_ACCESS, MESSAGE_ACK } from "./protocol";
 
 /**
  * `MESSAGE_ACCESS` is how a client learns what the room will accept from it.
@@ -15,6 +15,7 @@ async function join(server: YjsServer, userId: string, canWrite: boolean) {
   const received: Uint8Array[] = [];
   await server.join("flow-1", { send: (d) => received.push(d), close: () => {} }, userId, canWrite);
   return {
+    received,
     accessFrames(): string[] {
       return received.flatMap((frame) => {
         const decoder = decoding.createDecoder(frame);
@@ -45,5 +46,16 @@ describe("YjsServer access message", () => {
 
     expect(demoted.accessFrames()).toEqual(["write", "read", "write"]);
     expect(bystander.accessFrames()).toEqual(["write"]);
+  });
+});
+
+describe("YjsServer join-time ack", () => {
+  const acks = (received: Uint8Array[]) =>
+    received.filter((frame) => decoding.readVarUint(decoding.createDecoder(frame)) === MESSAGE_ACK);
+
+  test("a clean room acknowledges on join, so a returning client stops waiting for a missed ack", async () => {
+    const server = new YjsServer({ store: new MemoryRoomStore() });
+    const peer = await join(server, "ada", true);
+    expect(acks(peer.received).length).toBe(1);
   });
 });

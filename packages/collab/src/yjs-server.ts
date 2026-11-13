@@ -105,6 +105,14 @@ type Room = {
   firstDirtyAt: number | null;
 };
 
+/** `MESSAGE_ACK`: the room's document reached durable storage at `version`. */
+function ackMessage(version: number): Uint8Array {
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, MESSAGE_ACK);
+  encoding.writeVarUint(encoder, version);
+  return encoding.toUint8Array(encoder);
+}
+
 // ============================================================================
 // RoomConnection
 // ============================================================================
@@ -251,6 +259,11 @@ export class YjsServer {
     // from an earlier `flow.get`; a demotion while it was offline would
     // otherwise go unnoticed until its writes silently vanished.
     this.sendAccess(socket, canWrite ? "write" : "read");
+
+    // A clean room is fully persisted: say so. A client that disconnected
+    // between delivering an edit and the room's persist would otherwise have
+    // missed that ack and wait for one forever.
+    if (!room.isDirty) socket.send(ackMessage(room.lastPersistedAt));
 
     return connection;
   }
@@ -526,10 +539,7 @@ export class YjsServer {
   }
 
   private broadcastAck(room: Room, version: number): void {
-    const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, MESSAGE_ACK);
-    encoding.writeVarUint(encoder, version);
-    this.broadcast(room, encoding.toUint8Array(encoder), null);
+    this.broadcast(room, ackMessage(version), null);
   }
 
   // --------------------------------------------------------------------------
