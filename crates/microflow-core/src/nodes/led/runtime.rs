@@ -143,6 +143,10 @@ impl HardwareComponent for Led {
         Ok(())
     }
 
+    fn restores_output(&self, last: &ComponentValue) -> bool {
+        last.as_number().is_some_and(|l| l > 0.0)
+    }
+
     /// An LED is a plain output: light it again as it was. 1.0 is on (a
     /// digital HIGH), a fraction is a PWM duty. Mirrors `turn_on` /
     /// `brightness` without their `set_value` emit.

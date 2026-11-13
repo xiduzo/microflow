@@ -430,3 +430,21 @@ fn an_unterminated_sysex_is_given_up_past_the_bound() {
     assert_eq!(c.feed(&[DIGITAL_MESSAGE, 0x04, 0x00]), vec![Message::Digital]);
     assert_eq!(c.pins[2].value, 1);
 }
+
+/// A reset in the middle of a frame: the frame's `F7` never arrives and the
+/// boot announcement follows it. The announcement must still decode as a
+/// `ReportFirmware`, or the runtime never learns the board rebooted.
+#[test]
+fn an_announcement_after_a_frame_cut_by_a_reset_still_decodes() {
+    let announce = [PROTOCOL_VERSION, 2, 5, START_SYSEX, REPORT_FIRMWARE, 2, 5, b'S', 0, END_SYSEX];
+    for cut in [
+        vec![START_SYSEX, STRING_DATA, 0x41, 0x00],
+        vec![START_SYSEX, I2C_REPLY, 0x29, 0x00, 0x14, 0x00, 0x11],
+    ] {
+        let mut c = FirmataClient::new();
+        let mut parsed = c.feed(&cut);
+        parsed.extend(c.feed(&announce));
+        assert!(parsed.contains(&Message::ReportFirmware), "after {cut:02X?}: {parsed:?}");
+        assert!(c.i2c_data.is_empty() && c.strings.is_empty(), "the cut frame is dropped, not parsed");
+    }
+}
