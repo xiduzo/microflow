@@ -27,12 +27,20 @@ export type ErrorSource =
   | "window-error"
   | "unhandled-rejection"
   | "local-persistence"
-  | "action";
+  | "action"
+  | "desktop-runtime";
 
 export type ErrorContext = {
   source: ErrorSource;
   /** A route id pattern (`/flow/$flowId`), never a concrete path with ids in it. */
   route?: string;
+  /**
+   * A fingerprint computed where the error happened, when the error object here
+   * has no stack worth hashing — the desktop runtime hashes a Rust panic's code
+   * location. Only 1–16 hex characters are accepted, so it cannot carry content;
+   * anything else falls back to hashing the error.
+   */
+  fingerprint?: string;
 };
 
 /** The non-PII summary: everything a remote sink may see. */
@@ -118,7 +126,7 @@ export function reportError(error: unknown, context: ErrorContext): ErrorReport 
 
     // Built field by field, so nothing else from `context` or `error` can ride along.
     const summary: ErrorReport = Object.freeze({
-      fingerprint: errorFingerprint(error, context.source),
+      fingerprint: suppliedFingerprint(context.fingerprint) ?? errorFingerprint(error, context.source),
       name: errorName(error),
       source: context.source,
       ...(context.route ? { route: context.route } : {}),
@@ -183,6 +191,11 @@ export function errorName(error: unknown): string {
  */
 export function errorFingerprint(error: unknown, source: ErrorSource): string {
   return fnv1a([errorName(error), source, ...stackFrames(error)].join("|"));
+}
+
+/** A caller-supplied fingerprint, if it is plain hex; otherwise `undefined`. */
+function suppliedFingerprint(fingerprint: string | undefined): string | undefined {
+  return fingerprint !== undefined && /^[0-9a-f]{1,16}$/.test(fingerprint) ? fingerprint : undefined;
 }
 
 const MAX_FRAMES = 5;
