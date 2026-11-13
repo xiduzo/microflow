@@ -14,7 +14,8 @@ permissions:
   contents: write
 
 jobs:
-  # Release gate: the same checks pull requests run, on the tagged commit.
+  # Release gate: the checks pull requests run, plus the browser smoke suite,
+  # on the tagged commit.
   # Nothing below starts (no draft release, no version bump on main, no
   # build) unless they pass. build-tauri builds main as bump-version leaves
   # it, and bump-version refuses to run unless main's head is the tagged
@@ -31,8 +32,14 @@ jobs:
     permissions:
       contents: read
 
+  smoke:
+    name: Gate / Smoke
+    uses: ./.github/workflows/smoke.yml
+    permissions:
+      contents: read
+
   create-release:
-    needs: [rust, typescript]
+    needs: [rust, typescript, smoke]
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create_release.outputs.id }}
