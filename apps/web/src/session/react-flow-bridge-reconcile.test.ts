@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { FlowDocument, type FlowEdge, type FlowNode } from "@microflow/collab";
 import type { EdgeChange, NodeChange } from "@xyflow/react";
+import { makeSession } from "./flow-session";
 import { ReactFlowBridge } from "./react-flow-bridge";
 import { RecordingSyncAdapter } from "./recording-sync-adapter";
 
@@ -293,15 +294,29 @@ describe("deleting a node leaves no dangling edge", () => {
     expect(doc.hasEdge("e1")).toBe(false);
   });
 
-  test("the canvas keeps the doc pruned while it is mounted", () => {
-    const { doc, bridge } = setup();
+  test("the editor session prunes once; the canvas starts no second pruner", () => {
+    const doc = FlowDocument.createEmpty();
+    doc.doc.transact(() => {
+      doc.addNode(mkNode("n1"));
+      doc.addNode(mkNode("n2"));
+    }, "seed");
+    let started = 0;
+    const start = doc.startEdgePruning.bind(doc);
+    doc.startEdgePruning = () => {
+      started += 1;
+      return start();
+    };
+    const session = makeSession("local", "f", doc, { kind: "local", destroy() {} }, false);
+    const bridge = new ReactFlowBridge(session.doc);
     // A peer's edge to a node another peer deleted, merged in afterwards.
     remote(doc, () => doc.deleteNode("n2"));
     remote(doc, () => doc.addEdge(mkEdge("late", "n1", "n2")));
 
+    expect(started).toBe(1);
     expect(doc.hasEdge("late")).toBe(false);
     expect(bridge.getSnapshot().edges).toHaveLength(0);
     bridge.destroy();
+    session.destroy();
   });
 
   test("an edge a peer attached before the flush goes with the node", () => {

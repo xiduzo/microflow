@@ -653,8 +653,10 @@ export class FlowDocument {
    * function.
    *
    * Opt-in, and a mutator on purpose: a Viewer's writes are refused by the
-   * room, so a Viewer must never prune. Through `readOnlyDocument` this method
-   * is a no-op, so the Editor's canvas can start it unconditionally.
+   * room, so a Viewer must never prune. The web app's editor session starts it
+   * while the session is writable and stops it on destroy; through
+   * `readOnlyDocument` this method is a no-op. Start it once per document:
+   * each call registers its own listener.
    */
   startEdgePruning(): () => void {
     this.pruneDanglingEdges();
