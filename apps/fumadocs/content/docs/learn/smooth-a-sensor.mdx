@@ -29,7 +29,8 @@ Connect: Potentiometer → Smooth → Map → LED. Also keep the Monitor on the 
 
 In the Smooth node settings:
 
-- **Window** = `10` — the number of recent readings to average
+- **type** = **moving average**
+- **windowSize** = `10` — the number of recent readings to average
 
 Add a second Monitor and connect it to the Smooth node's output. You should see the smoothed reading change much less when you hold the knob still — and lag slightly when you move the knob fast.
 

@@ -17,7 +17,7 @@ import {
 } from "@/ui/dialog";
 import { Button } from "@/ui/button";
 import { cn } from "@/ui/utils";
-import { FLOW_COLORS } from "@/flows/flow-colors";
+import { FLOW_COLORS, randomFlowColor } from "@/flows/flow-colors";
 import { useForm } from "@tanstack/react-form";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/ui/field";
 import { InputGroup, InputGroupInput } from "@/ui/input-group";
@@ -35,7 +35,7 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
   const form = useForm({
     defaultValues: {
       name: "",
-      color: FLOW_COLORS[Math.floor(Math.random() * FLOW_COLORS.length)],
+      color: randomFlowColor(),
     },
     onSubmit: ({ value }) => createMutation.mutate(value),
   });
@@ -71,6 +71,10 @@ export function CreateFlowDialog({ trigger, onSuccess, open: controlledOpen, onO
       setOpen(false);
       form.reset();
       navigate({ to: "/flow/$flowId/graph", params: { flowId: result.id } });
+    },
+    // The dialog stays open with what was typed, so the user can try again.
+    onError: (error) => {
+      toast.error("Failed to create flow", { description: error.message });
     },
   }));
 

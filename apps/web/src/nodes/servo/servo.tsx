@@ -1,8 +1,6 @@
 import { CircleIcon, RotateCcwIcon, RotateCwIcon, SlashIcon } from "lucide-react";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Servo">;
-import { NodeContainer, useDeleteHandles, useNodeControls, type BaseNode } from "../_base/_base";
+import { NodeHandles } from "../_base/node-handles";
+import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { type Data, type Value, dataSchema, defaults } from "./servo.schema";
@@ -14,20 +12,7 @@ export function Servo(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      {props.data.type === "standard" && (
-        <>
-          <Handle type="target" position="left" id="min" handleType="value" offset={-1} />
-          <Handle type="target" position="left" id="value" handleType="value" />
-          <Handle type="target" position="left" id="max" handleType="value" offset={1} />
-        </>
-      )}
-      {props.data.type === "continuous" && (
-        <>
-          <Handle type="target" position="left" id="value" handleType="value" hint="from -1 to 1" offset={-0.5} />
-          <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
-        </>
-      )}
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -66,19 +51,12 @@ function Value() {
 
 function Settings() {
   const data = useNodeData<Data>();
-  const deleteHandles = useDeleteHandles();
   const pins = usePins([MODES.OUTPUT, MODES.PWM]);
 
   const { render } = useNodeControls(
     {
       pin: { value: data.pin, options: pinsToOptions(pins) },
-      type: {
-        value: data.type,
-        options: ["standard", "continuous"],
-        transient: false,
-        onChange: (event) =>
-          deleteHandles(event === "standard" ? ["value", "stop"] : ["min", "value", "max"]),
-      },
+      type: { value: data.type, options: ["standard", "continuous"] },
       range: {
         value: data.range,
         step: 1,

@@ -13,7 +13,10 @@
 //!    dispatch tables in [`CENTRAL_DISPATCH`] (ADR-0012);
 //! 3. `nodes/mod.rs` and the `nodes/<node>/` directories disagree, `nodes/`
 //!    holds a loose file, or a Node directory holds anything but its `mod.rs`
-//!    and its declared layers.
+//!    and its declared layers;
+//! 4. a Node's emitter reads `node.data` into another config than the one its
+//!    runtime is built from. Both halves resolve one struct from the Node's
+//!    `config.rs`, or they can disagree about what its settings mean.
 //!
 //! Comments and the contents of string and char literals are blanked before
 //! matching, so prose and doc links do not count as references.
@@ -462,4 +465,88 @@ fn a_node_directory_holds_only_its_layers() {
         }
     }
     assert_none("A Node directory holds its `mod.rs` and its layers (ADR-0026 D1).", &violations);
+}
+
+/// Every type a `resolve::<T>(` call in `code` names, and whether `code` also
+/// calls `resolve(` with the type left to inference.
+fn resolved_configs(code: &str) -> (BTreeSet<String>, bool) {
+    let mut named = BTreeSet::new();
+    let mut inferred = false;
+    let mut rest = code;
+    while let Some(at) = rest.find("resolve") {
+        let before = rest[..at].chars().next_back();
+        let after = &rest[at + "resolve".len()..];
+        let is_call_of_resolve = !before.is_some_and(|c| c.is_alphanumeric() || c == '_');
+        if is_call_of_resolve {
+            if let Some(turbofish) = after.strip_prefix("::<") {
+                named.insert(turbofish.split('>').next().unwrap_or_default().trim().to_string());
+            } else if after.starts_with('(') {
+                inferred = true;
+            }
+        }
+        rest = after;
+    }
+    (named, inferred)
+}
+
+/// The `T` of `type Config = T;` in a runtime's `ComponentBuilder` impl.
+fn runtime_config(code: &str) -> Option<String> {
+    let after = code.split("type Config =").nth(1)?;
+    Some(after.split(';').next()?.trim().to_string())
+}
+
+#[test]
+fn the_config_scanner_reads_named_and_inferred_resolves() {
+    let (named, inferred) = resolved_configs(
+        "use crate::config::{resolve, UnreadableConfig};\n\
+         let a = resolve::<LedConfig>(&node.data)?; let b: X = resolve(&node.data)?; unresolved(1);",
+    );
+    assert_eq!(named.into_iter().collect::<Vec<_>>(), ["LedConfig"]);
+    assert!(inferred);
+    assert_eq!(runtime_config("impl B for Led { type Config = LedConfig; }").as_deref(), Some("LedConfig"));
+}
+
+#[test]
+fn a_nodes_emitter_and_runtime_read_the_same_config() {
+    let mut violations = Vec::new();
+    for node in node_dirs() {
+        let layer = |name: &str| {
+            let path = nodes_dir().join(&node).join(format!("{name}.rs"));
+            path.exists().then(|| strip(&read(&path)))
+        };
+        let Some(codegen) = layer("codegen") else { continue };
+        let (named, inferred) = resolved_configs(&codegen);
+        if inferred {
+            violations.push(format!(
+                "src/nodes/{node}/codegen.rs calls `resolve(` without naming the config — write \
+                 `resolve::<{}>(&node.data)` so this guard can hold it against the runtime's",
+                named.iter().next().map_or("TheNodesConfig", String::as_str)
+            ));
+        }
+        if named.is_empty() {
+            continue; // the emitter reads no config (Counter, Monitor)
+        }
+        let declared = layer("config").unwrap_or_default();
+        let runtime = layer("runtime").and_then(|code| runtime_config(&code));
+        for config in &named {
+            if !declared.contains(&format!("struct {config}")) {
+                violations.push(format!(
+                    "src/nodes/{node}/codegen.rs resolves `{config}`, which `nodes/{node}/config.rs` \
+                     does not declare — the shared config lives in the Node's `config.rs`"
+                ));
+            }
+            if runtime.as_ref() != Some(config) {
+                violations.push(format!(
+                    "src/nodes/{node}/codegen.rs resolves `{config}`, but `nodes/{node}/runtime.rs` is \
+                     built from `{}` — both halves must read the same config",
+                    runtime.as_deref().unwrap_or("no `type Config`")
+                ));
+            }
+        }
+    }
+    assert_none(
+        "A Node's emitter reads `node.data` into the config its runtime is built from \
+         (ADR-0006: interpret and emit share one config).",
+        &violations,
+    );
 }

@@ -1,0 +1,12 @@
+# This crate is the core's runtime compiled to wasm32-unknown-unknown, where
+# reading the OS clock panics ("time not implemented on this platform"). The
+# browser hands the time in on every call (`now_ms`); see
+# `crates/microflow-core/clippy.toml`.
+disallowed-types = [
+  { path = "std::time::Instant", reason = "panics on wasm32-unknown-unknown; the host hands in now_ms" },
+  { path = "std::time::SystemTime", reason = "panics on wasm32-unknown-unknown; the host hands in now_ms" },
+]
+disallowed-methods = [
+  { path = "std::time::Instant::now", reason = "panics on wasm32-unknown-unknown; the host hands in now_ms" },
+  { path = "std::time::SystemTime::now", reason = "panics on wasm32-unknown-unknown; the host hands in now_ms" },
+]

@@ -6,14 +6,21 @@
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 11;
 bool led_led_1_on = false;
+uint8_t led_led_1_level = 0;
+double led_led_1_value_prev0 = 0.0;
 // node map-1 (RangeMap)
 double range_map_map_1_value = 0.0;
+double range_map_map_1_input = 0.0;
+uint8_t range_map_map_1_pair = 1;
+bool range_map_map_1_fired = false;
+double range_map_map_1_in_prev0 = 0.0;
 // node sensor-1 (Sensor)
 const uint8_t sensor_sensor_1_pin = 15; // A1
 int sensor_sensor_1_value = 0;
 // node smooth-1 (Smooth)
 double smooth_smooth_1_value = 0.0;
 bool smooth_smooth_1_value_seeded = false;
+bool smooth_smooth_1_fired = false;
 
 void setup() {
   // --- Setup ---
@@ -29,11 +36,29 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    sensor_sensor_1_value = analogRead(sensor_sensor_1_pin);
-    range_map_map_1_value = round((((((double)(sensor_sensor_1_value)) - 0.0) * (255.0 - 0.0) / (1023.0 - 0.0) + 0.0)) * 1.0) / 1.0;
-    if (!smooth_smooth_1_value_seeded) { smooth_smooth_1_value = ((double)(range_map_map_1_value)); smooth_smooth_1_value_seeded = true; } else { smooth_smooth_1_value = (1.0 - 0.5) * ((double)(range_map_map_1_value)) + 0.5 * smooth_smooth_1_value; }
-    uint8_t led_led_1_brightness = (uint8_t)constrain((double)(smooth_smooth_1_value), 0.0, 255.0);
-    analogWrite(led_led_1_pin, led_led_1_brightness);
-    led_led_1_on = led_led_1_brightness > 0;
+    int sensor_sensor_1_reading = analogRead(sensor_sensor_1_pin);
+    if ((sensor_sensor_1_reading > sensor_sensor_1_value ? sensor_sensor_1_reading - sensor_sensor_1_value : sensor_sensor_1_value - sensor_sensor_1_reading) >= 1) { sensor_sensor_1_value = sensor_sensor_1_reading; }
+    double range_map_map_1_in_now0 = ((double)(sensor_sensor_1_value));
+    bool range_map_map_1_in_fired0 = (range_map_map_1_in_now0 != range_map_map_1_in_prev0);
+    range_map_map_1_in_prev0 = range_map_map_1_in_now0;
+    range_map_map_1_fired = (range_map_map_1_in_fired0);
+    if (range_map_map_1_fired) {
+      double range_map_map_1_next = round((((((double)(sensor_sensor_1_value)) - 0.0) * (255.0 - 0.0) / (1023.0 - 0.0) + 0.0)) * 1.0) / 1.0;
+      if (((double)(sensor_sensor_1_value)) != range_map_map_1_input || range_map_map_1_next != range_map_map_1_value) { range_map_map_1_pair = range_map_map_1_pair == 255 ? 1 : range_map_map_1_pair + 1; }
+      range_map_map_1_input = ((double)(sensor_sensor_1_value)); range_map_map_1_value = range_map_map_1_next;
+    }
+    smooth_smooth_1_fired = (range_map_map_1_fired);
+    if (smooth_smooth_1_fired) {
+      if (!smooth_smooth_1_value_seeded) { smooth_smooth_1_value = ((double)(range_map_map_1_value)); smooth_smooth_1_value_seeded = true; } else { smooth_smooth_1_value = (1.0 - 0.5) * ((double)(range_map_map_1_value)) + 0.5 * smooth_smooth_1_value; }
+    }
+    double led_led_1_value_now0 = ((double)(smooth_smooth_1_value));
+    bool led_led_1_value_fired0 = (led_led_1_value_now0 != led_led_1_value_prev0);
+    led_led_1_value_prev0 = led_led_1_value_now0;
+    if (led_led_1_value_fired0) {
+      uint8_t led_led_1_brightness = (uint8_t)constrain((double)(smooth_smooth_1_value), 0.0, 255.0);
+      analogWrite(led_led_1_pin, led_led_1_brightness);
+      led_led_1_on = led_led_1_brightness >= 1;
+      led_led_1_level = led_led_1_brightness;
+    }
   }
 }

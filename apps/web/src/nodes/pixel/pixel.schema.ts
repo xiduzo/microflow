@@ -23,7 +23,8 @@ export const dataSchema = baseDataSchema.extend({
     .describe("The controller used to communicate with the pixel strip"),
   skip_firmware_check: z.boolean().default(true).describe("Whether to skip the firmware check"),
   gamma: z.number().default(2.8).describe("The gamma correction factor for the pixel strip"),
-  color_order: z.enum(COLORS).default("BRG").describe("The color order of the pixel strip"),
+  // GRB is the order of a WS2812 / NeoPixel strip, which most strips are.
+  color_order: z.enum(COLORS).default("GRB").describe("The color order of the pixel strip"),
   presets: z.array(valueSchema).default([[]]).describe("Preset color patterns for the pixel strip"),
 });
 export type Data = z.infer<typeof dataSchema>;

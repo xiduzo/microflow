@@ -5,65 +5,24 @@
 //! `on_pin_change`), and analog reporting is no longer enabled here — the
 //! runtime's `update_flow` reconciles reporting centrally from `listener_wiring`.
 
+use super::config::SensorConfig;
 use crate::firmata::PinProfile;
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    ListenerWiring, RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
-#[serde(rename_all = "lowercase")]
-pub(crate) enum SensorType {
-    #[default]
-    Analog,
-    Digital,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct SensorConfig {
-    #[serde(default = "default_pin", deserialize_with = "serde_utils::deserialize_string_or_number")]
-    pub(crate) pin: String,
-    #[serde(default)]
-    pub(crate) r#type: SensorType,
-    #[serde(default = "default_freq")]
-    pub(crate) freq: u32,
-    #[serde(default = "default_threshold")]
-    pub(crate) threshold: u16,
-}
-
-fn default_pin() -> String {
-    "A0".to_string()
-}
-fn default_freq() -> u32 {
-    25
-}
-fn default_threshold() -> u16 {
-    1
-}
-
-impl Default for SensorConfig {
-    fn default() -> Self {
-        Self {
-            pin: default_pin(),
-            r#type: SensorType::default(),
-            freq: default_freq(),
-            threshold: default_threshold(),
-        }
-    }
-}
 
 impl SensorConfig {
     /// The Firmata pin this sensor reads on `pins`. `data.pin` is either an
     /// analog channel label (`"A0"`, the default the frontend keeps until the
-    /// pin is re-picked) or a pin number (`"54"`). `"A0"` is pin 14 on an Uno,
+    /// pin is re-picked) or a pin number (`54`). `"A0"` is pin 14 on an Uno,
     /// 54 on a Mega, 18 on a Leonardo — only the board's analog mapping knows,
     /// so the label resolves through the [`PinProfile`] (the Uno layout when no
     /// board is described). A label the board lacks reads as pin 0; the pin
     /// check badges the node.
     #[must_use]
     pub(crate) fn analog_pin(&self, pins: &PinProfile) -> u8 {
-        pins.resolve_label(&self.pin, 0)
+        pins.resolve(self.pin).unwrap_or(0)
     }
 }
 
@@ -98,7 +57,8 @@ impl Sensor {
 
 impl Component for Sensor {
     fn ports() -> &'static [&'static str] {
-        &["read"]
+        // An input: it reports what the board reads and takes no edge.
+        &[]
     }
 
     fn emits() -> &'static [&'static str] {
@@ -132,10 +92,7 @@ impl Component for Sensor {
         _args: ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        match method {
-            "read" => Ok(()),
-            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
-        }
+        Err(RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 }
 
@@ -228,7 +185,7 @@ mod tests {
     use super::*;
 
     fn cfg(pin: &str) -> SensorConfig {
-        SensorConfig { pin: pin.to_string(), ..SensorConfig::default() }
+        crate::config::resolve(&serde_json::json!({ "pin": pin })).unwrap()
     }
 
     #[test]

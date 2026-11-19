@@ -25,6 +25,7 @@ import { isDesktop } from "@/platform/platform";
 import { REQUIRES_HARDWARE, isComponentType } from "../component-types.generated";
 import { isWebSerialSupported } from "@/board/web-serial";
 import { cliProvider, isCliProvider, takesFlowTools } from "@/ai/cli-providers";
+import { isBrowserReachableBroker } from "@/cloud/broker-url";
 
 /** A short badge label and the sentence behind it. */
 export type HostLimitation = { label: string; reason: string };
@@ -120,9 +121,4 @@ export function hostLimitation(subject: HostSubject): HostLimitation | undefined
       return undefined;
     }
   }
-}
-
-/** Browsers cannot open a raw MQTT/TCP socket — only MQTT-over-WebSocket. */
-export function isBrowserReachableBroker(url: string): boolean {
-  return /^wss?:\/\//i.test(url.trim());
 }

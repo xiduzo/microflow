@@ -7,11 +7,15 @@
 //! ([`analog_pin_declaration`]). The `A{n}` macros are not defined for every
 //! index on every core (the ESP32 core lacks `A1`/`A2`), so the resolved pin
 //! number is emitted, with the `A{n}` name in a trailing comment.
-//! Each loop, `analogRead(pin)` is stored into an `int` state variable which
-//! downstream Nodes read.
+//! Each loop, `analogRead(pin)` is read, and the `int` state variable
+//! downstream Nodes read takes it once it is `threshold` or more away from
+//! the value it holds — the reading the runtime hands on.
 
+use super::config::SensorConfig;
 use crate::codegen::board::BoardTarget;
-use crate::codegen::emit::{analog_label, analog_pin_declaration, NodeEmission, NodeToken};
+use crate::codegen::emit::{analog_pin_declaration, NodeEmission, NodeToken};
+use crate::firmata::PinLabel;
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The Node types backed by this analog-read emitter (see
@@ -28,19 +32,36 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("sensor_{}_value", node.id_token())
 }
 
-/// Emit C++ for a Sensor Node.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, target: &BoardTarget) -> NodeEmission {
-    let pin_var = format!("sensor_{}_pin", node.id_token());
-    let value = value_var(node);
-    let pin_decl = analog_pin_declaration(analog_label(node), target, &pin_var);
+/// The analog pin this Sensor reads, as the Node names it (`"A0"`, the
+/// default, or a pin number) — the same resolution `emit` uses, exposed so
+/// validation can never drift from emission.
+pub(crate) fn label(node: &FlowNode) -> Result<PinLabel, UnreadableConfig> {
+    Ok(resolve::<SensorConfig>(&node.data)?.pin)
+}
 
-    NodeEmission {
+/// Emit C++ for a Sensor Node.
+pub(crate) fn emit(node: &FlowNode, target: &BoardTarget) -> Result<NodeEmission, UnreadableConfig> {
+    let config = resolve::<SensorConfig>(&node.data)?;
+    let token = node.id_token();
+    let pin_var = format!("sensor_{token}_pin");
+    let value = value_var(node);
+    let reading = format!("sensor_{token}_reading");
+    let pin_decl = analog_pin_declaration(config.pin, target, &pin_var);
+    let threshold = config.threshold;
+
+    Ok(NodeEmission {
         declarations: vec![pin_decl, format!("int {value} = 0;")],
         setup: vec![format!("pinMode({pin_var}, INPUT);")],
-        loop_body: vec![format!("{value} = analogRead({pin_var});")],
+        loop_body: vec![
+            format!("int {reading} = analogRead({pin_var});"),
+            // A reading moves the value once it is `threshold` away from it,
+            // as the runtime hands on a reading.
+            format!(
+                "if (({reading} > {value} ? {reading} - {value} : {value} - {reading}) >= {threshold}) {{ {value} = {reading}; }}"
+            ),
+        ],
         ..NodeEmission::default()
-    }
+    })
 }
 
 #[cfg(test)]
@@ -65,7 +86,7 @@ mod tests {
 
     #[test]
     fn sensor_reads_analog_pin() {
-        let e = emit(&sensor("s-1", json!({ "pin": "A0" })), &uno());
+        let e = emit(&sensor("s-1", json!({ "pin": "A0" })), &uno()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("analogRead")));
         // A0 resolves to the Uno's first analog input, pin 14; the analog name
         // stays visible as a comment.
@@ -77,10 +98,10 @@ mod tests {
     #[test]
     fn sensor_resolves_numeric_pin_as_a_pin() {
         for pin in [json!(15), json!("15")] {
-            let e = emit(&sensor("s-1", json!({ "pin": pin })), &uno());
+            let e = emit(&sensor("s-1", json!({ "pin": pin })), &uno()).unwrap();
             assert!(e.declarations.iter().any(|d| d.contains("= 15; // A1")), "{:?}", e.declarations);
         }
-        let e = emit(&sensor("s-1", json!({ "pin": 2 })), &uno());
+        let e = emit(&sensor("s-1", json!({ "pin": 2 })), &uno()).unwrap();
         assert!(
             e.declarations.iter().any(|d| d.contains("= 2;") && d.contains("not an analog input")),
             "{:?}",
@@ -93,7 +114,7 @@ mod tests {
     #[test]
     fn sensor_resolves_esp32_analog_index_to_real_gpio() {
         let esp32 = target_by_id("esp32").expect("esp32 is supported");
-        let e = emit(&sensor("s-1", json!({ "pin": "A1" })), &esp32);
+        let e = emit(&sensor("s-1", json!({ "pin": "A1" })), &esp32).unwrap();
         // ESP32 analog inputs (sorted): 32, 33, 34, 35, 36, 39 — A1 => 33.
         assert!(
             e.declarations.iter().any(|d| d.contains("= 33; // A1")),
@@ -107,7 +128,7 @@ mod tests {
     /// an explanatory note.
     #[test]
     fn out_of_range_index_falls_back_to_first_analog_input() {
-        let e = emit(&sensor("s-1", json!({ "pin": "A9" })), &uno());
+        let e = emit(&sensor("s-1", json!({ "pin": "A9" })), &uno()).unwrap();
         assert!(
             e.declarations
                 .iter()
@@ -120,6 +141,6 @@ mod tests {
     #[test]
     fn sensor_emits_deterministically() {
         let n = sensor("s-1", json!({ "pin": "A0" }));
-        assert_eq!(emit(&n, &uno()), emit(&n, &uno()));
+        assert_eq!(emit(&n, &uno()).unwrap(), emit(&n, &uno()).unwrap());
     }
 }

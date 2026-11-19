@@ -17,7 +17,8 @@
 
 use microflow_core::flow::FlowUpdate;
 use microflow_core::runtime::{
-    figma_announce_actions, reconcile_desired, ComponentValue, Effects, FlowRuntime as CoreRuntime,
+    figma_announce_actions, midi_device_matches, reconcile_desired, ComponentValue, Effects,
+    FlowRuntime as CoreRuntime,
 };
 use std::collections::BTreeMap;
 use wasm_bindgen::prelude::*;
@@ -178,26 +179,71 @@ impl FlowRuntime {
             .map_err(|e| JsError::new(&format!("failed to serialize subscriptions: {e}")))
     }
 
-    /// The active `MidiIn` nodes' device interests: a JSON array of
-    /// `{ nodeId, deviceName }` (`deviceName` = case-insensitive substring
-    /// filter, "" = every device). No reconcile — every listener whose filter
-    /// matches a port receives its messages; the browser host opens matching
-    /// Web MIDI inputs and routes each raw `[status, data1, data2]` back via
-    /// [`deliver_message`](FlowRuntime::deliver_message) with the port name as
-    /// `topic`.
+    /// A hotkey was pressed (`pressed = true`) or released: deliver it to every
+    /// node listening on `accelerator`. Mirrors the desktop `ActorMsg::Key`
+    /// path; which nodes hear the key is core's decision in both hosts.
     ///
     /// # Errors
-    /// `JsError` only if the listener list fails to serialize.
-    #[wasm_bindgen(js_name = midiListeners)]
-    pub fn midi_listeners(&self) -> Result<String, JsError> {
-        serde_json::to_string(&self.inner.collect_midi_listeners())
-            .map_err(|e| JsError::new(&format!("failed to serialize midi listeners: {e}")))
+    /// `JsError` only if the resulting `Effects` fails to serialize.
+    #[wasm_bindgen(js_name = keyEvent)]
+    pub fn key_event(
+        &mut self,
+        accelerator: &str,
+        pressed: bool,
+        now_ms: f64,
+    ) -> Result<String, JsError> {
+        self.inner.set_now(now_ms);
+        effects_json(&self.inner.dispatch_key_event(accelerator, pressed))
+    }
+
+    /// A raw MIDI message (`[status, data1, data2]`) arrived on the Web MIDI
+    /// input `port_name`: deliver it to every `Midi` in-node listening to that
+    /// port. Mirrors the desktop `ActorMsg::MidiMessage` path.
+    ///
+    /// # Errors
+    /// `JsError` only if the resulting `Effects` fails to serialize.
+    #[wasm_bindgen(js_name = midiMessage)]
+    pub fn midi_message(
+        &mut self,
+        port_name: &str,
+        bytes: &[u8],
+        now_ms: f64,
+    ) -> Result<String, JsError> {
+        self.inner.set_now(now_ms);
+        effects_json(&self.inner.dispatch_midi_message(port_name, bytes))
+    }
+
+    /// Whether any node of the flow listens to MIDI input. The browser host
+    /// asks for Web MIDI access (a permission prompt) only when one does.
+    #[wasm_bindgen(js_name = listensToMidi)]
+    #[must_use]
+    pub fn listens_to_midi(&self) -> bool {
+        self.inner.listens_to_midi()
+    }
+
+    /// Whether the host should listen to the MIDI input port `port_name`.
+    #[wasm_bindgen(js_name = wantsMidiInput)]
+    #[must_use]
+    pub fn wants_midi_input(&self, port_name: &str) -> bool {
+        self.inner.wants_midi_input(port_name)
+    }
+
+    /// Whether a `midiSend` request addressed to `device_name` reaches the MIDI
+    /// output port `port_name` — core's device-name rule
+    /// ([`midi_device_matches`]). It reads no runtime state; it is a method so
+    /// the browser host reaches it through its one crossing into this module.
+    #[wasm_bindgen(js_name = midiDeviceMatches)]
+    #[must_use]
+    #[allow(clippy::unused_self)]
+    pub fn midi_device_matches(&self, port_name: &str, device_name: &str) -> bool {
+        midi_device_matches(port_name, device_name)
     }
 
     /// Deliver an inbound broker payload (MQTT / Figma) to subscribe component
     /// `id`, then return the cascade `Effects`. Mirrors the desktop
     /// `ActorMsg::Deliver` path; the browser host calls this from its WSS message
-    /// callback for `plain`/`topicAware` wirings.
+    /// callback for `plain`/`topicAware` wirings. MIDI does not come this way:
+    /// see [`midi_message`](FlowRuntime::midi_message).
     ///
     /// # Errors
     /// `JsError` only if the resulting `Effects` fails to serialize.
@@ -353,6 +399,53 @@ mod tests {
         let json = rt.deliver_message("m", "t", b"42", 1.0).expect("deliver ok");
         assert!(json.contains("\"componentEvents\""), "got: {json}");
         assert!(json.contains("42"), "delivered value should surface: {json}");
+    }
+
+    #[test]
+    fn key_event_reaches_the_hotkey_nodes_through_core() {
+        // The binding names an accelerator, never a node: core picks the
+        // listeners, exactly as it does for the desktop host.
+        let mut rt = FlowRuntime::new();
+        let flow = r#"{
+            "nodes": [
+                {"id":"hk","type":"Hotkey","data":{"instance":"Hotkey","accelerator":"Mod+K"},"position":{"x":0,"y":0}}
+            ],
+            "edges": []
+        }"#;
+        rt.update_flow(flow, 0.0).expect("update ok");
+
+        let json = rt.key_event("mod+k", true, 1.0).expect("key ok");
+        assert!(json.contains("\"source\":\"hk\""), "got: {json}");
+        assert!(json.contains("\"sourceHandle\":\"true\""), "got: {json}");
+
+        let json = rt.key_event("mod+j", true, 2.0).expect("key ok");
+        assert_eq!(json, "", "a key nothing listens on is a no-op turn");
+    }
+
+    #[test]
+    fn midi_bindings_report_wanted_inputs_and_fan_a_message_out() {
+        let mut rt = FlowRuntime::new();
+        assert!(!rt.listens_to_midi());
+        let flow = r#"{
+            "nodes": [
+                {"id":"m","type":"Midi","data":{"instance":"Midi","direction":"in","deviceName":"launchpad"},"position":{"x":0,"y":0}}
+            ],
+            "edges": []
+        }"#;
+        rt.update_flow(flow, 0.0).expect("update ok");
+
+        assert!(rt.listens_to_midi());
+        assert!(rt.wants_midi_input("Launchpad Mini"));
+        assert!(!rt.wants_midi_input("Keystation 49"));
+        assert!(rt.midi_device_matches("Micro Synth", "synth"));
+        assert!(!rt.midi_device_matches("Drum Machine", "synth"));
+
+        let json = rt.midi_message("Launchpad Mini", &[0x90, 60, 100], 1.0).expect("midi ok");
+        assert!(json.contains("\"source\":\"m\""), "got: {json}");
+        assert!(json.contains("\"sourceHandle\":\"note\""), "got: {json}");
+
+        let json = rt.midi_message("Keystation 49", &[0x90, 60, 100], 2.0).expect("midi ok");
+        assert_eq!(json, "", "a port nothing listens to is a no-op turn");
     }
 
     #[test]

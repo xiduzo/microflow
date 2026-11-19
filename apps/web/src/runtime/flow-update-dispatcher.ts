@@ -181,6 +181,30 @@ export function gatherProviders(allProviders: LlmProviderConfig[]): DispatchedPr
 }
 
 /**
+ * An edge as a flow document holds it, in the shape core's `FlowEdge` requires:
+ * visual-only fields dropped, and a handle the edge does not have given as
+ * `""`, which names no Port and no Emit. Core refuses a whole flow over one
+ * edge without a `sourceHandle` or `targetHandle`, so every edge handed to it
+ * (a flow update for the runtime, a flow for sketch generation) goes through
+ * here.
+ */
+export function toCoreEdge(edge: {
+  id?: string | null;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+}): FlowUpdate["edges"][number] {
+  return {
+    id: edge.id ?? null,
+    source: edge.source,
+    target: edge.target,
+    sourceHandle: edge.sourceHandle ?? "",
+    targetHandle: edge.targetHandle ?? "",
+  };
+}
+
+/**
  * Compose the helpers. Pure: same `(doc, snapshot, registry)` → same `FlowUpdate`.
  *
  * This is the single place the editor's collab shapes are projected into the
@@ -205,13 +229,7 @@ export function buildFlowUpdate(
       data: node.data,
       position: node.position,
     })),
-    edges: doc.getEdges().map((edge) => ({
-      id: edge.id ?? null,
-      source: edge.source,
-      target: edge.target,
-      sourceHandle: edge.sourceHandle ?? "",
-      targetHandle: edge.targetHandle ?? "",
-    })),
+    edges: doc.getEdges().map(toCoreEdge),
     brokers: gatherBrokers(brokerIds, snapshot.brokers),
     providers: gatherProviders(snapshot.providers),
   };

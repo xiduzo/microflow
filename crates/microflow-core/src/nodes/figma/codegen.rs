@@ -38,6 +38,7 @@ use crate::codegen::cloud::transport::{Subscription, Transport, DEFAULT_PORT};
 use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Emit C++ for a Figma Cloud Node on a networked target.
@@ -48,12 +49,11 @@ use crate::flow::FlowNode;
 /// `increment`/`decrement`/`reset`, and the color channels) manipulate typed
 /// Figma variables the generated sketch does not model; wiring them emits an
 /// explicit note. When unwired, the Node is subscribe-only.
-#[must_use]
 pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
-) -> NodeEmission {
+) -> Result<NodeEmission, UnreadableConfig> {
     let driver_source = inputs.first("set");
     let driver = driver_source.map(|s| s.value.as_string());
     let token = node.id_token();
@@ -69,7 +69,7 @@ pub(crate) fn emit(
         .map(|c| c.broker_port)
         .filter(|p| *p != 0)
         .unwrap_or_else(|| u16_or_default(node, "port", DEFAULT_PORT));
-    let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<FigmaConfig>(&node.data)?;
     let wifi_ssid = supplied_or(
         credentials.map_or("", |c| c.wifi_ssid.as_str()),
         str_first_non_empty(node, &["wifiSsid"], ""),
@@ -101,6 +101,7 @@ pub(crate) fn emit(
     let app_topic_var = format!("{prefix}_app_topic");
     let set_topic_var = format!("{prefix}_set_topic");
     let value_var = format!("{prefix}_value");
+    let received = received_var(&token);
     let callback = format!("{prefix}_on_message");
     let last_var = driver.as_ref().map(|_| format!("{prefix}_last_published"));
 
@@ -129,6 +130,7 @@ pub(crate) fn emit(
         format!("const char* {app_topic_var} = {};", cpp_string_literal(&app_topic)),
         format!("const char* {set_topic_var} = {};", cpp_string_literal(&set_topic)),
         format!("String {value_var};"),
+        format!("bool {received} = false;"),
     ];
     if let Some(last) = &last_var {
         extra_decls.push(format!("String {last};"));
@@ -140,6 +142,7 @@ pub(crate) fn emit(
     extra_decls.push("  for (unsigned int i = 0; i < length; i++) {".to_string());
     extra_decls.push(format!("    {value_var} += (char)payload[i];"));
     extra_decls.push("  }".to_string());
+    extra_decls.push(format!("  {received} = true;"));
     extra_decls.push("}".to_string());
 
     // Extra sources on `set` and the unmodelled mutation ports are surfaced as
@@ -180,21 +183,33 @@ pub(crate) fn emit(
         ));
     }
 
-    transport.emission(extra_decls, loop_tail)
+    // `received` is up on the tick an inbound value arrived (the callback runs
+    // inside the client's `loop()`): the live node emits `value` and `change`
+    // for every one, the same value again included.
+    let mut e = transport.emission(extra_decls, loop_tail);
+    e.loop_body.insert(0, format!("{received} = false;"));
+    Ok(e)
+}
+
+/// True on the tick an inbound variable value arrived.
+fn received_var(token: &str) -> String {
+    format!("figma_{token}_received")
 }
 
 /// What downstream Nodes read from a Figma Node: the latest inbound variable
 /// value — `true`/`false` for a BOOLEAN variable, otherwise parsed as a number
-/// (`toFloat`), the common case for hardware-driving design variables.
+/// (`toFloat`), the common case for hardware-driving design variables — on
+/// each tick one arrives.
 #[must_use]
 pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
-    let config: FigmaConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
-    Some(SourceExpr::level(if config.resolved_type == "BOOLEAN" {
+    let config = resolve::<FigmaConfig>(&node.data).ok()?;
+    let value = if config.resolved_type == "BOOLEAN" {
         CppExpr::boolean(format!("(figma_{token}_value == \"true\")"))
     } else {
         CppExpr::number(format!("figma_{token}_value.toFloat()"))
-    }))
+    };
+    Some(SourceExpr::event(value, received_var(&token)))
 }
 
 #[cfg(test)]
@@ -214,7 +229,7 @@ mod tests {
 
     /// Test-local default: emit with no generate-time credentials.
     fn emit_no_creds(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-        emit(node, inputs, None)
+        emit(node, inputs, None).unwrap()
     }
 
     fn joined(lines: &[String]) -> String {
@@ -364,7 +379,7 @@ mod tests {
             ..Credentials::default()
         };
         let node = figma("f-1", json!({ "brokerId": "store-id-123", "uniqueId": "u", "variableId": "VariableID:1:2" }));
-        let decls = joined(&emit(&node, &NodeInputs::default(), Some(&credentials)).declarations);
+        let decls = joined(&emit(&node, &NodeInputs::default(), Some(&credentials)).unwrap().declarations);
         assert!(decls.contains("broker.example.com"), "uses the credentials host");
         assert!(!decls.contains("store-id-123"), "never uses the broker-store id as a host");
         assert!(!decls.contains("REPLACE_ME"), "no placeholder when credentials are complete");

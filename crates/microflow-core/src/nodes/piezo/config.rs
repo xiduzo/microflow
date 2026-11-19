@@ -19,13 +19,13 @@ pub(crate) struct PiezoConfig {
     pub(crate) pin: u8,
     #[serde(default)]
     pub(crate) r#type: PiezoType,
-    #[serde(default = "default_duration")]
+    #[serde(default = "default_duration", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) duration: u32,
-    #[serde(default = "default_frequency")]
+    #[serde(default = "default_frequency", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) frequency: u32,
     #[serde(default)]
     pub(crate) song: Vec<Note>,
-    #[serde(default = "default_tempo")]
+    #[serde(default = "default_tempo", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) tempo: u32,
 }
 
@@ -33,9 +33,3 @@ fn default_pin() -> u8 { 11 }
 fn default_duration() -> u32 { 500 }
 fn default_frequency() -> u32 { 440 }
 fn default_tempo() -> u32 { 113 }
-
-impl Default for PiezoConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), r#type: PiezoType::default(), duration: default_duration(), frequency: default_frequency(), song: Vec::new(), tempo: default_tempo() }
-    }
-}

@@ -11,12 +11,21 @@
 // node btn-1 (Button)
 const uint8_t button_btn_1_pin = 3;
 bool button_btn_1_state = false;
+bool button_btn_1_changed = false;
+bool button_btn_1_hold = false;
+bool button_btn_1_hold_said = false;
+unsigned long button_btn_1_pressed_at = 0;
+bool button_btn_1_line = false;
+bool button_btn_1_seen = false;
+bool button_btn_1_pending = false;
+unsigned long button_btn_1_edge_at = 0;
 // node i2c-1 (I2cDevice)
 long i2c_i2c_1_value = 0;
-bool i2c_i2c_1_trigger_prev0 = false;
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 11;
 bool led_led_1_on = false;
+uint8_t led_led_1_level = 0;
+double led_led_1_value_prev0 = 0.0;
 
 void setup() {
   // --- Setup ---
@@ -33,12 +42,25 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    button_btn_1_state = (digitalRead(button_btn_1_pin) == HIGH);
-    bool i2c_i2c_1_trigger_now0 = (button_btn_1_state);
-    bool i2c_i2c_1_trigger_fired0 = i2c_i2c_1_trigger_now0 && !i2c_i2c_1_trigger_prev0;
-    i2c_i2c_1_trigger_prev0 = i2c_i2c_1_trigger_now0;
+    button_btn_1_changed = false;
+    bool button_btn_1_now = (digitalRead(button_btn_1_pin) == HIGH);
+    bool button_btn_1_settle = false;
+    if (!button_btn_1_seen || button_btn_1_now != button_btn_1_line) {
+      button_btn_1_settle = !button_btn_1_seen || millis() - button_btn_1_edge_at >= 50UL;
+      button_btn_1_pending = !button_btn_1_settle;
+      button_btn_1_line = button_btn_1_now; button_btn_1_seen = true; button_btn_1_edge_at = millis();
+    } else if (button_btn_1_pending && millis() - button_btn_1_edge_at >= 50UL) {
+      button_btn_1_pending = false; button_btn_1_settle = true;
+    }
+    if (button_btn_1_settle && button_btn_1_line != button_btn_1_state) {
+      button_btn_1_state = button_btn_1_line;
+      button_btn_1_changed = true;
+      if (button_btn_1_state) { button_btn_1_pressed_at = millis(); button_btn_1_hold_said = false; }
+    }
+    button_btn_1_hold = button_btn_1_state && !button_btn_1_hold_said && millis() - button_btn_1_pressed_at >= 500UL;
+    if (button_btn_1_hold) { button_btn_1_hold_said = true; }
     bool i2c_i2c_1_due = false;
-    if ((i2c_i2c_1_trigger_fired0)) { i2c_i2c_1_due = true; }
+    if (((button_btn_1_changed && button_btn_1_state))) { i2c_i2c_1_due = true; }
     if (i2c_i2c_1_due) {
       Wire.beginTransmission((uint8_t)64);
       Wire.write((uint8_t)0);
@@ -51,8 +73,14 @@ void loop() {
       }
       i2c_i2c_1_value = i2c_i2c_1_acc;
     }
-    uint8_t led_led_1_brightness = (uint8_t)constrain((double)(i2c_i2c_1_value), 0.0, 255.0);
-    analogWrite(led_led_1_pin, led_led_1_brightness);
-    led_led_1_on = led_led_1_brightness > 0;
+    double led_led_1_value_now0 = ((double)(i2c_i2c_1_value));
+    bool led_led_1_value_fired0 = (led_led_1_value_now0 != led_led_1_value_prev0);
+    led_led_1_value_prev0 = led_led_1_value_now0;
+    if (led_led_1_value_fired0) {
+      uint8_t led_led_1_brightness = (uint8_t)constrain((double)(i2c_i2c_1_value), 0.0, 255.0);
+      analogWrite(led_led_1_pin, led_led_1_brightness);
+      led_led_1_on = led_led_1_brightness >= 1;
+      led_led_1_level = led_led_1_brightness;
+    }
   }
 }

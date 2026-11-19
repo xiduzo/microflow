@@ -1,6 +1,4 @@
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Compare">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useNodeValue } from "@/nodes/live/node-data";
 import {
@@ -11,7 +9,11 @@ import {
   type Value,
   dataSchema,
   defaults,
+  numberDefaults,
+  rangeDefaults,
+  textDefaults,
 } from "./compare.schema";
+import { comparisonSummary } from "./compare.summary";
 import { useMemo } from "react";
 import { IconWithValue } from "../_base/icon-with-value";
 import { ShieldCheckIcon, ShieldXIcon } from "lucide-react";
@@ -22,43 +24,22 @@ export function Compare(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
-      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
+      <NodeHandles />
     </NodeContainer>
   );
 }
-
-const formatter = new Intl.NumberFormat("en-US");
 
 function Value() {
   const value = useNodeValue<Value>(false);
   const data = useNodeData<Data>();
 
-  const textValue = useMemo(() => {
-    switch (data.validator) {
-      case "boolean":
-        return "boolean";
-      case "number":
-        return `is ${data.subValidator} ${formatter.format(data.number)}`;
-      case "oddEven":
-        return `is ${data.subValidator}`;
-      case "range":
-        return `is ${data.subValidator} ${formatter.format(
-          data.range.min,
-        )} and ${formatter.format(data.range.max)}`;
-      case "text":
-        return `is ${data.subValidator} "${data.text}"`;
-      default:
-        return "";
-    }
-  }, [data]);
+  const summary = useMemo(() => comparisonSummary(data), [data]);
 
   return (
     <IconWithValue
       icon={value ? ShieldCheckIcon : ShieldXIcon}
       iconClassName={value ? "text-green-500" : "text-red-500"}
-      value={textValue}
+      value={summary}
     />
   );
 }
@@ -92,23 +73,23 @@ function Settings() {
         options: COMPARE_SUB_VALIDATORS[data.validator],
         render: (get) => get("validator") !== "boolean",
       },
+      // A node holds its validator's setting only once it is edited here;
+      // until then each control shows the schema's default, which is what the
+      // node checks.
       range: {
-        value: (data as RangeNumberData).range ?? {
-          min: 100,
-          max: 500,
-        },
+        value: { ...rangeDefaults.range, ...(data as RangeNumberData).range },
         label: "",
         joystick: false,
         render: (get) => get("validator") === "range",
       },
       number: {
-        value: (data as SingleNumberData).number ?? 0,
+        value: (data as SingleNumberData).number ?? numberDefaults.number,
         label: "",
         step: 1,
         render: (get) => get("validator") === "number",
       },
       text: {
-        value: (data as TextData).text ?? "",
+        value: (data as TextData).text ?? textDefaults.text,
         label: "",
         render: (get) => get("validator") === "text",
       },

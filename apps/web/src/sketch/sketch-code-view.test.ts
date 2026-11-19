@@ -24,7 +24,9 @@ const NODE: Node = {
 describe("buildGenerateSketchCommand", () => {
   test("wraps the current Flow graph in a generate_sketch command", () => {
     const nodes: Node[] = [NODE];
-    const edges: Edge[] = [{ id: "e1", source: "a", target: "b" }];
+    const edges: Edge[] = [
+      { id: "e1", source: "a", sourceHandle: "value", target: "b", targetHandle: "toggle" },
+    ];
 
     const command = buildGenerateSketchCommand(nodes, edges);
 
@@ -32,6 +34,21 @@ describe("buildGenerateSketchCommand", () => {
       type: "generate_sketch",
       flow: { nodes, edges },
     });
+  });
+
+  test("gives the generator each edge in the shape core requires, and nothing else of it", () => {
+    const edges: Edge[] = [
+      { id: "e1", source: "a", sourceHandle: "value", target: "b", targetHandle: "toggle", type: "animated", selected: true },
+      // An edge a document can hold: it names no handle at either end.
+      { id: "e2", source: "a", target: "b" },
+      { id: "e3", source: "a", sourceHandle: null, target: "b", targetHandle: "toggle" },
+    ];
+
+    expect(buildGenerateSketchCommand([NODE], edges).flow.edges).toStrictEqual([
+      { id: "e1", source: "a", target: "b", sourceHandle: "value", targetHandle: "toggle" },
+      { id: "e2", source: "a", target: "b", sourceHandle: "", targetHandle: "" },
+      { id: "e3", source: "a", target: "b", sourceHandle: "", targetHandle: "toggle" },
+    ]);
   });
 
   test("supports an empty Flow", () => {

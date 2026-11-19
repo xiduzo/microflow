@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { SparklesIcon } from "lucide-react";
 
-import { saveLocalFlow } from "@/session";
+import { useOpenTemplate } from "@/flows/templates/use-open-template";
 import { FlowThumbnail } from "@/flows/flow-thumbnail";
 import { Badge } from "@/ui/badge";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/ui/card";
@@ -11,8 +11,6 @@ import { cn } from "@/ui/utils";
 import { Button } from "@/ui/button";
 import { TEMPLATES, type Template } from "@/flows/templates";
 import { track } from "@/lib/analytics";
-import { reportError } from "@/lib/report-error";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/templates")({
   component: TemplatesPage,
@@ -44,20 +42,13 @@ function readBuiltTemplates(): string[] {
 }
 
 function TemplatesPage() {
-  const navigate = useNavigate();
+  const openTemplate = useOpenTemplate(Route.id);
   const [built, setBuilt] = useState<string[]>(readBuiltTemplates);
 
   const useTemplate = useCallback(
     async (template: Template) => {
-      try {
-        await saveLocalFlow(template.nodes, template.edges);
-      } catch (error) {
-        reportError(error, { source: "action", route: Route.id });
-        toast.error("Couldn't load the template", {
-          description: error instanceof Error ? error.message : undefined,
-        });
-        return;
-      }
+      // Signed in, a new flow in the account; signed out, the local flow.
+      if (!(await openTemplate(template))) return;
 
       const next = [...new Set([...readBuiltTemplates(), template.id])];
       localStorage.setItem(BUILT_TEMPLATES_STORAGE_KEY, JSON.stringify(next));
@@ -68,9 +59,8 @@ function TemplatesPage() {
         nodes: template.nodes.length,
         difficulty: template.difficulty,
       });
-      navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
     },
-    [navigate],
+    [openTemplate],
   );
 
   const builtIds = useMemo(() => new Set(built), [built]);

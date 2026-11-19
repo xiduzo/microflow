@@ -1,8 +1,6 @@
 import { LevaPanel, monitor, useControls, useCreateStore } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Monitor">;
+import { NodeHandles } from "../_base/node-handles";
 import { dataSchema, defaults, type Data, type Value } from "./monitor.schema";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { useEffect, useMemo, useRef } from "react";
@@ -12,7 +10,7 @@ export function Monitor(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

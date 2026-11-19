@@ -3,22 +3,31 @@ title: Compare
 description: Check if values meet a condition and route your flow based on true or false results.
 ---
 
-The Compare node checks whether a value meets a condition — greater than, less than, equal to, and so on. Based on whether the check passes or fails, it routes a signal down one of two paths.
+The Compare node checks whether a value meets a condition — greater than a number, between two numbers, even, starting with some text, and so on. Based on whether the check passes or fails, it routes a signal down one of two paths.
 
 **Example:** If a temperature sensor reads above 80°C, send a signal to turn on a fan. Otherwise, send a signal to keep the fan off.
 
-The Compare node fires on every incoming value. When you want to detect a *crossing point* (like "fire once when the value rises above 80") use the [Trigger](/docs/microflow-studio/nodes/generate/trigger) node instead.
+The Compare node fires on every incoming value. When you want to detect a quick rise or drop (like "fire once when the value jumps by 10") use the [Trigger](/docs/microflow-studio/nodes/decide/trigger) node instead.
+
+## Inputs
+
+- **value** — the value to check
 
 ## Outputs
 
-- **True** — fires when the condition is met
-- **False** — fires when the condition is not met
+- **true** — fires when the condition is met
+- **false** — fires when the condition is not met
 
-Both outputs fire on every incoming value, so your flow reacts continuously as readings arrive.
+Each incoming value fires one of the two outputs, so your flow reacts continuously as readings arrive.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Condition** — the comparison to apply: greater than (`>`), less than (`<`), equal to (`=`), greater than or equal (`≥`), less than or equal (`≤`), not equal (`≠`)
-- **Value** — the number to compare against
+- **validate that a** — what kind of value to check:
+  - **boolean** — the value is true (the default)
+  - **number** — the value is **equal to**, **greater than**, or **less than** a number (default 0)
+  - **parity** — the value is **even** or **odd** (rounded to a whole number first)
+  - **range** — the value is **between** or **outside** a minimum and a maximum (default 0 to 100). The minimum and maximum themselves count as outside
+  - **text** — the value is **equal to**, **including**, **starting with**, or **ending with** a piece of text
+- **is** — the check to apply, from the options of the chosen kind. Not shown for boolean

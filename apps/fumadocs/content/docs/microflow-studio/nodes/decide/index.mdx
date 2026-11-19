@@ -1,6 +1,6 @@
 ---
 title: Decide
-description: Decide nodes add logic to your flow — comparisons, counting, delays, and gates.
+description: Decide nodes add logic to your flow — comparisons, counting, delays, gates, and triggers.
 ---
 
 Decide nodes control what happens and when. They do not read sensors or drive outputs directly — they route, count, delay, and apply logic to the data flowing through your project.
@@ -11,10 +11,12 @@ Use them to:
 - Count how many times something happened
 - Wait a moment before passing a signal through
 - Combine conditions with AND, OR, and other logic
+- React the moment a value rises or drops quickly
 
 | Node | What it does |
 | --- | --- |
 | [Compare](/docs/microflow-studio/nodes/decide/compare) | Checks if a value meets a condition and routes the flow accordingly |
 | [Counter](/docs/microflow-studio/nodes/decide/counter) | Counts events — increments, decrements, or resets |
 | [Delay](/docs/microflow-studio/nodes/decide/delay) | Pauses a signal for a set amount of time before passing it on |
-| [Gate](/docs/microflow-studio/nodes/decide/gate) | Applies Boolean logic — AND, OR, NOT, NAND, NOR, XOR, XNOR |
+| [Gate](/docs/microflow-studio/nodes/decide/gate) | Applies Boolean logic — AND, NAND, OR, NOR, XOR, XNOR |
+| [Trigger](/docs/microflow-studio/nodes/decide/trigger) | Fires once when a value rises or drops by a set amount within a short time |

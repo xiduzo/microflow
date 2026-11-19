@@ -5,8 +5,14 @@
     ".": {
       "default": "./src/index.ts"
     },
-    "./*": {
-      "default": "./src/*.ts"
+    "./flow-invitation": {
+      "default": "./src/flow-invitation.ts"
+    },
+    "./schema/*": {
+      "default": "./src/schema/*.ts"
+    },
+    "./testing": {
+      "default": "./src/testing.ts"
     }
   },
   "scripts": {
@@ -28,6 +34,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
     "@microflow/config": "workspace:*",
     "@types/pg": "catalog:",
     "drizzle-kit": "^0.31.9",

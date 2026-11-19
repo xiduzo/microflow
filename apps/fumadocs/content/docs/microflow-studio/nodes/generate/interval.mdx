@@ -3,7 +3,7 @@ title: Interval
 description: Automatically send a signal at regular time intervals, like a timer or clock.
 ---
 
-An Interval node fires a signal on a repeating schedule — every second, every 500 milliseconds, every 5 minutes, whatever you set. Unlike a sensor that only fires when something changes, an Interval fires on its own whether or not anything else is happening.
+An Interval node fires a signal on a repeating schedule — every second, every 500 milliseconds, every 5 minutes, whatever you set. Unlike a sensor that only fires when something changes, an Interval fires on its own whether or not anything else is happening. It starts as soon as the flow runs.
 
 **Examples:**
 - Blink an LED on and off once per second
@@ -11,11 +11,20 @@ An Interval node fires a signal on a repeating schedule — every second, every 
 - Nudge a servo position every 100 milliseconds to animate it smoothly
 - Trigger a check at regular intervals in an automated flow
 
+## Inputs
+
+- **start** — starts the timer again after a stop
+- **stop** — stops the timer
+
+## Outputs
+
+- **event** — fires on every tick, with the milliseconds since the timer started
+
 ## Settings
 
 Open the settings panel to configure:
 
-- **Interval** — how often the signal fires, in milliseconds. 1000 ms = 1 second. 500 ms = twice per second. 60000 ms = once per minute
+- **interval (ms)** — how often the signal fires, in milliseconds. 1000 ms = 1 second. 500 ms = twice per second. 60000 ms = once per minute. The default is 1000 ms and the lowest is 100 ms
 
 ## Related
 

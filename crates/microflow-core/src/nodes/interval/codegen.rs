@@ -18,6 +18,7 @@
 use super::config::IntervalConfig;
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::NodeInputs;
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Runtime clamps the interval to at least this many milliseconds.
@@ -40,15 +41,14 @@ pub(crate) fn fired_var(node: &FlowNode) -> String {
 /// Emit C++ for an Interval Node. The Interval free-runs from `setup()` (the
 /// runtime arms itself on flow start); wired `start` / `stop` ports gate and
 /// re-base it exactly like the runtime's dispatch.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let var = value_var(node);
     let fired = fired_var(node);
     let previous = format!("interval_{token}_previous");
     let start = format!("interval_{token}_start");
     let running = format!("interval_{token}_running");
-    let config: IntervalConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<IntervalConfig>(&node.data)?;
     let interval_ms = config.interval.max(MIN_INTERVAL_MS);
     // Mirrors on_start: the timer only free-runs when autoStart is set;
     // otherwise a wired `start` pulse must arm it.
@@ -89,7 +89,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         format!("  {fired} = true;"),
         "}".to_string(),
     ]);
-    e
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -110,7 +110,7 @@ mod tests {
 
     #[test]
     fn fires_on_millis_comparison_without_blocking() {
-        let e = emit(&interval("iv-1", json!({ "interval": 500 })), &NodeInputs::default());
+        let e = emit(&interval("iv-1", json!({ "interval": 500 })), &NodeInputs::default()).unwrap();
         assert!(
             e.loop_body
                 .iter()
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn exposes_a_one_tick_fired_flag() {
-        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default());
+        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("bool interval_iv_1_fired")));
         assert_eq!(e.loop_body.first().unwrap(), "interval_iv_1_fired = false;");
         assert!(e.loop_body.iter().any(|l| l.contains("interval_iv_1_fired = true")));
@@ -133,7 +133,7 @@ mod tests {
 
     #[test]
     fn clamps_to_min_interval() {
-        let e = emit(&interval("iv-1", json!({ "interval": 1 })), &NodeInputs::default());
+        let e = emit(&interval("iv-1", json!({ "interval": 1 })), &NodeInputs::default()).unwrap();
         assert!(
             e.loop_body.iter().any(|l| l.contains(">= 16UL")),
             "interval below the runtime minimum must clamp to 16ms"
@@ -142,13 +142,13 @@ mod tests {
 
     #[test]
     fn defaults_to_one_second() {
-        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default());
+        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains(">= 1000UL")));
     }
 
     #[test]
     fn keeps_timestamps_across_iterations() {
-        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default());
+        let e = emit(&interval("iv-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("unsigned long interval_iv_1_previous")));
         assert!(e.setup.iter().any(|s| s.contains("= millis()")), "timer seeded in setup");
     }
@@ -158,7 +158,7 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("start", SourceExpr::level(CppExpr::boolean("go")));
         inputs.add("stop", SourceExpr::level(CppExpr::boolean("halt")));
-        let e = emit(&interval("iv-1", json!({})), &inputs);
+        let e = emit(&interval("iv-1", json!({})), &inputs).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("interval_iv_1_running = true"), "start re-arms: {body}");
         assert!(body.contains("interval_iv_1_running = false"), "stop halts: {body}");
@@ -168,6 +168,6 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = interval("iv-1", json!({ "interval": 250 }));
-        assert_eq!(emit(&n, &NodeInputs::default()), emit(&n, &NodeInputs::default()));
+        assert_eq!(emit(&n, &NodeInputs::default()).unwrap(), emit(&n, &NodeInputs::default()).unwrap());
     }
 }

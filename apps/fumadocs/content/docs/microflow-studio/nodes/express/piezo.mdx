@@ -10,18 +10,34 @@ A piezo is a small buzzer that can make sounds. It is not a speaker — it produ
 - Sound an alert when a sensor crosses a threshold
 - Play a short melody when a project completes a task
 
-## What you can do
+## Types
 
-- **Play a tone** — send a frequency value (in Hz) to make the piezo buzz at that pitch. Higher numbers = higher pitch. For example, 440 Hz is the musical note A.
-- **Play a melody** — compose a sequence of notes in the node's settings and trigger them to play in order.
-- **Stop** — send a signal to stop any sound currently playing.
+The **type** setting picks what the piezo plays:
+
+- **buzz** (the default) — one tone at a set pitch for a set time. Higher frequencies = higher pitch. For example, 440 Hz is the musical note A.
+- **song** — a melody you compose in the node's song editor, played note by note.
+
+## Inputs
+
+- **trigger** — plays the buzz at the **frequency** setting, or the song. The value that arrives does not change the pitch. With type **song**, this input is called **play**
+- **stop** — stops any sound currently playing
+
+A trigger that arrives while the piezo is sounding starts the buzz or the song again from the beginning. A buzz with a duration of 0 ms plays nothing. Studio and the exported Arduino sketch behave the same way.
+
+## Outputs
+
+- **value** — `true` while the piezo is sounding, from **trigger** until the buzz or song ends or **stop** arrives. A trigger while it sounds keeps it `true` and sends nothing new
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Pin** — which digital pin on your Arduino the piezo is connected to
-- **Melody** — compose a custom melody by entering notes and their durations
+- **pin** — which pin on your Arduino the piezo is connected to. The default is pin 11
+- **type** — **buzz** or **song**
+- **duration** *(buzz)* — how long the tone lasts, from 100 to 2500 ms. The default is 500 ms
+- **frequency** *(buzz)* — the pitch of the tone, picked by note name. The default is 440 Hz
+- **tempo** *(song)* — the speed of the song, from 40 to 240. The default is 113
+- **edit song** *(song)* — opens the editor to compose the melody
 
 ## Resources
 

@@ -10,16 +10,25 @@ A vibration motor makes your project physically shake or buzz — the same kind 
 - Give a buzz alert when a sensor detects something
 - Create a wearable that vibrates in response to events
 
+## Inputs
+
+- **true** — turns the motor fully on
+- **toggle** — switches between on and off
+- **intensity** — a number from 0 to 255 that sets how strong the vibration is. 0 = no vibration, 255 = full intensity
+- **false** — turns the motor off
+
+## Outputs
+
+- **value** — the motor's intensity, from 0 (off) to 1 (full)
+
 ## Intensity control
 
-If the vibration motor is connected to an **analog pin**, you can control how strong the vibration is by sending a value between 0 and 255:
-- **0** = no vibration
-- **255** = full intensity
+If the vibration motor is connected to a **PWM pin**, the **intensity** input controls how strong the vibration is.
 
-If connected to a **digital pin**, the motor is simply on or off — no intensity control.
+On a pin without PWM, the motor is simply on or off: on for an intensity of 128 or more, off below that.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Pin** — which pin on your Arduino the vibration motor is connected to. Use an analog-capable pin if you want to control intensity.
+- **pin** — which pin on your Arduino the vibration motor is connected to. Use a PWM-capable pin if you want to control intensity.

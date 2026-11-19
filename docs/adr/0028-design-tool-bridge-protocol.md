@@ -1,6 +1,6 @@
 # ADR-0028 — One design-tool bridge protocol for Figma, Penpot and Studio
 
-- **Status:** accepted (2026-09-25)
+- **Status:** accepted (2026-09-25); amended (2026-11-19)
 - **Date:** 2026-09-25
 - **Deciders:** sander
 - **Amends:** [ADR-0011](0011-figma-announce-protocol-in-core.md)
@@ -71,7 +71,7 @@ user shared `anonymous` on the public broker.
 6. **Amends ADR-0011.** The announce policy stays in core
    (`figma_announce_actions`), with two changes: the uid set is taken only from
    design-bridge topics (`bridge_uid` in Rust, `bridgeUid` in TypeScript), so a
-   generic Mqtt node's `microflow/…` topic no longer triggers a handshake; and
+   generic Mqtt node's `microflow/…` topic does not trigger a handshake; and
    the browser subscribes before it announces, so the plugins' answers arrive.
    The browser also announces `disconnected` when its cloud host is disposed.
 
@@ -81,9 +81,9 @@ user shared `anonymous` on the public broker.
   `figma`, so existing flows are unchanged) and is labelled "Design variable".
   Its persisted type stays `Figma`: renaming it would need a document migration
   and buys nothing on the wire.
-- **The plugins share their bridge engine, UI state and sandbox messaging** from
-  `@microflow/design-bridge`; each keeps only a sandbox adapter, host glue and its
-  own views.
+- **The plugins share their bridge engine, bridge session and sandbox routing**
+  from `@microflow/design-bridge`; each keeps only a sandbox adapter, host glue
+  and its own views (amendment below).
 - **A protocol change is a fixture change first.** Adding a topic, a type or a
   coercion rule means editing `protocol.json`; the bun tests and the Rust tests
   then fail until both implementations agree.
@@ -92,6 +92,38 @@ user shared `anonymous` on the public broker.
 - **Plugins run only in the editor.** Neither tool runs plugins in prototype view,
   so the bridge links hardware to the values in an open design file, not to a
   running prototype.
-- **Not solved here:** a crashed Studio leaves `app/status = connected` retained
-  (no last will on the hosts' broker connections), and the browser does not
-  re-send `variables/request` after a reconnect.
+- **A crashed Studio.** Both hosts leave a will on every link to a broker: the
+  `disconnected` of the first Bridge ID announced there, in uid order
+  ([ADR-0049](0049-a-broker-session-leaves-its-goodbye-with-the-pool.md)). A
+  crash therefore takes back that Bridge ID, once the broker notices the link
+  is gone, and leaves any other Bridge ID on the same broker at `connected`.
+- **After a reconnect.** Both hosts say `connected` and send
+  `variables/request` again on every new link to a broker.
+
+---
+
+## Amendment (2026-11-19): the plugin side is one session, and presence has two payloads by name
+
+The plugin half of the package has three parts. They sit above the protocol in
+the Decision, which stands as written.
+
+**The engine runs inside a plugin bridge session.** `DesignBridge` publishes a
+tool's variables and applies the values Studio sets. One
+`createPluginBridgeSession` per plugin window (`packages/design-bridge/src/session.ts`)
+owns what surrounds it: the settings, the broker connection, the plugin's
+`{tool}/status` announcement and last will, and the snapshot polling. The
+session reaches the broker through mqtt.js inside this package; the root
+export, which Studio's web code imports, is the protocol, the codec, the
+engine, the messages, the sandbox routing and the pairing rule. Decided in
+[ADR-0040](0040-plugin-bridge-session.md).
+
+**A sandbox adapter is two functions.** Each tool implements `SandboxAdapter`
+(`readSnapshot`, `writeValue`; `packages/design-bridge/src/sandbox.ts`), and
+`createSandboxBridge` routes the UI's messages to it.
+
+**The two status payloads are named once.** `PRESENCE` (`protocol.ts`) holds
+`connected` and `disconnected`. A plugin's `{tool}/status` is `connected`
+(retained, QoS 2) while its connection is up and `disconnected` by last will.
+A plugin that reads `disconnected` on its own status topic after the broker has
+sent its `connected` back announces `connected` again, so a late last will of a
+connection it replaced does not leave it marked as gone.

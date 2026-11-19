@@ -16,6 +16,10 @@ export const STUDIO = "app";
 
 export type BridgeClient = DesignTool | typeof STUDIO;
 
+/** The two payloads of a `status` topic. */
+export const PRESENCE = { connected: "connected", disconnected: "disconnected" } as const;
+export type Presence = (typeof PRESENCE)[keyof typeof PRESENCE];
+
 export const RESOLVED_TYPES = ["BOOLEAN", "FLOAT", "STRING", "COLOR"] as const;
 export type ResolvedType = (typeof RESOLVED_TYPES)[number];
 
@@ -75,10 +79,14 @@ export function parseTopic(topic: string): ParsedTopic | null {
 /**
  * The bridge uid a topic belongs to, or `undefined` for topics outside the
  * protocol. Studio announces itself only for uids that design-bridge
- * subscriptions use, never for an arbitrary `microflow/…` topic.
+ * subscriptions use, never for an arbitrary `microflow/…` topic. A topic
+ * filter whose uid level holds a wildcard (`microflow/+/figma/status`) names
+ * no Bridge ID: Studio would publish its status on a wildcard topic, which no
+ * broker takes.
  */
 export function bridgeUid(topic: string): string | undefined {
-  return parseTopic(topic)?.uid;
+  const uid = parseTopic(topic)?.uid;
+  return uid === undefined || /[+#]/.test(uid) ? undefined : uid;
 }
 
 /**

@@ -43,7 +43,7 @@ const KNOWN_READS = new Set<string>([
 /** A plausible argument for each method, so calling it actually does its job. */
 function argsFor(name: string): unknown[] {
   const node = { id: "probe", type: "Led", position: { x: 1, y: 2 }, data: { a: 1 } };
-  const edge = { id: "probe-e", source: "probe", target: "probe" };
+  const edge = { id: "probe-e", source: "probe", sourceHandle: "out", target: "probe", targetHandle: "in" };
   switch (name) {
     case "addNode":
     case "setNode":
@@ -76,7 +76,7 @@ function argsFor(name: string): unknown[] {
 function seeded(): FlowDocument {
   const doc = FlowDocument.createEmpty();
   doc.addNode({ id: "seed", type: "Led", position: { x: 0, y: 0 }, data: { label: "x" } });
-  doc.addEdge({ id: "seed-e", source: "seed", target: "seed" });
+  doc.addEdge({ id: "seed-e", source: "seed", sourceHandle: "out", target: "seed", targetHandle: "in" });
   doc.setMeta({ name: "seed" });
   return doc;
 }
@@ -127,7 +127,7 @@ describe("readOnlyDocument mutator parity", () => {
 
     guarded.setNode({ id: "seed", type: "Led", position: { x: 99, y: 99 }, data: {} });
     guarded.deleteNode("seed");
-    guarded.setEdge({ id: "seed-e", source: "a", target: "b" });
+    guarded.setEdge({ id: "seed-e", source: "a", sourceHandle: "out", target: "b", targetHandle: "in" });
 
     expect(doc.getNode("seed")!.position).toEqual({ x: 0, y: 0 });
     expect(doc.hasNode("seed")).toBe(true);

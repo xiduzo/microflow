@@ -14,7 +14,7 @@ pub(crate) enum GateType {
     Xnor,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct GateConfig {
     #[serde(default)]
     pub(crate) gate: GateType,

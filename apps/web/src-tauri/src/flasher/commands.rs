@@ -1,7 +1,6 @@
 //! Tauri command handlers
 
-use super::types::BoardType;
-use super::{FlashResult, Flasher};
+use super::{BoardType, FlashResult, Flasher};
 
 /// Flash firmware to a board with custom hex content
 #[tauri::command]

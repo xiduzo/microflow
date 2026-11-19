@@ -1,172 +1,41 @@
 import { z } from "zod";
-import { eq, and, like, ne, inArray } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { eq, and, like, ne } from "drizzle-orm";
 import { db } from "@microflow/db";
-import { flow, flowCollaborator } from "@microflow/db/schema/flow";
+import { flowCollaborator } from "@microflow/db/schema/flow";
 import { user } from "@microflow/db/schema/auth";
-import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
+import { requireFlowAccess, setFlowRole } from "./flow-access";
 import {
-  assertFlowRole,
-  requireFlowAccess,
-  resolveFlowRole,
-  setFlowRole,
-  type FlowRole,
-} from "./flow-access";
-import { FlowDocument, yjsServer } from "@microflow/collab/server";
+  createFlow,
+  deleteFlow,
+  listFlows,
+  openFlow,
+  publishFlow,
+  unpublishFlow,
+  updateFlow,
+} from "./flow-library";
 import {
   inviteByEmail,
   listPendingInvites,
   revokeInvite,
 } from "@microflow/db/flow-invitation";
 import { resendInviteMailer } from "./invite-mailer";
-import { mirrorNameToDocument } from "./flow-rename";
 
 // ============================================================================
-// Constants
+// Router — each procedure validates its input, runs the Flow Access check,
+// and makes one call into the Flow library (or Flow Invitation / setFlowRole
+// for the collaborator procedures).
 // ============================================================================
 
-// Tailwind -300 colors for flow color picker
-export const FLOW_COLORS = [
-  "#fca5a5", // red-300
-  "#fdba74", // orange-300
-  "#fcd34d", // amber-300
-  "#fde047", // yellow-300
-  "#bef264", // lime-300
-  "#86efac", // green-300
-  "#6ee7b7", // emerald-300
-  "#5eead4", // teal-300
-  "#67e8f9", // cyan-300
-  "#7dd3fc", // sky-300
-  "#93c5fd", // blue-300
-  "#a5b4fc", // indigo-300
-  "#c4b5fd", // violet-300
-  "#d8b4fe", // purple-300
-  "#f0abfc", // fuchsia-300
-  "#f9a8d4", // pink-300
-  "#fda4af", // rose-300
-] as const;
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-export const uid = () =>
-  Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
-
-/**
- * The flow's document as collaborators see it right now. `flow.ydoc` trails a
- * live room by up to the persist ceiling (or longer while the store is
- * failing), so readers that serve or snapshot a flow take the room's state
- * when one is loaded.
- */
-function currentYdoc(flowId: string, stored: Buffer | null): Buffer | null {
-  const live = yjsServer.currentState(flowId);
-  return live ? Buffer.from(live) : stored;
-}
-
-export function decodeFlowData(ydoc: Buffer | null) {
-  if (!ydoc) return { nodes: [], edges: [] };
-  try {
-    const flowDoc = FlowDocument.decode(new Uint8Array(ydoc));
-    return flowDoc.getFlowData();
-  } catch {
-    return { nodes: [], edges: [] };
-  }
-}
-
-// ============================================================================
-// Router
-// ============================================================================
+const flowName = z.string().min(1).max(100);
+const flowColor = z.string().regex(/^#[0-9A-Fa-f]{6}$/);
 
 export const flowRouter = router({
   /**
    * List all flows the user owns or collaborates on
    */
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session.user.id;
-
-    const withPeople = {
-      owner: { columns: { id: true, name: true } },
-      collaborators: {
-        columns: { role: true },
-        with: { user: { columns: { id: true, name: true } } },
-      },
-    } as const;
-
-    const flowColumns = {
-      id: true,
-      name: true,
-      color: true,
-      createdAt: true,
-      updatedAt: true,
-      ydoc: true,
-    } as const;
-
-    // Get flows where user is owner
-    const ownedFlowsRaw = await db.query.flow.findMany({
-      where: eq(flow.ownerId, userId),
-      columns: flowColumns,
-      with: withPeople,
-    });
-
-    // Get flows where user is collaborator
-    const collaborations = await db.query.flowCollaborator.findMany({
-      where: eq(flowCollaborator.userId, userId),
-      with: {
-        flow: { columns: flowColumns, with: withPeople },
-      },
-    });
-
-    // Everyone with access, so the overview can show who a flow is shared
-    // with. One settings query for every user across every flow.
-    const involved = [...ownedFlowsRaw, ...collaborations.map((c) => c.flow)];
-    const peopleIds = [
-      ...new Set(
-        involved.flatMap((f) => [f.owner.id, ...f.collaborators.map((c) => c.user.id)]),
-      ),
-    ];
-    const settingsRows = peopleIds.length
-      ? await db.query.userSettings.findMany({
-          where: inArray(userSettings.userId, peopleIds),
-          columns: { userId: true, collabColor: true, collabIcon: true },
-        })
-      : [];
-    const settingsByUser = new Map(settingsRows.map((s) => [s.userId, s]));
-
-    /** Owner + collaborators, minus the caller — that is what "shared with" means here. */
-    function peopleOf(f: (typeof involved)[number]) {
-      return [
-        { ...f.owner, role: "owner" as const },
-        ...f.collaborators.map((c) => ({ ...c.user, role: c.role })),
-      ]
-        .filter((person) => person.id !== userId)
-        .map((person) => ({
-          ...person,
-          collabColor: settingsByUser.get(person.id)?.collabColor ?? "#4338ca",
-          collabIcon: settingsByUser.get(person.id)?.collabIcon ?? "Cat",
-        }));
-    }
-
-    const ownedFlows = ownedFlowsRaw.map((f) => {
-      const { ydoc, owner, collaborators, ...rest } = f;
-      return { ...rest, ...decodeFlowData(currentYdoc(f.id, ydoc)), people: peopleOf(f) };
-    });
-
-    const collaboratedFlows = collaborations.map((c) => {
-      const { ydoc, owner, collaborators, ...rest } = c.flow;
-      return {
-        ...rest,
-        ...decodeFlowData(currentYdoc(c.flow.id, ydoc)),
-        people: peopleOf(c.flow),
-        role: c.role,
-      };
-    });
-
-    return {
-      owned: ownedFlows,
-      collaborated: collaboratedFlows,
-    };
-  }),
+  list: protectedProcedure.query(({ ctx }) => listFlows(ctx.session.user.id)),
 
   /**
    * Get a single flow by ID
@@ -174,87 +43,14 @@ export const flowRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
-
-      const flowRecord = await db.query.flow.findFirst({
-        where: eq(flow.id, input.id),
-        with: {
-          owner: {
-            columns: { id: true, name: true, email: true, image: true },
-          },
-          collaborators: {
-            columns: { role: true },
-            with: {
-              user: {
-                columns: { id: true, name: true, email: true, image: true },
-              },
-            },
-          },
-        },
-      });
-
-      if (!flowRecord) {
-        throw new Error("Flow not found");
-      }
-
-      const role = assertFlowRole(
-        resolveFlowRole(
-          flowRecord,
-          userId,
-          flowRecord.collaborators.find((c) => c.user.id === userId)?.role as
-            | FlowRole
-            | undefined
-        ),
+      const { flow: flowRecord, role } = await requireFlowAccess(
+        input.id,
+        ctx.session.user.id,
         "viewer"
       );
 
-      // Fetch collabColor and collabIcon for owner and all collaborators
-      const userIds = [
-        flowRecord.owner.id,
-        ...flowRecord.collaborators.map((c) => c.user.id),
-      ];
-      const settingsRows =
-        userIds.length > 0
-          ? await db.query.userSettings.findMany({
-              where: inArray(userSettings.userId, userIds),
-              columns: { userId: true, collabColor: true, collabIcon: true },
-            })
-          : [];
-      const settingsByUser = new Map(
-        settingsRows.map((s) => [
-          s.userId,
-          {
-            collabColor: s.collabColor,
-            collabIcon: s.collabIcon,
-          },
-        ])
-      );
-      const withCollab = (uid: string) => ({
-        collabColor: settingsByUser.get(uid)?.collabColor ?? "#4338ca",
-        collabIcon: settingsByUser.get(uid)?.collabIcon ?? "Cat",
-      });
-
-      // Decode ydoc to get nodes/edges
-      const ydoc = currentYdoc(flowRecord.id, flowRecord.ydoc);
-      const { nodes, edges } = decodeFlowData(ydoc);
-
-      // Return ydoc as base64 for client to initialize FlowDocument
-      const ydocBase64 = ydoc ? Buffer.from(ydoc).toString("base64") : null;
-
       return {
-        id: flowRecord.id,
-        name: flowRecord.name,
-        color: flowRecord.color,
-        createdAt: flowRecord.createdAt,
-        updatedAt: flowRecord.updatedAt,
-        owner: { ...flowRecord.owner, ...withCollab(flowRecord.owner.id) },
-        collaborators: flowRecord.collaborators.map((c) => ({
-          ...c,
-          user: { ...c.user, ...withCollab(c.user.id) },
-        })),
-        nodes,
-        edges,
-        ydocBase64,
+        ...(await openFlow(flowRecord)),
         isOwner: role === "owner",
         role,
       };
@@ -264,38 +60,8 @@ export const flowRouter = router({
    * Create a new flow
    */
   create: protectedProcedure
-    .input(
-      z.object({
-        name: z.string().min(1).max(100),
-        color: z
-          .string()
-          .regex(/^#[0-9A-Fa-f]{6}$/)
-          .optional(),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const id = uid();
-
-      // Create empty FlowDocument and encode it
-      const flowDoc = FlowDocument.createEmpty();
-      flowDoc.setMeta({ name: input.name });
-      const ydocData = flowDoc.encode();
-
-      const [createdFlow] = await db.insert(flow).values({
-        id,
-        name: input.name,
-        color: input.color,
-        ownerId: ctx.session.user.id,
-        ydoc: Buffer.from(ydocData),
-      }).returning({
-        id: flow.id,
-        name: flow.name,
-      });
-
-      flowDoc.destroy();
-
-      return createdFlow;
-    }),
+    .input(z.object({ name: flowName, color: flowColor.optional() }))
+    .mutation(({ ctx, input }) => createFlow(ctx.session.user.id, input)),
 
   /**
    * Create a new flow from imported data (nodes + edges)
@@ -303,38 +69,13 @@ export const flowRouter = router({
   createFromImport: protectedProcedure
     .input(
       z.object({
-        name: z.string().min(1).max(100),
-        color: z
-          .string()
-          .regex(/^#[0-9A-Fa-f]{6}$/)
-          .optional(),
+        name: flowName,
+        color: flowColor.optional(),
         nodes: z.array(z.any()),
         edges: z.array(z.any()),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      const id = uid();
-
-      const flowDoc = FlowDocument.createEmpty();
-      flowDoc.setMeta({ name: input.name });
-      flowDoc.setFlowData(input.nodes, input.edges);
-      const ydocData = flowDoc.encode();
-
-      const [createdFlow] = await db.insert(flow).values({
-        id,
-        name: input.name,
-        color: input.color,
-        ownerId: ctx.session.user.id,
-        ydoc: Buffer.from(ydocData),
-      }).returning({
-        id: flow.id,
-        name: flow.name,
-      });
-
-      flowDoc.destroy();
-
-      return createdFlow;
-    }),
+    .mutation(({ ctx, input }) => createFlow(ctx.session.user.id, input)),
 
   /**
    * Update flow metadata
@@ -343,37 +84,14 @@ export const flowRouter = router({
     .input(
       z.object({
         id: z.string(),
-        name: z.string().min(1).max(100).optional(),
-        color: z
-          .string()
-          .regex(/^#[0-9A-Fa-f]{6}$/)
-          .optional(),
+        name: flowName.optional(),
+        color: flowColor.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       await requireFlowAccess(input.id, ctx.session.user.id, "owner");
 
-      const updatedFlow = await db
-        .update(flow)
-        .set({
-          name: input.name,
-          color: input.color,
-          updatedAt: new Date(),
-        })
-        .where(eq(flow.id, input.id))
-        .returning();
-
-      // The document carries the name too (export and sketch filenames read
-      // it). The row write alone left it stale: push the rename into the live
-      // room, or the stored document when none is open. Best-effort — the row
-      // has committed, so a failed document write must not fail the rename.
-      if (input.name !== undefined) {
-        await mirrorNameToDocument(input.id, input.name, (id, meta) =>
-          yjsServer.writeMeta(id, meta),
-        );
-      }
-
-      return updatedFlow;
+      return updateFlow(input.id, { name: input.name, color: input.color });
     }),
 
   /**
@@ -388,10 +106,7 @@ export const flowRouter = router({
         "owner"
       );
 
-      await db.delete(flow).where(eq(flow.id, input.id));
-
-      // Discard the live room rather than let it flush back to a deleted row.
-      yjsServer.dropRoom(input.id);
+      await deleteFlow(input.id);
 
       return flowRecord;
     }),
@@ -408,22 +123,9 @@ export const flowRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const { flow: flowRecord } = await requireFlowAccess(
-        input.id,
-        ctx.session.user.id,
-        "owner"
-      );
+      await requireFlowAccess(input.id, ctx.session.user.id, "owner");
 
-      await db
-        .update(flow)
-        .set({
-          // The live room, not the debounced row: publish what the owner sees.
-          publishedYdoc: currentYdoc(input.id, flowRecord.ydoc),
-          publishedAt: new Date(),
-          description: input.description,
-          updatedAt: flowRecord.updatedAt, // publishing is not an edit
-        })
-        .where(eq(flow.id, input.id));
+      await publishFlow(input.id, input.description);
 
       return { success: true };
     }),
@@ -434,20 +136,9 @@ export const flowRouter = router({
   unpublish: protectedProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const { flow: flowRecord } = await requireFlowAccess(
-        input.id,
-        ctx.session.user.id,
-        "owner"
-      );
+      await requireFlowAccess(input.id, ctx.session.user.id, "owner");
 
-      await db
-        .update(flow)
-        .set({
-          publishedYdoc: null,
-          publishedAt: null,
-          updatedAt: flowRecord.updatedAt,
-        })
-        .where(eq(flow.id, input.id));
+      await unpublishFlow(input.id);
 
       return { success: true };
     }),
@@ -598,7 +289,7 @@ export const flowRouter = router({
         });
         
         if(!collaborator) {
-          throw new Error("Collaborator not found");
+          throw new TRPCError({ code: "NOT_FOUND", message: "Collaborator not found" });
         }
 
         await setFlowRole(input.flowId, input.userId, input.role);

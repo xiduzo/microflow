@@ -14,10 +14,19 @@
 //! the generated C++ mirrors that exact behavior (including the edge values).
 //!
 //! We emit the same arithmetic into a `double` variable downstream Nodes read.
+//! The runtime maps each value that arrives and emits the result on `to`
+//! every time, even when it is the number it emitted last; so the sketch maps
+//! on the ticks its source fires and `to` is an event that fires on each.
+//!
+//! The runtime's own `value` is the pair `[input, mapped]`, emitted when it
+//! changes. A pair has no number and no text, so on-device it is a
+//! [`CppType::Opaque`](crate::codegen::wire::CppType::Opaque) version that
+//! moves on when the input or the mapped number does.
 
 use super::config::RangeMapConfig;
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
-use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this `RangeMap` Node's mapped output.
@@ -26,16 +35,42 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("range_map_{}_value", node.id_token())
 }
 
+/// True on the ticks a value arrived and was mapped (the flag
+/// [`NodeEmission::transform`] declares).
+fn mapped_var(node: &FlowNode) -> String {
+    format!("{}_fired", prefix(node))
+}
+
+fn prefix(node: &FlowNode) -> String {
+    format!("range_map_{}", node.id_token())
+}
+
+/// The version of the `[input, mapped]` pair (see the module docs).
+fn pair_var(node: &FlowNode) -> String {
+    format!("range_map_{}_pair", node.id_token())
+}
+
+/// What the `RangeMap` emits on `handle`: the mapped number on `to` each time
+/// a value is mapped, and on `value` the version of its pair, which starts at
+/// the runtime's `[0, 0]`.
+#[must_use]
+pub(crate) fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
+    match handle {
+        "to" => Some(SourceExpr::event(CppExpr::number(value_var(node)), mapped_var(node))),
+        "value" => Some(SourceExpr::level(CppExpr::opaque(pair_var(node))).starting_at("1")),
+        _ => None,
+    }
+}
+
 /// Emit C++ for a `RangeMap` Node from its `value` port. With nothing
 /// connected the value stays at `0.0` (the runtime never maps without a
 /// signal). `RangeMap` does not aggregate: extra sources are noted and the
 /// first drives the map. String sources are parsed like the runtime's
 /// `String(s) => s.parse().unwrap_or(0.0)` arm.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let var = value_var(node);
     // Mirror `Range` defaults: from 0..1023, to 0..1023.
-    let config: RangeMapConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<RangeMapConfig>(&node.data)?;
     let in_min = cpp_double(config.from.min);
     let in_max = cpp_double(config.from.max);
     let out_min = cpp_double(config.to.min);
@@ -46,8 +81,15 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let distance = (config.to.max - config.to.min).abs();
     let factor = if distance <= 10.0 { "10.0" } else { "1.0" };
 
+    let token = node.id_token();
+    let (pair, input_var, next) =
+        (pair_var(node), format!("range_map_{token}_input"), format!("range_map_{token}_next"));
     let mut e = NodeEmission {
-        declarations: vec![format!("double {var} = 0.0;")],
+        declarations: vec![
+            format!("double {var} = 0.0;"),
+            format!("double {input_var} = 0.0;"),
+            format!("uint8_t {pair} = 1;"),
+        ],
         ..NodeEmission::default()
     };
 
@@ -55,7 +97,9 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     if let Some(note) = extra_sources_note("value", sources) {
         e.declarations.push(note);
     }
-    if let Some(source) = sources.first() {
+    let first = &sources[..sources.len().min(1)];
+    let mut step = Vec::new();
+    if let Some(source) = first.first() {
         let input = source.value.as_double_parsing();
         // A zero-width `from` range (min == max) divides by zero in C++
         // (inf/nan). The range is fixed at codegen time, so collapse it to the
@@ -67,10 +111,14 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
                 "(({input} - {in_min}) * ({out_max} - {out_min}) / ({in_max} - {in_min}) + {out_min})"
             )
         };
-        e.loop_body
-            .push(format!("{var} = round(({mapped}) * {factor}) / {factor};"));
+        step.push(format!("double {next} = round(({mapped}) * {factor}) / {factor};"));
+        step.push(format!(
+            "if ({input} != {input_var} || {next} != {var}) {{ {pair} = {pair} == 255 ? 1 : {pair} + 1; }}"
+        ));
+        step.push(format!("{input_var} = {input}; {var} = {next};"));
     }
-    e
+    e.transform(&prefix(node), first, step);
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -97,7 +145,7 @@ mod tests {
 
     #[test]
     fn declares_output_variable() {
-        let e = emit(&rm("r-1", json!({})), &NodeInputs::default());
+        let e = emit(&rm("r-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("range_map_r_1_value")));
     }
 
@@ -106,7 +154,7 @@ mod tests {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 1023.0 }, "to": { "min": 0.0, "max": 255.0 } })),
             &value_input(CppExpr::number("sensor_s_1_value")),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("sensor_s_1_value"));
         assert!(body.contains("1023.0"));
@@ -119,12 +167,11 @@ mod tests {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 5.0, "max": 5.0 }, "to": { "min": 0.0, "max": 255.0 } })),
             &value_input(CppExpr::number("sensor_s_1_value")),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         // A zero-width `from` range maps to the low output bound instead of
         // dividing by the zero span (which would emit inf/nan C++).
-        assert!(body.contains("0.0"));
-        assert!(!body.contains("sensor_s_1_value"));
+        assert!(body.contains("range_map_r_1_next = round((0.0) * 1.0) / 1.0;"), "{body}");
         assert!(!body.contains("(5.0 - 5.0)"));
     }
 
@@ -133,7 +180,7 @@ mod tests {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 100.0 }, "to": { "min": 0.0, "max": 5.0 } })),
             &value_input(CppExpr::number("v")),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("* 10.0") && l.contains("/ 10.0")));
     }
 
@@ -142,13 +189,13 @@ mod tests {
         let e = emit(
             &rm("r-1", json!({ "from": { "min": 0.0, "max": 100.0 }, "to": { "min": 0.0, "max": 255.0 } })),
             &value_input(CppExpr::number("v")),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("* 1.0") && l.contains("/ 1.0")));
     }
 
     #[test]
     fn string_sources_parse_like_the_runtime() {
-        let e = emit(&rm("r-1", json!({})), &value_input(CppExpr::text("msg")));
+        let e = emit(&rm("r-1", json!({})), &value_input(CppExpr::text("msg"))).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains(".toFloat()")));
     }
 
@@ -157,13 +204,13 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("value", SourceExpr::level(CppExpr::number("a")));
         inputs.add("value", SourceExpr::level(CppExpr::number("b")));
-        let e = emit(&rm("r-1", json!({})), &inputs);
+        let e = emit(&rm("r-1", json!({})), &inputs).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("// note:")));
     }
 
     #[test]
     fn no_input_emits_no_loop_body() {
-        let e = emit(&rm("r-1", json!({})), &NodeInputs::default());
+        let e = emit(&rm("r-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
@@ -171,6 +218,6 @@ mod tests {
     fn emits_deterministically() {
         let n = rm("r-1", json!({ "to": { "min": 0.0, "max": 255.0 } }));
         let inputs = value_input(CppExpr::number("v"));
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

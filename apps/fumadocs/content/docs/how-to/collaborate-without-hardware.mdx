@@ -9,7 +9,7 @@ For *why* this limitation exists, see [Concepts: collaboration](/docs/concepts/c
 
 ## Substitute the world with Constants
 
-Replace each Sense node temporarily with a [Constant](/docs/microflow-studio/nodes/generate/constant) producing a representative value. A potentiometer becomes a Constant at `512`. A button becomes a Constant toggled by a [Trigger](/docs/microflow-studio/nodes/generate/trigger).
+Replace each Sense node temporarily with a [Constant](/docs/microflow-studio/nodes/generate/constant) producing a representative value. A potentiometer becomes a Constant at `512`. A button becomes a Hotkey node, which fires when you press a key on your keyboard.
 
 This lets you exercise the downstream Shape/Decide/Express logic end-to-end. The Express side does nothing physical without a board — but it runs, and its inputs are visible.
 

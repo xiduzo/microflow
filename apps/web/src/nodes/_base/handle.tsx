@@ -1,5 +1,5 @@
 import {
-  type HandleProps,
+  type HandleProps as XyHandleProps,
   Position,
   Handle as XyFlowHandle,
   type Edge,
@@ -10,7 +10,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { cva } from "class-variance-authority";
-import type { ComponentType, EmitOf, PortOf } from "../component-types.generated";
 import {
   HANDLE_SIZE,
   HANDLE_SPACING,
@@ -63,9 +62,13 @@ function useHandleProximity(
   return isNear;
 }
 
-export function Handle<T extends ComponentType = ComponentType>(props: Props<T>) {
+/**
+ * One handle on the canvas. Rendered only by `NodeHandles`, which decides
+ * which handles a node has; this component decides how one looks and behaves.
+ */
+export function Handle(props: Props) {
   const { position, handleType: _handleType, offset: _offset, hint: _hint, ...restProps } = props;
-  const { getEdges } = useReactFlow();
+  const { getEdges, getNode } = useReactFlow();
 
   const nodeId = useNodeId();
   const handleId = props.id;
@@ -124,7 +127,7 @@ export function Handle<T extends ComponentType = ComponentType>(props: Props<T>)
           position={position as Position}
           isConnectable={isConnectable}
           isValidConnection={(edge) =>
-            isValidHandleConnection(edge, getEdges(), props.isValidConnection)
+            isValidHandleConnection(edge, getEdges(), getNode, props.isValidConnection)
           }
           className={handle({
             variant: props.handleType,
@@ -165,13 +168,13 @@ type PositionType = `${Position.Left}` | `${Position.Right}` | `${Position.Botto
 
 type HandleType = "value" | "event" | "command" | "state";
 
-/**
- * Shared props for both target (input) and source (output) handles.
- */
-type CommonProps = Omit<
-  HandleProps,
-  "isConnectable" | "isValidConnection" | "position" | "id" | "type"
-> & {
+/** The props of {@link Handle}. */
+export type HandleProps = Props;
+
+type Props = Omit<XyHandleProps, "isConnectable" | "isValidConnection" | "position" | "id" | "type"> & {
+  /** `target` for a **Port** (edges come in), `source` for an **Emit** (edges go out). */
+  type: "target" | "source";
+  id: string;
   offset?: number;
   hint?: string;
   isConnectable?: ((edges: Edge[]) => boolean) | boolean;
@@ -181,53 +184,12 @@ type CommonProps = Omit<
 };
 
 /**
- * Target (input) handle — receives flow edges. `id` must be a declared **Port**
- * of the parent Component. When `<Handle>` is called without binding the
- * generic, `T` defaults to the union of every catalogued Component, so `id`
- * must at minimum match _some_ Port in the catalog — typos against the
- * aggregate port set fail at compile time. Bind the generic explicitly
- * (`<Handle<"Led"> ...>`) for per-Component tightening that catches
- * cross-Component port confusion too.
- *
- * Mirrors `Component::dispatch`'s Port surface in the Rust runtime. See
- * `CONTEXT.md` § Port and ADR-0001.
+ * What a node may still say about one of its handles at render time, through
+ * `<NodeHandles>`: the things that depend on the host rather than on the
+ * node's settings, such as whether the connected board's pin can drive it.
+ * Which handles exist and how they are laid out is the node's Handle Rule.
  */
-type TargetProps<T extends ComponentType> = CommonProps & {
-  type: "target";
-  id: PortOf<T>;
-};
-
-/**
- * Source (output) handle — emits flow edges. `id` must be a declared **Emit**
- * of the parent Component (the handle it passes to `ComponentBase::emit`). When
- * `<Handle>` is used without binding the generic, `T` defaults to the union of
- * every catalogued Component, so `id` must at minimum match _some_ Emit in the
- * catalog — typos against the aggregate emit set fail at compile time. Bind the
- * generic explicitly (`<Handle<"Button"> ...>`) for per-Component tightening
- * that catches cross-Component emit confusion too.
- *
- * Mirrors `Component::emits()` in the Rust runtime. See `CONTEXT.md` § Emit and
- * ADR-0007.
- */
-type SourceProps<T extends ComponentType> = CommonProps & {
-  type: "source";
-  id: EmitOf<T>;
-};
-
-export type HandleProps_<T extends ComponentType = ComponentType> =
-  | TargetProps<T>
-  | SourceProps<T>;
-type Props<T extends ComponentType = ComponentType> = HandleProps_<T>;
-
-/**
- * Per-handle presentational props a node supplies via `<NodeHandles>` — the
- * bits the generated wire-interface contract (COMPONENT_PORTS / COMPONENT_EMITS)
- * can't know: `offset`, `title`, `hint`, `handleType`, `isConnectable`,
- * `position`, … `type` and `id` are intentionally excluded — those are driven
- * by the contract. Everything is optional, so a contract handle with no
- * override still renders with the `NodeHandles` defaults.
- */
-export type HandleOverride = Partial<CommonProps>;
+export type HandleOverride = Pick<Props, "hint" | "isConnectable" | "isValidConnection">;
 
 const handle = cva("text-xs flex z-50 shadow-none after:content-[''] after:absolute after:leading-3 after:top-0 after:left-0 after:w-full after:h-full after:bg-transparent", {
   variants: {

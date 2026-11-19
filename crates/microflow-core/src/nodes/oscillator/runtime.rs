@@ -11,10 +11,7 @@ use std::borrow::Cow;
 // `OscillatorConfig` + `Waveform` live in the ungated sibling `config` module
 // so the codegen emitter shares the exact same fields + defaults (single
 // source of truth — see `crate::nodes`).
-use super::config::{OscillatorConfig, Waveform};
-
-/// ~60 FPS refresh.
-const REFRESH_MS: u64 = 1000 / 60;
+use super::config::{OscillatorConfig, Waveform, SAMPLE_MS};
 
 pub(crate) struct Oscillator {
     base: ComponentBase,
@@ -37,7 +34,7 @@ impl Oscillator {
     fn start(&mut self, ctx: &mut RuntimeContext) {
         self.running = true;
         self.start_ms = ctx.now_ms();
-        ctx.schedule_wakeup("_tick", REFRESH_MS);
+        ctx.schedule_wakeup("_tick", SAMPLE_MS);
     }
 
     fn stop(&mut self, ctx: &mut RuntimeContext) {
@@ -60,7 +57,7 @@ impl Oscillator {
         let elapsed = ctx.now_ms() - self.start_ms;
         let value = calculate_waveform(&self.config, elapsed);
         self.base.emit_with_value(ComponentBase::VALUE_HANDLE, Cow::Owned(ComponentValue::Number(value)));
-        ctx.schedule_wakeup("_tick", REFRESH_MS);
+        ctx.schedule_wakeup("_tick", SAMPLE_MS);
     }
 }
 

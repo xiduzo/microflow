@@ -62,6 +62,19 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 
+# Ending an agent CLI means ending everything it started (`cli_llm/runs.rs`):
+# a process group on unix, a job object on Windows. Neither is in `std`.
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_JobObjects",
+    "Win32_System_Threading",
+] }
+
 [dev-dependencies]
 proptest = "1"
 # `sim-board`: test what the desktop writes against a firmware model.

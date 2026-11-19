@@ -20,7 +20,7 @@ impl Default for Range {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct RangeMapConfig {
     #[serde(default)]
     pub(crate) from: Range,

@@ -10,7 +10,7 @@
 //! │   ├── input/       - Input components (Button, Sensor, Motion, Proximity)
 //! │   └── output/      - Output components (Led, Rgb, Relay, Piezo, Servo)
 //! ├── mqtt/            - MQTT broker management for IoT connectivity
-//! └── flasher/         - Firmware flashing (protocols, hex parsing)
+//! └── flasher/         - Firmware flashing (runs microflow-core's bootloader drivers)
 //! ```
 
 // Hardware/embedded code uses intentional casts and simple APIs that don't
@@ -52,48 +52,29 @@ pub use error::*;
 
 use hardware::HardwareService;
 use mqtt::MqttManager;
+use runtime::cloud_performer::CloudPerformer;
 use runtime::host::{self, ActorLink};
-use runtime::services::MqttPublisher;
+use runtime::services::MqttBrokers;
 use std::sync::{Arc, Mutex};
 use tauri::Listener;
-use tokio::sync::Mutex as TokioMutex;
 
-/// Which callback shape a subscription drives. Stored alongside the live
-/// subscription so `flow_update` can tell when a topic's *owner* changed (and
-/// must be re-subscribed) versus left untouched — the broker holds one callback
-/// per topic, so the owner is part of a subscription's identity.
+/// Shared application state.
 ///
-/// Re-exported from core: the subscription winner-selection policy that consumes
-/// this kind ([`microflow_core::runtime::reconcile_desired`]) is the single
-/// source shared with the browser host via the wasm `reconcileSubscriptions()`
-/// binding, so both hosts pick the same owner per topic.
-pub use microflow_core::runtime::SubKind;
-
-/// One active Figma/MQTT subscription. Identity is `(broker_id, topic)`; the
-/// `component_id`/`kind` record which wiring currently owns the broker's single
-/// per-topic callback, so `flow_update` can diff and only touch what changed.
-#[derive(Debug, Clone)]
-pub struct FigmaSubscription {
-    pub broker_id: String,
-    pub topic: String,
-    pub component_id: String,
-    pub kind: SubKind,
-}
-
-/// Shared application state
+/// The flow's MQTT subscriptions are not here: the [`CloudPerformer`] owns
+/// them, and only the runtime actor holds it.
 pub struct AppState {
     pub hardware_service: Arc<Mutex<HardwareService>>,
     /// `Send + Sync` sender to the runtime actor thread, which owns the
     /// single-threaded (`!Send`) `core::FlowRuntime` + the serial port. Replaces
     /// the old `Arc<TokioMutex<FlowRuntime>>`; commands post `ActorMsg`s here.
     pub actor: tokio::sync::mpsc::UnboundedSender<runtime::host::ActorMsg>,
-    /// MQTT broker manager
+    /// MQTT broker pool: the connections the broker settings and
+    /// `flow_update` manage, and the pool the `CloudPerformer` publishes and
+    /// subscribes through.
     pub mqtt_manager: MqttManager,
-    /// MQTT publish handle the cloud nodes hold (captured by the actor's cloud
-    /// factory closures); also used directly by `flow_update` for status pings.
-    pub mqtt_publisher: Arc<dyn MqttPublisher>,
-    /// Active Figma MQTT subscriptions (cleaned up on flow switch)
-    pub figma_subscriptions: Arc<TokioMutex<Vec<FigmaSubscription>>>,
+    /// The flow updates the webview sends: what the `flow_update` command
+    /// does, and the order it is done in.
+    pub flow_updates: runtime::commands::FlowUpdates,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -124,7 +105,10 @@ pub fn run() {
     // `MqttManager` is `Clone` (its broker map lives behind `Arc<RwLock<..>>`),
     // so the cloned instance handed to the dyn-trait `Arc` shares the same
     // broker pool as the one held on `AppState`.
-    let mqtt_publisher: Arc<dyn MqttPublisher> = Arc::new(mqtt_manager.clone());
+    let cloud_brokers: Arc<dyn MqttBrokers> = Arc::new(mqtt_manager.clone());
+    let status_brokers = mqtt_manager.clone();
+    let console_brokers = mqtt_manager.clone();
+    let exit_brokers = mqtt_manager.clone();
 
     // The runtime actor channel, plus the channel the actor reports a failed
     // board session on (to the hardware board link, which owns connection
@@ -134,9 +118,6 @@ pub fn run() {
     let (actor_tx, actor_rx) = tokio::sync::mpsc::unbounded_channel::<host::ActorMsg>();
     let (session_ended_tx, session_ended_rx) = std::sync::mpsc::channel::<hardware::SessionId>();
 
-    // Clones the actor thread captures (cloud factory services); the originals
-    // move into `AppState`.
-    let actor_publisher = Arc::clone(&mqtt_publisher);
     let actor_tx_exit = actor_tx.clone();
     // Filled in `setup` once the actor thread runs; the exit handler waits on
     // it so the board session drops (writing the safe state) before exit.
@@ -146,9 +127,8 @@ pub fn run() {
     let app_state = AppState {
         hardware_service: Arc::clone(&hardware_service),
         actor: actor_tx.clone(),
+        flow_updates: runtime::commands::FlowUpdates::new(actor_tx.clone(), mqtt_manager.clone()),
         mqtt_manager,
-        mqtt_publisher,
-        figma_subscriptions: Arc::new(TokioMutex::new(Vec::new())),
     };
 
     let mut builder = tauri::Builder::default();
@@ -206,6 +186,21 @@ pub fn run() {
             // non-blocking, and valid on whichever thread `setup` runs on.
             let rt_handle = tauri::async_runtime::handle().inner().clone();
 
+            // Every change of a broker's status goes to the webview, whatever
+            // caused it: the settings pages do not ask.
+            rt_handle.spawn(mqtt::commands::report_broker_statuses(status_brokers, app.handle().clone()));
+
+            // The cloud half of the runtime host: publishes what the flow's
+            // cloud nodes record and owns its MQTT subscriptions. The actor is
+            // its one holder; it needs the `AppHandle` for the `mqtt-message`
+            // event, so it is built here.
+            let cloud = Arc::new(CloudPerformer::new(
+                cloud_brokers,
+                actor_tx.clone(),
+                app.handle().clone(),
+                rt_handle.clone(),
+            ));
+
             // Spawn the single runtime actor thread: it owns the !Send
             // core::FlowRuntime + the serial port, and applies each turn's
             // Effects (write bytes, emit "component-event", arm wakeup timers).
@@ -215,7 +210,7 @@ pub fn run() {
                 session_ended_tx,
                 app.handle().clone(),
                 rt_handle,
-                actor_publisher,
+                cloud,
             );
             *actor_stopped.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(stopped);
 
@@ -269,8 +264,22 @@ pub fn run() {
 
             Ok(())
         })
+        // A document starts loading in the webview — the first one, or a
+        // reload: the page before it is gone, and with it the Connection
+        // Console's list of what it subscribed to. Nothing on that page ran
+        // to unsubscribe, so the pool is told here. (Moving between the app's
+        // routes loads no document, and does not come by here.)
+        .on_page_load(move |webview, payload| {
+            if payload.event() == tauri::webview::PageLoadEvent::Started {
+                let pool = console_brokers.clone();
+                tauri::async_runtime::spawn(async move { pool.forget_console().await });
+                // The page's agent CLI runs and its flow tool session go with it.
+                cli_llm::page_gone(tauri::Manager::app_handle(webview));
+            }
+        })
         .manage(app_state)
         .manage(mcp::McpState::default())
+        .manage(cli_llm::AgentCliRuns::default())
         .invoke_handler(tauri::generate_handler![
             hardware::get_available_serial_ports,
             hardware::confirm_board_flash,
@@ -298,6 +307,7 @@ pub fn run() {
             mqtt::commands::mqtt_all_statuses,
             cli_llm::llm_cli_probe,
             cli_llm::llm_cli_generate,
+            cli_llm::llm_cli_stop,
             cli_llm::llm_cli_models,
             mcp::session::mcp_session_start,
             mcp::session::mcp_session_end,
@@ -305,7 +315,7 @@ pub fn run() {
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(move |_app_handle, event| {
+        .run(move |app_handle, event| {
             if let tauri::RunEvent::Exit = event {
                 log::info!("Application exiting — stopping runtime actor");
                 // Stop the actor thread and wait (bounded) for it: dropping its
@@ -317,6 +327,21 @@ pub fn run() {
                     if !stopped.wait(host::SHUTDOWN_GRACE) {
                         log::warn!("[actor] did not stop within {:?}; exiting anyway", host::SHUTDOWN_GRACE);
                     }
+                }
+                // After the board is safe: an agent CLI must not outlive the
+                // app that started it.
+                cli_llm::quit(app_handle);
+                // Every broker session ends on purpose, saying its last words:
+                // the design-tool plugins hear that Studio left. Bounded, so a
+                // broker that does not take them does not hold up the quit; its
+                // link closes with the process, and the broker publishes the
+                // session's will instead.
+                let closing = exit_brokers.clone();
+                let closed = tauri::async_runtime::block_on(async move {
+                    tokio::time::timeout(mqtt::manager::QUIT_GRACE, closing.disconnect_all()).await
+                });
+                if closed.is_err() {
+                    log::warn!("[MQTT] brokers not closed within {:?}; exiting anyway", mqtt::manager::QUIT_GRACE);
                 }
             }
         });

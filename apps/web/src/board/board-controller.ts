@@ -13,7 +13,7 @@ import type { FlowUpdate as CoreFlowUpdate } from "@/lib/bindings/FlowUpdate";
 import { useBoardStore } from "@/board/board-store";
 import { useDesignBridgeStore } from "@/cloud/design-bridge";
 import { resolveStoredLlmProvider } from "@/ai/llm-performer";
-import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
+import { onBrokerSettingsChange, resolveStoredBroker } from "@/cloud/mqtt-broker";
 import {
   connectedState,
   detectBoard,
@@ -51,15 +51,13 @@ export {
 /** Cloud lookups the reactor needs to perform cloud requests (ADR-0009). Read
  *  live from the provider store via `getState()` (this module is not a React
  *  component) so credential edits apply to the next request without re-attaching.
- *  Direct-by-default per D4: the user's own key in the user's own browser. */
+ *  Direct-by-default per D4: the user's own key in the user's own browser.
+ *  The broker store is watched as well, so a running flow's broker connections
+ *  follow an edit made on the config page without the flow being sent again. */
 const cloudDeps: CloudDeps = {
   resolveLlmProvider: resolveStoredLlmProvider,
-  resolveBroker: (id) => {
-    const broker = useMqttBrokerStore.getState().getBroker(id);
-    return broker
-      ? { id: broker.id, url: broker.url, username: broker.username, password: broker.password }
-      : undefined;
-  },
+  resolveBroker: resolveStoredBroker,
+  watchBrokers: onBrokerSettingsChange,
   // Feed inbound design-tool display topics (variable lists / plugin status) into
   // the design-bridge store — the browser counterpart of the desktop "mqtt-message" event.
   onMqttMessage: (topic, payload) => {
@@ -123,6 +121,8 @@ export const pushFlowUpdate = (flow: CoreFlowUpdate): FlowApplyResult =>
   controller.pushFlowUpdate(flow);
 export const dispatchToNode = (nodeId: string, port: string, value: unknown): void =>
   controller.dispatchToNode(nodeId, port, value);
+export const keyEvent = (accelerator: string, pressed: boolean): void =>
+  controller.keyEvent(accelerator, pressed);
 export const connect = (): Promise<void> => controller.connect();
 export const disconnect = (): Promise<void> => controller.disconnect();
 let flashOfferWatched = false;

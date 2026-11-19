@@ -20,6 +20,7 @@
 use super::config::{ByteDecode, I2cDeviceConfig, OutputFormat};
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, NodeInputs};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `long` variable name holding this device's latest decoded reading.
@@ -35,13 +36,10 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
 /// value stays at its 0 default, matching the runtime where nothing is armed.
 /// The `write` port carries raw byte payloads with no on-device value model;
 /// wiring it emits a note.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-    // Deserialize the SAME config the runtime builds from (ungated in
-    // `super::config`), so codegen and interpret never disagree on
-    // field parsing or defaults. Malformed data falls back to defaults rather
-    // than erroring — the sketch generator has no per-node failure channel.
-    let config: I2cDeviceConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
+    // The SAME config the runtime builds from (ungated in `super::config`),
+    // so codegen and interpret never disagree on field parsing or defaults.
+    let config = resolve::<I2cDeviceConfig>(&node.data)?;
 
     let token = node.id_token();
     let value = value_var(node);
@@ -178,13 +176,13 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // interval after being armed.
     setup.extend(interval_seed);
 
-    NodeEmission {
+    Ok(NodeEmission {
         includes: vec!["#include <Wire.h>".to_string()],
         declarations,
         setup,
         loop_body,
         ..NodeEmission::default()
-    }
+    })
 }
 
 /// The register actually read, with the hold-master → no-hold safety override.
@@ -231,7 +229,7 @@ mod tests {
 
     #[test]
     fn i2c_includes_wire_and_begins_bus() {
-        let e = emit(&i2c("d-1", json!({})), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.includes.iter().any(|i| i.contains("Wire.h")));
         assert!(e.setup.iter().any(|s| s.contains("Wire.begin()")));
     }
@@ -239,7 +237,7 @@ mod tests {
     #[test]
     fn i2c_reads_configured_length_and_address() {
         // camelCase `readLength` — the key the web actually sends.
-        let e = emit(&i2c("d-1", json!({ "address": 0x40, "readLength": 3 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "address": 0x40, "readLength": 3 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("requestFrom") && l.contains("64")));
         assert!(e.loop_body.iter().any(|l| l.contains("< 3 &&")));
     }
@@ -248,13 +246,13 @@ mod tests {
     fn i2c_snake_case_read_length_is_ignored() {
         // Guard the rename: the old snake_case key must NOT be honored, else the
         // runtime (camelCase) and codegen would disagree on byte count.
-        let e = emit(&i2c("d-1", json!({ "read_length": 8 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "read_length": 8 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("< 2 &&")), "must fall back to default 2");
     }
 
     #[test]
     fn i2c_tcs34725_enables_adc_in_setup() {
-        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), &NodeInputs::default()).unwrap();
         // ENABLE register 0x80 = 128, value 3 written once in setup().
         assert!(e.setup.iter().any(|s| s.contains("128")), "must write ENABLE register");
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)3)")));
@@ -262,7 +260,7 @@ mod tests {
 
     #[test]
     fn i2c_custom_device_emits_no_init_writes() {
-        let e = emit(&i2c("d-1", json!({ "device": "custom" })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "custom" })), &NodeInputs::default()).unwrap();
         // No init transmissions for generic devices — just the bus begin and
         // the sampling-gate seed.
         assert!(!e.setup.iter().any(|s| s.contains("beginTransmission")));
@@ -271,7 +269,7 @@ mod tests {
 
     #[test]
     fn i2c_mpu6050_wakes_from_sleep_in_setup() {
-        let e = emit(&i2c("d-1", json!({ "device": "mpu6050", "address": 0x68 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "mpu6050", "address": 0x68 })), &NodeInputs::default()).unwrap();
         // PWR_MGMT_1 (0x6B = 107) = 0x00 clears the SLEEP bit in setup().
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)107)")), "must write PWR_MGMT_1");
         assert!(e.setup.iter().any(|s| s.contains("(uint8_t)104")), "must address the MPU6050");
@@ -279,7 +277,7 @@ mod tests {
 
     #[test]
     fn i2c_bmp280_configures_without_a_humidity_write() {
-        let e = emit(&i2c("d-1", json!({ "device": "bmp280_pressure", "address": 0x76 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "bmp280_pressure", "address": 0x76 })), &NodeInputs::default()).unwrap();
         // ctrl_meas (0xF4 = 244) + config (0xF5 = 245); NO ctrl_hum (0xF2 = 242).
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)244)")), "must write ctrl_meas");
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)245)")), "must write config");
@@ -292,7 +290,7 @@ mod tests {
         // label ("MPU6050") skipped the init in the generated sketch while the
         // runtime (which normalised) still emitted it. Routing both through the
         // shared normalised table removes that divergence.
-        let e = emit(&i2c("d-1", json!({ "device": "MPU6050", "address": 0x68 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "MPU6050", "address": 0x68 })), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains("Wire.write((uint8_t)107)")), "stale label must still wake");
     }
 
@@ -304,7 +302,7 @@ mod tests {
                 json!({ "device": "sht21_temp", "address": 0x40, "register": 0xF3, "readLength": 2 }),
             ),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         // No-hold: STOP after the command write, then a non-blocking settle —
         // the collect phase waits out the conversion on millis(), never delay().
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(true)")));
@@ -325,21 +323,21 @@ mod tests {
         // A doc saved before the no-hold preset change still carries 0xE3 (=227);
         // the sketch must write the no-hold 0xF3 (=243) instead, never the
         // bus-hanging hold-master register.
-        let e = emit(&i2c("d-1", json!({ "device": "sht21_temp", "register": 0xE3 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "sht21_temp", "register": 0xE3 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)243)")), "must remap to 0xF3");
         assert!(!e.loop_body.iter().any(|l| l.contains("Wire.write((uint8_t)227)")), "must not emit 0xE3");
     }
 
     #[test]
     fn i2c_non_sht_keeps_repeated_start_without_settle_state() {
-        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "device": "tcs34725", "address": 0x29 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("Wire.endTransmission(false)")));
         assert!(!e.loop_body.iter().any(|l| l.contains("_pending")), "no settle machine needed");
     }
 
     #[test]
     fn i2c_sign_extends_for_signed_format() {
-        let e = emit(&i2c("d-1", json!({ "output": "signed_int" })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "output": "signed_int" })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("0x80")), "signed must sign-extend");
     }
 
@@ -348,16 +346,16 @@ mod tests {
         // Drift fix: the old fold folded ALL bytes, so a >4-byte read kept the
         // LAST 4 bytes in the 32-bit `long` while the runtime keeps the FIRST 4
         // (`fold_bytes`). The emitted fold must be guarded at the shared cap.
-        let e = emit(&i2c("d-1", json!({ "readLength": 6 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "readLength": 6 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("< 4) {")), "long reads must cap the fold");
         // Reads within the cap need no guard — the loop bound already limits them.
-        let e = emit(&i2c("d-1", json!({ "readLength": 4 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "readLength": 4 })), &NodeInputs::default()).unwrap();
         assert!(!e.loop_body.iter().any(|l| l.contains("< 4) {")), "no guard within the cap");
     }
 
     #[test]
     fn i2c_unsigned_does_not_sign_extend() {
-        let e = emit(&i2c("d-1", json!({ "output": "unsigned_int" })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "output": "unsigned_int" })), &NodeInputs::default()).unwrap();
         assert!(!e.loop_body.iter().any(|l| l.contains("0x80")));
     }
 
@@ -367,7 +365,7 @@ mod tests {
         // — never every 1ms loop tick — AND a wired trigger still fires an
         // extra manual read: the runtime dispatches `trigger` to
         // `request_read` unguarded, streaming or not.
-        let e = emit(&i2c("d-1", json!({})), &trigger_input("btn_state"));
+        let e = emit(&i2c("d-1", json!({})), &trigger_input("btn_state")).unwrap();
         assert!(
             e.loop_body
                 .iter()
@@ -383,15 +381,15 @@ mod tests {
     fn i2c_autoread_honors_configured_freq_key() {
         // The web persists the sampling period under the key `freq` (a period
         // in ms despite the name — see I2cDeviceConfig).
-        let e = emit(&i2c("d-1", json!({ "freq": 250 })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "freq": 250 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains(">= 250UL")), "configured period wins");
     }
 
     #[test]
-    fn i2c_autoread_off_reads_only_on_trigger_rising_edge() {
-        // autoread off + trigger wired ⇒ the read is gated behind the source's
-        // rising edge (the generated twin of the runtime `trigger` handle).
-        let e = emit(&i2c("d-1", json!({ "autoread": false })), &trigger_input("btn_state"));
+    fn i2c_autoread_off_reads_only_when_its_trigger_fires() {
+        // autoread off + trigger wired ⇒ the read is gated behind the source
+        // firing (the generated twin of the runtime `trigger` handle).
+        let e = emit(&i2c("d-1", json!({ "autoread": false })), &trigger_input("btn_state")).unwrap();
         assert!(
             e.declarations.iter().any(|d| d.contains("i2c_d_1_trigger_prev0")),
             "tracks previous edge"
@@ -407,7 +405,7 @@ mod tests {
     fn i2c_autoread_off_without_trigger_never_reads() {
         // autoread off + no driver ⇒ no read at all (value stays 0), mirroring the
         // runtime where nothing is armed and no trigger source exists.
-        let e = emit(&i2c("d-1", json!({ "autoread": false })), &NodeInputs::default());
+        let e = emit(&i2c("d-1", json!({ "autoread": false })), &NodeInputs::default()).unwrap();
         assert!(!e.loop_body.iter().any(|l| l.contains("requestFrom")), "must not read");
         assert_eq!(e.declarations, vec!["long i2c_d_1_value = 0;".to_string()]);
     }
@@ -415,6 +413,6 @@ mod tests {
     #[test]
     fn i2c_emits_deterministically() {
         let n = i2c("d-1", json!({ "address": 0x48, "read_length": 2 }));
-        assert_eq!(emit(&n, &NodeInputs::default()), emit(&n, &NodeInputs::default()));
+        assert_eq!(emit(&n, &NodeInputs::default()).unwrap(), emit(&n, &NodeInputs::default()).unwrap());
     }
 }

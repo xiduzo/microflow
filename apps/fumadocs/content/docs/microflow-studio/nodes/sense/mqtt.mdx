@@ -5,8 +5,10 @@ description: Publish values from your flow to an MQTT topic, or feed incoming MQ
 
 The MQTT node connects your flow to an MQTT broker — a message-passing server. Its **direction** setting decides what it does:
 
-- **subscribe** — the node listens to a topic and sends each message it receives out of its output.
+- **subscribe** (the default) — the node listens to a topic and sends each message it receives out of its output.
 - **publish** — the node sends each value that arrives at its input to a topic.
+
+Only a direction of exactly `publish` publishes. Any other value, or none, subscribes. This holds in Studio and in the exported Arduino sketch.
 
 <Callout title="Linking to Figma or Penpot? Use the Design variable node">
 To read or change a variable in a Figma or Penpot file, use the [Design variable](/docs/microflow-studio/nodes/express/figma) node. It works with the Figma and Penpot plugins, and you do not need to know their topics.
@@ -14,9 +16,32 @@ To read or change a variable in a Figma or Penpot file, use the [Design variable
 
 Before you use the node, add a broker under **Configuration → MQTT** in Studio. A broker has a name, a URL, and an optional username and password. In the browser, Studio can only reach a broker over `ws://` or `wss://`. The desktop app also accepts other schemes, such as `mqtt://`.
 
+What you type into a broker's settings applies 500 ms after your last keystroke, or at once when you run a console command, close the form, or hide or leave the page. Adding or removing a broker, and choosing the default broker, apply at once.
+
 <Callout type="warn" title="Public brokers mean public data">
 Anyone can read and send messages on a public broker such as `test.mosquitto.org`. Do not send passwords, personal information, or anything sensitive through it. It is fine for testing and prototyping.
 </Callout>
+
+## Inputs and outputs
+
+The handles follow the **direction** setting:
+
+- **publish** — one input, **trigger**. Each value that arrives is published to the topic.
+- **subscribe** — one output, **value**. It fires with each message that arrives on the topic.
+
+## Subscribing with wildcards
+
+When the node subscribes, its **topic** can be a topic filter with wildcards. This works in the browser and in the desktop app.
+
+- `+` matches exactly one level. `sensors/+/temperature` matches `sensors/kitchen/temperature`, not `sensors/kitchen/oven/temperature`.
+- `#` matches the level before it and every level below it. It must be the last level. `sensors/#` matches `sensors`, `sensors/kitchen` and `sensors/kitchen/oven`.
+- A filter that starts with `+` or `#` does not match topics that start with `$`, such as `$SYS/…`.
+- Shared subscriptions (`$share/<group>/<filter>` and `$queue/<filter>`) deliver messages too.
+- A filter that is not valid, such as `sensors/#/temperature` or `sensors+`, matches nothing.
+
+When a message matches the topics of several MQTT nodes in a flow, each of those nodes gets it once.
+
+A topic you publish to cannot hold a wildcard and cannot be empty. A publish to such a topic is not sent.
 
 ## Settings
 
@@ -24,8 +49,8 @@ Anyone can read and send messages on a public broker such as `test.mosquitto.org
 | --- | --- |
 | **Broker** | Which of your brokers to use |
 | **direction** | `subscribe` to receive messages, `publish` to send them |
-| **topic** | The topic to subscribe or publish to |
-| **QoS** | The delivery guarantee: at most once (0), at least once (1), or exactly once (2) |
+| **topic** | The topic to publish to, or the topic filter to subscribe to |
+| **QoS** | The delivery guarantee: at most once (0), at least once (1, the default), or exactly once (2) |
 | **retain** | Publish only. Asks the broker to keep the last message for new subscribers |
 
 ## Related

@@ -1,9 +1,9 @@
 ---
 title: LED
-description: Control LED lights including single LEDs, RGB LEDs, and LED matrices.
+description: Control LED lights with the LED, RGB, and LED Matrix nodes.
 ---
 
-An LED (Light Emitting Diode) is a small light that turns on when electricity flows through it. The LED node supports three variants: a single-color LED, an RGB LED, and an LED matrix.
+An LED (Light Emitting Diode) is a small light that turns on when electricity flows through it. This page covers three nodes: the **LED** node for a single-color LED, the **RGB** node for an RGB LED, and the **LED Matrix** node for a grid of LEDs.
 
 **Example uses:**
 - Turn on a light when a button is pressed
@@ -13,30 +13,34 @@ An LED (Light Emitting Diode) is a small light that turns on when electricity fl
 
 ---
 
-## Single LED
+## LED
 
 A single LED can be switched on and off, or have its brightness controlled.
 
 ### Inputs
 
-- **Value** — a number from 0 to 255 that sets brightness. 0 = off, 255 = full brightness. Values in between dim the LED
-- **On** — turns the LED fully on
-- **Off** — turns the LED fully off
-- **Toggle** — switches between on and off
+- **true** — turns the LED fully on
+- **toggle** — switches between on and off
+- **brightness** — a number from 0 to 255 that sets brightness. 0 = off, 255 = full brightness. Values in between dim the LED
+- **false** — turns the LED fully off
+
+### Outputs
+
+- **value** — the LED's brightness, from 0 (off) to 1 (full)
 
 ### Settings
 
-- **Pin** — which pin on your Arduino the LED is connected to
+- **pin** — which pin on your Arduino the LED is connected to. The default is pin 13, the built-in LED
 
 <Callout title="Brightness requires a PWM pin">
 Dimming an LED (sending values between 0 and 255) requires a PWM-capable pin. On an Arduino Uno, PWM pins are marked with a tilde (~): pins **3, 5, 6, 9, 10, and 11**.
 
-A non-PWM pin can only switch fully on or off — sending intermediate values will have no effect. Use the On and Off inputs in that case.
+On a pin without PWM, the LED is on for a brightness of 128 or more and off below that, like Arduino's `analogWrite`. On a PWM pin any brightness above 0 lights it. Studio and the exported Arduino sketch use the same rule.
 </Callout>
 
 ---
 
-## RGB LED
+## RGB
 
 An RGB LED packs three LEDs — red, green, and blue — into a single component. Mixing the brightness of each channel produces any color.
 
@@ -49,33 +53,50 @@ An RGB LED packs three LEDs — red, green, and blue — into a single component
 
 ### Inputs
 
-- **Red** — brightness of the red channel (0–255)
-- **Green** — brightness of the green channel (0–255)
-- **Blue** — brightness of the blue channel (0–255)
+- **red** — brightness of the red channel (0–255)
+- **green** — brightness of the green channel (0–255)
+- **blue** — brightness of the blue channel (0–255)
+- **alpha** — overall brightness, from 0 to 100
+- **off** — turns all channels off
+
+### Outputs
+
+- **value** — the current color
 
 ### Settings
 
-- **Red pin, Green pin, Blue pin** — which PWM-capable pins each color channel is connected to (all three require PWM pins)
+- **red**, **green**, **blue** *(pins)* — which PWM-capable pins each color channel is connected to. The defaults are pins 9, 10 and 11
+- **anode** — turn on for a common-anode RGB LED, where the long leg goes to 5V instead of GND
 
 ---
 
-## LED matrix
+## LED Matrix
 
-An LED matrix is a grid of individual LEDs — typically 8×8 (64 LEDs total). You can display patterns, icons, or simple frame-by-frame animations.
+An LED matrix is a grid of individual LEDs driven by a MAX7219 chip — typically 8×8 (64 LEDs total). You can display patterns, icons, or simple frame-by-frame animations.
 
-You draw patterns using the built-in pixel editor in Microflow and create multiple frames. To display a specific frame, send its index number to the Show input.
+You draw shapes in the built-in editor in Microflow. To display a specific shape, send its number to the **value** input.
 
 ### Inputs
 
-- **Show** — which frame to display, as a number (0 for the first frame, 1 for the second, and so on)
+- **value** — which shape to display, as a number (0 for the first shape, 1 for the second, and so on)
+- **reset** — clears the display
+- **reinitialize** — sets the display up again, for example after it shows garbage
+
+### Outputs
+
+- **value** — the shape on the display
 
 ### Settings
 
-- **Pin** — which data pin the LED matrix is connected to
-- **Frame editor** — draw pixel patterns for each frame directly in Microflow
+- **dimensions** — 8x8 (the default), 16x8, or 8x16
+- **devices** — how many matrix modules are chained together (1–8)
+- **data (DIN)**, **clock (CLK)**, **chip select (CS)** *(pins)* — the pins the matrix is connected to. The defaults are pins 2, 3 and 4
+- **edit shapes** — opens the editor to draw the shapes
 
-<Callout title="Frames start at 0, not 1">
-The first frame is frame 0, the second is frame 1, and so on. This is standard in programming — just remember to count from zero when sending values to the Show input.
+The display brightness is fixed.
+
+<Callout title="Shapes start at 0, not 1">
+The first shape is shape 0, the second is shape 1, and so on. This is standard in programming — just remember to count from zero when sending values to the value input.
 </Callout>
 
 ---

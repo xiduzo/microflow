@@ -1,8 +1,6 @@
 import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Sensor">;
+import { NodeHandles } from "../_base/node-handles";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { type Value, type Data, dataSchema, defaults } from "./sensor.schema";
 import { Switch } from "@/ui/switch";
@@ -25,7 +23,7 @@ export function Sensor(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

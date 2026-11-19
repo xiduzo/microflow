@@ -20,10 +20,7 @@ export function Pn532(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Pn532"
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

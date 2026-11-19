@@ -61,11 +61,6 @@ export type { Wakeup } from "@/lib/bindings/Wakeup";
  *  path. */
 export type { CloudRequest } from "@/lib/bindings/CloudRequest";
 
-/** One MIDI in-node's device interest, as returned by `runtime.midiListeners()`.
- *  `deviceName` is a case-insensitive substring filter on the host port name;
- *  "" = every device. */
-export type { MidiListener } from "@/lib/bindings/MidiListener";
-
 /** A node's runtime health signal, shown on its UI badge. `message: null` clears
  *  the node's diagnostic. */
 export type { NodeDiagnostic } from "@/lib/bindings/NodeDiagnostic";

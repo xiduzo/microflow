@@ -19,7 +19,7 @@ pub(crate) enum CalculateFunction {
     Round,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct CalculateConfig {
     #[serde(default)]
     pub(crate) function: CalculateFunction,

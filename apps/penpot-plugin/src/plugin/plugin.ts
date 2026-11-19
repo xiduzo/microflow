@@ -1,5 +1,5 @@
-import { type PluginMessage, MSG, createMessageRouter, messages } from "@microflow/design-bridge";
-import { bridgeSet, snapshot, tokenValue } from "./tokens";
+import { type PluginMessage, MSG, createSandboxBridge, messages } from "@microflow/design-bridge";
+import { createPenpotAdapter } from "./tokens";
 
 function sendToUI(message: PluginMessage) {
   penpot.ui.sendMessage(message);
@@ -9,48 +9,27 @@ function sendTheme(theme: string) {
   sendToUI(messages.theme(theme === "dark" ? "dark" : "light"));
 }
 
-function sendSnapshot() {
-  sendToUI(messages.getVariables(snapshot()));
-}
-
-function reportError(text: string, error?: unknown) {
-  if (error !== undefined) console.error(`[microflow] ${text}`, error);
-  sendToUI(messages.showToast(text, { error: true }));
-}
-
 penpot.ui.open("Microflow hardware bridge", "ui/index.html", { width: 300, height: 260 });
 
-const dispatch = createMessageRouter({
-  [MSG.UI_READY]: () => {
-    sendToUI(messages.uiReady());
-    sendTheme(penpot.theme);
+const bridge = createSandboxBridge(
+  createPenpotAdapter(() => penpot.library.local.tokens),
+  {
+    send: sendToUI,
+    // Penpot has no notification API, so the UI shows the toast.
+    reportError: (text, cause) => {
+      if (cause !== undefined) console.error(`[microflow] ${text}`, cause);
+      sendToUI(messages.showToast(text, { error: true }));
+    },
+    onFailure: (type, error) => console.error(`[microflow] ${type} failed`, error),
   },
-
-  [MSG.GET_VARIABLES]: sendSnapshot,
-
-  [MSG.SET_VARIABLE]: ({ id, value }) => {
-    const token = bridgeSet()?.getTokenById(id);
-    if (!token) return reportError("That token no longer exists");
-    const stored = tokenValue(token, value);
-    if (stored === null) return reportError(`${token.name} cannot hold that value`);
-    try {
-      token.value = stored;
-    } catch (error) {
-      reportError(`Could not update ${token.name}`, error);
-    }
+  {
+    [MSG.UI_READY]: () => sendTheme(penpot.theme),
+    [MSG.RESIZE]: ({ width, height }) => penpot.ui.resize(width, height),
   },
+);
 
-  [MSG.RESIZE]: ({ width, height }) => penpot.ui.resize(width, height),
-});
-
-penpot.ui.onMessage<unknown>(dispatch);
+penpot.ui.onMessage<unknown>(bridge.dispatch);
 
 penpot.on("themechange", sendTheme);
 
-penpot.on("contentsave", () => {
-  try {
-    sendSnapshot();
-  } catch (error) {
-    console.error("[microflow] could not read the tokens", error);
-  }
-});
+penpot.on("contentsave", bridge.pushSnapshot);

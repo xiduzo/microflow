@@ -3,11 +3,13 @@
 //! MIDI is not a cloud service, but it is mechanically the same sans-IO shape
 //! (ADR-0009), and — like the Mqtt node — ONE node covers both directions:
 //!
-//! - **`direction = "in"`**: describes its interest via
-//!   [`midi_wiring`](Component::midi_wiring) (a device-name filter the host uses
-//!   to open MIDI inputs). The host feeds every raw 3-byte message through
+//! - **`direction = "in"`**: describes its interest as a
+//!   [`ListenerWiring::MidiInput`] (a device-name filter). The runtime decides
+//!   from it which host ports are wanted and which nodes hear a message
+//!   ([`crate::runtime::host_input`]); every raw 3-byte message from a port the
+//!   filter passes arrives through
 //!   [`receive_raw_message`](Component::receive_raw_message) (`topic` = the host
-//!   port name, `payload` = `[status, data1, data2]`); ALL parsing/filtering
+//!   port name, `payload` = `[status, data1, data2]`). ALL parsing/filtering
 //!   lives here in core so both hosts route bytes identically.
 //! - **`direction = "out"`**: `dispatch("send")` records a
 //!   [`CloudRequestKind::MidiSend`] for the host's `EffectsSink::perform_cloud`
@@ -16,8 +18,8 @@
 //! [`Component`]: crate::runtime::Component
 
 use crate::runtime::{
-    CloudRequestKind, Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext,
-    RuntimeError,
+    CloudRequestKind, Component, ComponentBase, ComponentBuilder, ComponentValue, ListenerWiring,
+    RuntimeContext, RuntimeError,
 };
 use std::borrow::Cow;
 
@@ -242,11 +244,11 @@ impl Component for Midi {
         "Midi"
     }
 
-    fn midi_wiring(&self) -> Option<String> {
+    fn listener_wiring(&self) -> Vec<ListenerWiring> {
         if self.is_out() {
-            return None;
+            return Vec::new();
         }
-        Some(self.config.device_name.clone())
+        vec![ListenerWiring::MidiInput { device_name: self.config.device_name.clone() }]
     }
 
     fn dispatch(
@@ -431,13 +433,16 @@ mod tests {
             "in-1".into(),
             MidiConfig { device_name: "Launchpad".into(), ..MidiConfig::default() },
         );
-        assert_eq!(in_node.midi_wiring(), Some("Launchpad".to_string()));
+        assert_eq!(
+            in_node.listener_wiring(),
+            vec![ListenerWiring::MidiInput { device_name: "Launchpad".to_string() }],
+        );
 
         let out_node = Midi::new(
             "out-1".into(),
             MidiConfig { direction: MidiDirection::Out, ..MidiConfig::default() },
         );
-        assert_eq!(out_node.midi_wiring(), None);
+        assert_eq!(out_node.listener_wiring(), Vec::new());
     }
 
     #[test]

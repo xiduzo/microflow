@@ -4,7 +4,9 @@ import * as decoding from "lib0/decoding";
 import * as encoding from "lib0/encoding";
 import * as syncProtocol from "y-protocols/sync";
 
+import { MemoryRoomStore } from "./room-store";
 import { SyncProvider } from "./sync-provider";
+import { YjsServer } from "./yjs-server";
 import {
   MESSAGE_ACCESS,
   MESSAGE_ACK,
@@ -82,8 +84,7 @@ class FakeSocket {
 const realWebSocket = globalThis.WebSocket;
 let flowCounter = 0;
 
-/** Distinct flow ids per provider: y-websocket relays between providers in the
- *  same process over its cross-tab BroadcastChannel, keyed by url + room. */
+/** A provider on a flow of its own, with the socket it opened. */
 function makeProvider(options: Partial<{ cursorThrottleMs: number }> = {}) {
   const doc = new Y.Doc();
   const provider = new SyncProvider({
@@ -564,5 +565,90 @@ describe("SyncProvider auth and access", () => {
     serverClose(socket, 1012, "Server restarting");
     expect(drops).toEqual([1012]);
     provider.destroy();
+  });
+});
+
+describe("SyncProvider: tabs of one browser sync through the server only", () => {
+  /** One user with the same flow open in two tabs of one browser. */
+  function twoTabs() {
+    const flowId = `flow-${++flowCounter}`;
+    const tab = () => {
+      const doc = new Y.Doc();
+      const provider = new SyncProvider({
+        flowId,
+        doc,
+        wsUrl: "wss://example.test",
+        user: { id: "user-1", name: "Ada" },
+        WebSocketPolyfill: FakeSocket as unknown as typeof WebSocket,
+      });
+      return { doc, provider, socket: FakeSocket.instances[FakeSocket.instances.length - 1]! };
+    };
+    return { flowId, a: tab(), b: tab() };
+  }
+
+  const others = (tab: { doc: Y.Doc; provider: SyncProvider }) =>
+    tab.provider.users.filter((user) => user.clientId !== tab.doc.clientID);
+
+  test("with no server relaying, an edit and a selection in one tab do not reach the other", () => {
+    const { a, b } = twoTabs();
+    a.socket.open();
+    b.socket.open();
+    a.socket.sent.length = 0;
+
+    a.doc.getMap("nodes").set("n1", "led");
+    a.provider.updateSelectedNodes(["n1"]);
+
+    // The sockets go nowhere, so the server is the one path that is missing.
+    expect(b.doc.getMap("nodes").size).toBe(0);
+    expect(others(b)).toEqual([]);
+    // Both were handed to the server.
+    expect(a.socket.framesOfType(MESSAGE_SYNC).length).toBe(1);
+    expect(a.socket.framesOfType(MESSAGE_AWARENESS).length).toBe(1);
+
+    a.provider.destroy();
+    b.provider.destroy();
+  });
+
+  /** Attach a tab's socket to a room of `server`, as the transport does. */
+  async function attach(server: YjsServer, flowId: string, socket: FakeSocket) {
+    // Frames the room sends while the tab is still joining wait for it.
+    const waiting: Uint8Array[] = [];
+    let deliver: (frame: Uint8Array) => void = (frame) => waiting.push(frame);
+    const connection = await server.join(
+      flowId,
+      { send: (frame) => deliver(frame), close() {} },
+      "user-1",
+      true,
+    );
+    socket.send = (frame) => connection.receive(new Uint8Array(frame));
+    socket.open();
+    deliver = (frame) => socket.onmessage?.({ data: frame.slice().buffer as ArrayBuffer });
+    waiting.forEach(deliver);
+    return connection;
+  }
+
+  test("through the server, each tab sees the other's edits and presence", async () => {
+    const server = new YjsServer({ store: new MemoryRoomStore(), persistDebounce: 60_000 });
+    const { flowId, a, b } = twoTabs();
+    const connections = [
+      await attach(server, flowId, a.socket),
+      await attach(server, flowId, b.socket),
+    ];
+
+    a.doc.getMap("nodes").set("n1", "led");
+    b.doc.getMap("nodes").set("n2", "button");
+    a.provider.updateSelectedNodes(["n1"]);
+
+    expect(b.doc.getMap("nodes").toJSON()).toEqual({ n1: "led", n2: "button" });
+    expect(a.doc.getMap("nodes").toJSON()).toEqual({ n1: "led", n2: "button" });
+    // Two tabs of one user are two people in the room, to each other as well.
+    expect(others(b).map((user) => [user.clientId, user.id, user.selectedNodes])).toEqual([
+      [a.doc.clientID, "user-1", ["n1"]],
+    ]);
+    expect(others(a).map((user) => user.clientId)).toEqual([b.doc.clientID]);
+
+    a.provider.destroy();
+    b.provider.destroy();
+    connections.forEach((connection) => connection.close());
   });
 });

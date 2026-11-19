@@ -35,7 +35,7 @@ impl Mqtt {
     /// Check if this is a publish node.
     #[must_use]
     pub(crate) fn is_publish(&self) -> bool {
-        self.config.direction == "publish"
+        self.config.is_publish()
     }
 
     /// Render a [`ComponentValue`] into the byte payload an MQTT broker forwards.
@@ -78,7 +78,7 @@ impl Component for Mqtt {
     }
 
     fn subscriber_wiring(&self) -> Vec<SubscriberWiring> {
-        if self.config.direction != "subscribe"
+        if self.config.is_publish()
             || self.config.broker_id.is_empty()
             || self.config.topic.is_empty()
         {
@@ -151,6 +151,7 @@ impl Component for Mqtt {
 
 #[cfg(test)]
 mod tests {
+    use super::super::config::MqttDirection;
     use super::*;
     use crate::runtime::cloud::test_support::{recorded_cloud_requests, with_test_ctx};
     use crate::runtime::{ComponentEvent, EventSink};
@@ -169,7 +170,7 @@ mod tests {
     #[test]
     fn publish_node_records_publish_request() {
         let config = MqttConfig {
-            direction: "publish".into(),
+            direction: MqttDirection::Publish,
             broker_id: "broker-1".into(),
             topic: "sensors/light".into(),
             retain: true,
@@ -202,7 +203,7 @@ mod tests {
     #[test]
     fn subscribe_node_rejects_trigger() {
         let config = MqttConfig {
-            direction: "subscribe".into(),
+            direction: MqttDirection::Subscribe,
             broker_id: "broker-1".into(),
             topic: "sensors/light".into(),
             ..MqttConfig::default()
@@ -219,7 +220,7 @@ mod tests {
     #[test]
     fn subscribe_node_records_no_request() {
         let config = MqttConfig {
-            direction: "subscribe".into(),
+            direction: MqttDirection::Subscribe,
             ..MqttConfig::default()
         };
         let mut node = Mqtt::new("node-1".into(), config);
@@ -235,7 +236,7 @@ mod tests {
         let mut node = Mqtt::new(
             "node-1".into(),
             MqttConfig {
-                direction: "subscribe".into(),
+                direction: MqttDirection::Subscribe,
                 ..MqttConfig::default()
             },
         );

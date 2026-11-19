@@ -1,10 +1,10 @@
 # Rust Runtime Architecture
 
-> **Last Updated:** February 2026  
-> **Author:** Senior Rust Consultant  
-> **Status:** Assessment Complete, Improvements Planned
-
-This document provides a comprehensive overview of the Tauri/Rust backend that powers Microflow's desktop application. It covers architecture, data flow, component patterns, and known issues with recommended fixes.
+How the Rust side of Microflow is put together: the shared engine in
+`microflow-core`, and the Tauri desktop backend that hosts it. For the browser's
+side of the same engine see [WASM_BOUNDARY.md](WASM_BOUNDARY.md); for the
+vocabulary used here see [CONTEXT.md](../CONTEXT.md); for the reasons behind the
+shape see the ADRs in [`docs/adr/`](adr/).
 
 ---
 
@@ -13,536 +13,540 @@ This document provides a comprehensive overview of the Tauri/Rust backend that p
 1. [Overview](#overview)
 2. [Module Architecture](#module-architecture)
 3. [Data Flow](#data-flow)
-4. [Component System](#component-system)
+4. [Nodes](#nodes)
 5. [Hardware Integration](#hardware-integration)
 6. [MQTT Subsystem](#mqtt-subsystem)
-7. [Flasher Module](#flasher-module)
+7. [Flasher](#flasher)
 8. [Threading Model](#threading-model)
-9. [Known Issues & Technical Debt](#known-issues--technical-debt)
-10. [Development Guide](#development-guide)
+9. [Development Guide](#development-guide)
+10. [Appendix: Tauri Commands](#appendix-tauri-commands)
+11. [Appendix: ComponentValue](#appendix-componentvalue)
 
 ---
 
 ## Overview
 
-The Rust runtime is a Tauri 2.x application that provides:
+There is one flow engine, and it does no I/O. `microflow-core` holds the engine,
+the Firmata codec, the board bring-up policy, the bootloader drivers and sketch
+generation. A **Runtime Host** drives it on each platform
+([ADR-0006](adr/0006-rehost-runtime-on-core.md)):
 
-- **Flow Execution Engine** — Runs visual flows with hardware I/O
-- **Hardware Abstraction** — Firmata protocol over serial for Arduino boards
-- **Firmware Flashing** — Auto-flash StandardFirmata to supported boards
-- **MQTT Connectivity** — IoT broker integration for pub/sub messaging
+- the **desktop** host is the Tauri backend described here, which runs core
+  natively;
+- the **browser** host runs the same core compiled to WebAssembly.
+
+The desktop backend adds what only a native process can do: open serial ports,
+hold MQTT connections over TCP and TLS, open MIDI ports, run agent CLIs, and
+flash a board without asking the user to pick a port.
 
 ### Key Files
 
 ```
-apps/web/src-tauri/
-├── Cargo.toml           # Dependencies and build config
+crates/
+├── microflow-core/          # The engine and everything platform-independent
+│   └── src/
+│       ├── runtime/         # FlowRuntime, router, registry, Effects (feature `runtime`)
+│       ├── nodes/           # One folder per node: config, runtime, codegen
+│       ├── config/          # Node config resolution, shared by runtime and codegen
+│       ├── firmata/         # Firmata codec, pin profile, safe state, sim board
+│       ├── flasher/         # Bootloader drivers, hex parser, firmware images
+│       ├── codegen/         # Arduino sketch generation
+│       └── bringup.rs       # Board bring-up state machine
+├── microflow-runtime-wasm/  # wasm-bindgen shim over the engine
+├── microflow-firmata-wasm/  # wasm-bindgen shim over codec, bring-up, flash drivers
+└── microflow-codegen-wasm/  # wasm-bindgen shim over sketch generation
+
+apps/web/src-tauri/          # The desktop backend
+├── Cargo.toml
 ├── src/
-│   ├── main.rs          # Entry point (minimal)
-│   ├── lib.rs           # Application setup, state, Tauri wiring
-│   ├── runtime/         # Flow execution engine
-│   ├── hardware/        # Serial port & Firmata management
-│   ├── mqtt/            # MQTT broker connections
-│   └── flasher/         # Arduino firmware flashing
+│   ├── main.rs              # Entry point
+│   ├── lib.rs               # App setup, AppState, plugin and command wiring
+│   ├── runtime/             # The desktop Runtime Host: actor, CloudPerformer, MIDI
+│   ├── hardware/            # Port monitoring and the board link
+│   ├── mqtt/                # MQTT broker pool
+│   ├── flasher/             # The desktop flash executor
+│   ├── mcp/                 # Flow tools published to agent CLIs over MCP
+│   ├── cli_llm.rs           # The agent CLI commands: probe, models, generate, stop
+│   ├── cli_llm/runs.rs      # AgentCliRuns: owns every agent CLI process the app starts
+│   └── tray.rs
+└── tests/                   # catalog_parity, flow_update, mqtt_pool, mqtt_reconnect, mqtt_routing
 ```
 
 ### Dependencies
 
-| Crate | Version | Purpose |
-|-------|---------|---------|
-| `tauri` | 2.9.5 | Desktop app framework |
-| `firmata-rs` | 0.4.3 | Firmata protocol implementation |
-| `serialport` | 4.x | Serial port access |
-| `tokio` | 1.x | Async runtime |
-| `mqtt-endpoint-tokio` | 0.6 | MQTT client |
-| `serde` / `serde_json` | 1.x | Serialization |
+The desktop crate's main dependencies (`apps/web/src-tauri/Cargo.toml`):
+
+| Crate | Purpose |
+|-------|---------|
+| `microflow-core` (features `runtime`, `js`, `cloud`) | The engine and all shared logic |
+| `tauri` 2.x and its plugins | Desktop app framework, updater, dialogs, deep links, HTTP |
+| `serialport` 4 | Serial port access |
+| `midir` | MIDI ports |
+| `tokio` | Timers, MQTT tasks, subprocesses |
+| `mqtt-endpoint-tokio` | MQTT client |
+| `ts-rs` | TypeScript bindings generated from Rust types |
+| `tracing`, `tauri-plugin-log` | Flow-turn tracing and application logs |
+
+The Firmata protocol implementation is core's own (`microflow_core::firmata`);
+there is no third-party Firmata crate.
 
 ---
 
 ## Module Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         lib.rs                                   │
-│  - AppState (shared state)                                       │
-│  - Tauri setup & plugin registration                            │
-│  - Event forwarding threads                                      │
-└─────────────────────────────────────────────────────────────────┘
-           │                    │                    │
-           ▼                    ▼                    ▼
-┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
-│    runtime/     │  │   hardware/     │  │     mqtt/       │
-│                 │  │                 │  │                 │
-│ - FlowRuntime   │  │ - HardwareService│ │ - MqttManager   │
-│ - FlowExecutor  │  │ - PortMonitor   │  │ - MqttBroker    │
-│ - Components    │  │ - BoardHandle   │  │ - Subscriptions │
-│ - Registry      │  │ - Firmata       │  │                 │
-└─────────────────┘  └─────────────────┘  └─────────────────┘
-                              │
-                              ▼
-                     ┌─────────────────┐
-                     │    flasher/     │
-                     │                 │
-                     │ - STK500v1/v2   │
-                     │ - AVR109        │
-                     │ - Hex Parser    │
-                     └─────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                             lib.rs                               │
+│  AppState · plugin registration · Tauri commands · key_event     │
+└──────────────────────────────────────────────────────────────────┘
+        │                    │                     │
+        ▼                    ▼                     ▼
+┌────────────────┐  ┌──────────────────┐  ┌─────────────────┐
+│   runtime/     │  │    hardware/     │  │     mqtt/       │
+│                │  │                  │  │                 │
+│ host (actor)   │◀─│ HardwareService  │  │ MqttManager     │
+│ CloudPerformer │  │ BoardLink        │  │ MqttBroker      │
+│ MidiManager    │  │ port monitor     │  │ broker sessions │
+│ supervisor     │  │ Firmata detection│  │                 │
+└────────────────┘  └──────────────────┘  └─────────────────┘
+        │                    │                     ▲
+        │                    ▼                     │
+        │           ┌──────────────────┐           │
+        │           │    flasher/      │           │
+        │           │ flash executor   │           │
+        │           └──────────────────┘           │
+        │                                          │
+        └────── CloudPerformer publishes and subscribes ──┘
+
+                 all of it drives  microflow-core
 ```
 
 ### Module Responsibilities
 
 | Module | Single Responsibility |
 |--------|----------------------|
-| `runtime/` | Execute flow graphs, manage component lifecycle |
-| `hardware/` | Detect ports, establish Firmata connections, emit hardware events |
-| `mqtt/` | Manage broker connections, route pub/sub messages |
-| `flasher/` | Flash firmware to Arduino boards via bootloader protocols |
+| `runtime/host.rs` | The actor thread: owns the `FlowRuntime` and the open port, turns each message into one runtime turn, applies its `Effects` |
+| `runtime/cloud_performer.rs` | Publishes what cloud nodes record and owns the flow's MQTT subscriptions |
+| `runtime/midi.rs` | Opens and closes MIDI ports; forwards raw messages to the actor |
+| `runtime/supervisor.rs` | Crash-loop guard and panic fingerprint for the actor |
+| `runtime/commands.rs` | Tauri commands that post messages to the actor |
+| `hardware/` | Detect ports, decide which one is the board, bring it up, report board state |
+| `mqtt/` | Hold one connection per broker; connect, publish, subscribe |
+| `flasher/` | Carry a core flash driver's steps out on a serial port |
+| `mcp/` | Serve the webview's flow tools to an agent CLI for the length of a turn |
+| `cli_llm` | Run agent CLIs; every process is an **Agent CLI run** owned by `AgentCliRuns` |
 
 ---
 
 ## Data Flow
 
-### Flow Update Lifecycle
+### One turn
+
+Everything that happens to a flow is a **turn**: one call into the `FlowRuntime`
+that returns one `Effects` record. The actor never lets a node touch the port, a
+clock or a timer; it applies the `Effects` afterwards, in the order core fixes
+([ADR-0008](adr/0008-effects-apply-policy.md)).
 
 ```
-Frontend (React)                    Backend (Rust)
-      │                                  │
-      │  flow_update command             │
-      │ ─────────────────────────────────▶
-      │  {nodes: [...], edges: [...]}    │
-      │                                  │
-      │                          ┌───────▼───────┐
-      │                          │ Check board   │
-      │                          │ connected?    │
-      │                          └───────┬───────┘
-      │                                  │
-      │                    ┌─────────────┴─────────────┐
-      │                    │                           │
-      │              Connected                   Not Connected
-      │                    │                           │
-      │                    ▼                           ▼
-      │           ┌────────────────┐         ┌────────────────┐
-      │           │ Clear existing │         │ Store as       │
-      │           │ components     │         │ pending_flow   │
-      │           └────────┬───────┘         └────────────────┘
-      │                    │
-      │                    ▼
-      │           ┌────────────────┐
-      │           │ Create new     │
-      │           │ components via │
-      │           │ Registry       │
-      │           └────────┬───────┘
-      │                    │
-      │                    ▼
-      │           ┌────────────────┐
-      │           │ Wire edges     │
-      │           │ (edge_map)     │
-      │           └────────┬───────┘
-      │                    │
-      │                    ▼
-      │           ┌────────────────┐
-      │           │ Install pin    │
-      │           │ change callback│
-      │           └────────────────┘
-```
-
-### Event Propagation
-
-```
-Hardware Pin Change
+ActorMsg (or bytes read from the port)
         │
         ▼
-┌───────────────────┐
-│ BoardConnection   │
-│ detect_and_emit() │
-└─────────┬─────────┘
-          │
-          ▼
-┌───────────────────┐
-│ PinChangeCallback │
-│ (closure)         │
-└─────────┬─────────┘
-          │
-          ▼
-┌───────────────────┐     ┌───────────────────┐
-│ event_tx.send()   │────▶│ Event Forwarding  │
-│ ComponentEvent    │     │ Thread            │
-└───────────────────┘     └─────────┬─────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    │                               │
-                    ▼                               ▼
-          ┌─────────────────┐            ┌─────────────────┐
-          │ Internal event  │            │ Emit to Tauri   │
-          │ (_pin_change)   │            │ "component-event"│
-          │ Route to source │            └─────────────────┘
-          └────────┬────────┘
-                   │
-                   ▼
-          ┌─────────────────┐
-          │ FlowExecutor    │
-          │ process_event() │
-          └────────┬────────┘
-                   │
-                   ▼
-          ┌─────────────────┐
-          │ Route via       │
-          │ edge_map to     │
-          │ target.call()   │
-          └─────────────────┘
+┌──────────────────────────┐
+│ FlowRuntime entry point  │  update_flow · feed_bytes · wake · dispatch
+│ (microflow-core)         │  deliver_message · inject_event
+└────────────┬─────────────┘  dispatch_key_event · dispatch_midi_message
+             │ Effects
+             ▼
+┌──────────────────────────┐
+│ Effects::apply           │  1. outbound_bytes   → serial port
+│ (the actor is the sink)  │  2. cancellations    → abort Tokio timers
+│                          │  3. wakeups          → arm Tokio timers
+│                          │  4. cloud_requests   → CloudPerformer / webview
+│                          │  5. component_events → "component-events" to the webview
+└──────────────────────────┘
 ```
+
+Node diagnostics travel in the same record and reach the webview as
+`node-diagnostic` events.
+
+### Flow update
+
+```
+Webview                               Backend
+   │  flow_update { flow, brokers }      │
+   │ ───────────────────────────────────▶│  connect the brokers that are not connected yet
+   │                                     │      (waits at most BROKER_GRACE, 2 s, for all;
+   │                                     │       once for each time a broker is down)
+   │                                     │  ActorMsg::FlowUpdate ──▶ actor
+   │                                     │      FlowRuntime::update_flow  (one turn)
+   │                                     │      CloudPerformer::reconcile (subscriptions)
+   │                                     │      MidiManager::reconcile    (MIDI inputs)
+   │◀─────────────────────────────────── │  replies once that reconcile is applied
+```
+
+A broker that is still connecting after the grace does not hold the flow back or
+fail the update. Its connect carries on, and the `CloudPerformer` subscribes the
+flow's topics on it when it comes up. A broker that stays away gets one grace:
+the updates that arrive within it wait for what is left of it, and later ones
+do not wait. It gets a grace again once it came up or got other settings
+(`MqttManager::stretch`).
+
+Updates are applied in the order they arrive (`FlowUpdates`,
+`runtime/commands.rs`). They are numbered as they arrive, and one is handed to
+the actor only while it is the newest. An update still waiting for its brokers
+when a newer one arrives is replaced: it is never applied, and it answers as
+the update that replaced it does.
+
+The actor keeps the last flow, so a board that connects later, a respawn after a
+panic, and a restart after a halt all re-apply it without the webview sending it
+again.
+
+### Inbound events
+
+| Source | Arrives as | Runtime entry point |
+|--------|-----------|---------------------|
+| Bytes from the board | read by the actor from its port | `feed_bytes` |
+| A timer the runtime armed | `ActorMsg::Wake` | `wake` |
+| A broker message | `ActorMsg::Deliver` | `deliver_message` |
+| An LLM result from the webview | `llm_result` command → `ActorMsg::Inject` | `inject_event` |
+| A key press or release | `key_event` Tauri event → `ActorMsg::Key` | `dispatch_key_event` |
+| A MIDI message | `ActorMsg::MidiMessage` | `dispatch_midi_message` |
+| A value sent from the editor | `component_call` command → `ActorMsg::Call` | `dispatch` |
+
+A key or a MIDI message carries no node id. The runtime picks the nodes that
+listen for it and delivers to them in node-id order within the one turn
+([ADR-0037](adr/0037-core-owns-host-input-fan-out.md)).
 
 ---
 
-## Component System
+## Nodes
 
-### Component Trait
+Every flow node implements the `Component` trait in
+`crates/microflow-core/src/runtime/component.rs`. A node's Rust code lives in
+its own folder, `crates/microflow-core/src/nodes/<node>/`
+([ADR-0026](adr/0026-node-code-colocated-per-node.md)):
 
-All flow nodes implement the `Component` trait defined in `runtime/base.rs`:
+| File | Holds |
+|------|-------|
+| `config.rs` | The node's config struct, read from the editor's `data` |
+| `runtime.rs` | The live behaviour (behind the `runtime`, `cloud` or `js` feature) |
+| `codegen.rs` | The Arduino sketch emitter |
 
-```rust
-pub trait Component: Send + Sync {
-    // Identity
-    fn id(&self) -> &str;
-    fn component_type(&self) -> &'static str;
-    
-    // Value management
-    fn value(&self) -> ComponentValue;
-    fn set_value(&mut self, value: ComponentValue);
-    
-    // Lifecycle
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String>;
-    fn destroy(&mut self);
-    
-    // Method dispatch (called by edges)
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String>;
-    
-    // Event emission
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>>;
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>);
-    
-    // Optional overrides
-    fn aggregates_inputs(&self) -> bool { false }
-    fn requires_hardware(&self) -> bool { false }
-}
-```
+A node has only the layers it needs. Nodes are registered by hand in
+`register_all` (`crates/microflow-core/src/runtime/registry.rs`), and the
+desktop and the browser get the same set from that one place. The desktop crate
+contains no node code.
 
-### Component Categories
+The registry reads a node's `data` into its config through `config::resolve`
+(`crates/microflow-core/src/config/mod.rs`), the same step sketch generation
+uses. A `data` that cannot be read is `RuntimeError::ConfigDeserialize`: the
+node does not run and says why, and no default config is used in its place
+([ADR-0033](adr/0033-one-node-config-resolution.md)).
 
-| Category | Components | Hardware Required |
-|----------|------------|-------------------|
-| **Input** | Button, Sensor, Motion, Proximity | Yes |
-| **Output** | Led, Rgb, Servo, Relay, Piezo, Monitor | Yes (except Monitor) |
-| **Control** | Counter, Delay, Trigger | No |
-| **Generator** | Constant, Interval, Oscillator | No |
-| **Transformation** | Calculate, Compare, Gate, RangeMap, Smooth | No |
-| **External** | Mqtt | No |
+During a turn a node is handed a `RuntimeContext`: a board writer that encodes
+Firmata bytes into the turn's buffer, the engine clock, and a wakeup scheduler. It
+cannot block, sleep or read.
 
-### Adding a New Component
+The engine clock is the time the host handed in (`FlowRuntime::set_now`); a node
+reads it with `ctx.now_ms()`. Core never reads the OS clock: on
+`wasm32-unknown-unknown` that panics. `clippy.toml` in `microflow-core` and
+`microflow-runtime-wasm` bans `std::time::Instant` and `std::time::SystemTime`.
 
-1. Create the component file in the appropriate category folder:
+A node that holds values over time holds the same bounded number live and in
+the sketch, read from one constant in its `config.rs`. A Delay holds
+`DelayConfig::capacity()` triggers: 16 for a **Queue (Delay)**, 1 for a
+**Debounce (Delay)**. A **Trigger window** holds at most 16 values
+(`WINDOW_CAPACITY`). In both, a value that arrives when the node is full
+replaces the newest one it holds.
 
-```rust
-// runtime/output/buzzer.rs
-use crate::runtime::base::{
-    BoardHandle, Component, ComponentBase, ComponentEvent, ComponentValue,
-};
-use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BuzzerConfig {
-    #[serde(default = "default_pin")]
-    pub pin: u8,
-    #[serde(default)]
-    pub frequency: u32,
-}
-
-fn default_pin() -> u8 { 9 }
-
-impl Default for BuzzerConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), frequency: 440 }
-    }
-}
-
-pub struct Buzzer {
-    base: ComponentBase,
-    config: BuzzerConfig,
-    board: Option<Arc<BoardHandle>>,
-}
-
-impl Buzzer {
-    pub fn new(id: String, config: BuzzerConfig) -> Self {
-        Self {
-            base: ComponentBase::new(id, ComponentValue::Bool(false)),
-            config,
-            board: None,
-        }
-    }
-    
-    pub fn beep(&mut self) -> Result<(), String> {
-        // Implementation
-        Ok(())
-    }
-}
-
-impl Component for Buzzer {
-    fn id(&self) -> &str { &self.base.id }
-    fn value(&self) -> ComponentValue { self.base.value.clone() }
-    fn set_value(&mut self, value: ComponentValue) { self.base.value = value; }
-    fn component_type(&self) -> &'static str { "Buzzer" }
-    fn requires_hardware(&self) -> bool { true }
-    
-    fn initialize(&mut self, board: Arc<BoardHandle>) -> Result<(), String> {
-        // Set pin mode, etc.
-        self.board = Some(board);
-        Ok(())
-    }
-    
-    fn call_method(&mut self, method: &str, args: ComponentValue) -> Result<(), String> {
-        match method {
-            "beep" => self.beep(),
-            "trigger" => self.beep(),
-            _ => Err(format!("Unknown method: {}", method)),
-        }
-    }
-    
-    fn destroy(&mut self) {
-        self.board = None;
-    }
-    
-    fn event_sender(&self) -> Option<mpsc::UnboundedSender<ComponentEvent>> {
-        self.base.event_sender.clone()
-    }
-    
-    fn set_event_sender(&mut self, sender: mpsc::UnboundedSender<ComponentEvent>) {
-        self.base.event_sender = Some(sender);
-    }
-}
-```
-
-2. Export from the category's `mod.rs`:
-
-```rust
-// runtime/output/mod.rs
-mod buzzer;
-pub use buzzer::{Buzzer, BuzzerConfig};
-```
-
-3. Register in `ComponentRegistry`:
-
-```rust
-// runtime/registry.rs
-self.register_hardware("Buzzer", |id, data| {
-    let config: BuzzerConfig = serde_json::from_value(data.clone()).unwrap_or_default();
-    Box::new(Buzzer::new(id, config))
-});
-```
-
-4. Add corresponding React node in `apps/web/src/nodes/`
+To add a node, follow
+[Adding a node](../apps/fumadocs/content/docs/contributing/adding-a-node.mdx).
 
 ---
 
 ## Hardware Integration
 
-### Connection Lifecycle
+### Connection lifecycle
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Detect    │────▶│   Flash     │────▶│  Connect    │
-│   USB Port  │     │  Firmata    │     │  Firmata    │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │
-       │                   │                   │
-       ▼                   ▼                   ▼
-  PortMonitor         Flasher            BoardHandle
-  get_ports()      flash_standard_     connect()
-                      firmata()
+port scan (every 250 ms)
+      │
+      ▼
+BoardLink ── decides which port is the board, and what to do next
+      │
+      ├─ probe      Firmata detection on the port
+      ├─ flash      StandardFirmata, if the board has none (see Flasher)
+      └─ connect    hand the open port to the actor as a Board Session
 ```
 
-### BoardHandle
+`hardware/board_link.rs` is the one owner of connection state. The monitor
+thread feeds it port scans and session ends; it drives core's bring-up machine
+(`microflow_core::bringup`) and performs the actions that come back. The policy
+itself — when to probe, when to flash, when to retry — is core's and is shared
+with the browser.
 
-The `BoardHandle` is the thread-safe interface for components to access hardware:
+A board is flashed without asking only when its USB ids positively identify an
+official Arduino. A board on a generic USB-serial chip gets an offer the user
+must confirm ([ADR-0031](adr/0031-positive-identification-before-auto-flash.md)).
 
-```rust
-// Shared across all components
-let board_handle: Arc<BoardHandle> = runtime.board_handle();
+### The actor owns the port
 
-// Components use it like this:
-board_handle.with_board(|conn| {
-    conn.digital_write(pin, true)?;
-    Ok(())
-})?;
-```
+On connect the actor receives `ActorMsg::Connect { port, pins_json, session }`,
+seeds the runtime's pin table and re-applies the last flow. From then on the
+actor reads and writes the port itself. A read or write that fails ends the
+session: the actor reports it once and the board link decides what happens next.
 
-### Pin Modes (Firmata)
+### Letting go of a board
 
-```rust
-pub mod pin_mode {
-    pub const INPUT: u8 = 0;
-    pub const OUTPUT: u8 = 1;
-    pub const ANALOG: u8 = 2;
-    pub const PWM: u8 = 3;
-    pub const SERVO: u8 = 4;
-    pub const PULLUP: u8 = 11;
-}
-```
-
-### Reader Thread
-
-A dedicated thread continuously reads Firmata messages:
-
-```rust
-// Started when board connects
-board_handle.start_reader();
-
-// The reader thread:
-// 1. Calls board.read_and_decode() in a loop
-// 2. Detects pin value changes
-// 3. Invokes pin_change_callback for registered pins
-// 4. Stops when reader_running flag is set to false
-```
+Before the actor drops a healthy session it writes the **safe state**: every
+digital port 0, a Firmata `SYSTEM_RESET`, every port 0 again
+(`microflow_core::firmata::encode_safe_state`). It does so on disconnect, on app
+exit and before a respawn.
 
 ---
 
 ## MQTT Subsystem
 
-### Architecture
+### The broker pool
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                     MqttManager                          │
-│  - Manages multiple broker connections                   │
-│  - Connection pooling (one connection per broker)        │
-└─────────────────────────────────────────────────────────┘
-                           │
-              ┌────────────┴────────────┐
-              ▼                         ▼
-     ┌─────────────────┐       ┌─────────────────┐
-     │   MqttBroker    │       │   MqttBroker    │
-     │   (broker-1)    │       │   (broker-2)    │
-     └─────────────────┘       └─────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                      MqttManager                         │
+│  one connection per broker id                            │
+└──────────────────────────────────────────────────────────┘
+                          │
+             ┌────────────┴────────────┐
+             ▼                         ▼
+    ┌─────────────────┐       ┌─────────────────┐
+    │   MqttBroker    │       │   MqttBroker    │
+    │   (broker-1)    │       │   (broker-2)    │
+    └─────────────────┘       └─────────────────┘
 ```
 
-### Supported Protocols
+Each broker the pool holds is in one **broker session**. It starts when the
+broker is first connected and ends when it is disconnected or connected with a
+different config. A dropped link is repaired inside the session, and the
+session keeps its subscriptions across it. Each time the session's link comes
+up it gets a new `link` number (`BrokerSession.link`), so whoever told the
+broker something can tell whether the broker may have lost it since.
+
+**The last settings win.** `connect` gives the pool a broker's settings, with a
+generation; `disconnect` and `remove` withdraw them. A connect dials without the
+pool lock, so several attempts for one broker id can be in flight. An attempt
+goes into the pool only if its generation is still the broker's, checked under
+the lock; otherwise it is given up and its link closed. `MqttManager::sync`
+(the `mqtt_sync_brokers` command) takes the whole broker list. Lists are
+numbered as they arrive and applied one at a time. A list that a newer one has
+overtaken is not applied, and no broker is waited for.
+
+**Bounds.** A connect attempt is bounded by `CONNECT_TIMEOUT` (30 s). Every
+write to a link (SUBSCRIBE, UNSUBSCRIBE, PUBLISH, DISCONNECT) is bounded by
+`WRITE_TIMEOUT` (10 s). A write that is not through in time fails, and the link
+is treated as dropped: the client is `Disconnected` and its reconnect loop
+repairs it.
+
+**Last words and the will.** The `CloudPerformer` gives the pool the
+`disconnected` of each Bridge ID it announced on a broker
+(`MqttBrokers::set_last_words`). The pool publishes them before the DISCONNECT
+when it ends a session on purpose, if the link is up, within
+`LAST_WORDS_TIMEOUT` (2 s) and with the pool unlocked. The first of them is also
+the session's will, which the broker publishes if the link ends without a
+goodbye. MQTT fixes a link's will when the link opens, so a changed will opens a
+new link that carries it, moves the subscriptions to it, and then disconnects
+the old link. One will per link means only the first Bridge ID on a broker is
+covered.
+
+**Status.** The pool ticks whenever a broker's status may have changed.
+`report_broker_statuses` turns the ticks into the `mqtt-broker-status` event,
+sent only when the list differs from the last one. Each list is a numbered
+**Status snapshot** (`BrokerStatuses { seq, brokers }`); the webview keeps the
+one with the highest `seq`.
+
+### Supported URL schemes
 
 | URL Scheme | Transport | Default Port |
 |------------|-----------|--------------|
 | `mqtt://` | TCP | 1883 |
 | `mqtts://` | TLS | 8883 |
-| `ws://` | WebSocket | 80 |
+| `ws://` | WebSocket, connected over TLS | 80 |
 | `wss://` | WebSocket + TLS | 443 |
 
-### Flow Integration
+A URL with no scheme is read as `mqtt://`.
 
-MQTT nodes in flows work via special event handling:
+### How a flow uses it
 
-1. **Subscribe nodes** register callbacks via `MqttManager.subscribe()`
-2. **Publish nodes** emit `_mqtt_publish` events with JSON payload
-3. The event forwarding thread intercepts these and calls `MqttManager.publish()`
+The `Mqtt` and `Figma` nodes do no network I/O. A node that publishes records a
+`CloudRequest` in the turn's `Effects`; a node that subscribes declares a
+subscriber wiring. The `CloudPerformer` turns both into calls on the pool:
+
+- `perform` publishes what a turn recorded;
+- `reconcile` makes the brokers' subscriptions match the flow's wirings, keeps
+  them matched as broker sessions start, end or get their link back, and
+  announces Studio to the design-tool plugins.
+
+It reaches the pool through the `MqttBrokers` trait
+(`runtime/services/mqtt.rs`), which `MqttManager` implements in the app and a
+recording pool implements in tests. An inbound message returns to the runtime as
+`ActorMsg::Deliver` and is echoed to the webview as `mqtt-message`
+([ADR-0035](adr/0035-desktop-cloud-performer-owns-subscriptions.md)).
+
+A message reaches every subscription whose filter matches its topic, once each
+(`MqttBroker::topic_matches`). When several filters match, a broker may send
+one copy per filter: further messages with the same topic and payload within
+`COPY_WINDOW` (50 ms) are taken for those copies and dropped. A retained replay
+reaches only a subscriber that has had no message on that topic since it
+joined.
+The browser host's `topicMatches` is the same rule: both are held to one case
+table, `apps/web/src/cloud/fixtures/topic-filter.json` (`tests/mqtt_routing.rs`).
+A topic with a wildcard is never published.
+
+The Connection Console subscribes on the same pool as a separate subscriber
+(`Subscriber::Console`), through the `mqtt_subscribe`, `mqtt_unsubscribe` and
+`mqtt_publish` commands. Console subscriptions belong to the broker id. An
+unsubscribe ends the console's hold at once, whatever the link does; the
+UNSUBSCRIBE goes out when the link takes it. A page reload drops every console
+subscription (`on_page_load`).
+
+### Ending sessions on quit
+
+When the app quits, the exit handler stops the actor (within `SHUTDOWN_GRACE`,
+500 ms), ends every Agent CLI run, and then calls `MqttManager::disconnect_all`
+within `QUIT_GRACE` (2.5 s). Every session ends at once, says its last words if
+its link is up, and sends DISCONNECT. A link that is not through in time is
+closed with the process, and its broker publishes the session's will. A page
+reload says no goodbye: the actor keeps running the flow.
 
 ---
 
-## Flasher Module
+## Flasher
 
-### Supported Boards
+### Supported boards
 
-| Board | Protocol | USB VID:PID |
-|-------|----------|-------------|
-| Arduino Uno | STK500v1 | 2341:0043 |
-| Arduino Nano | STK500v1 | — |
-| Arduino Mega | STK500v2 | 2341:0042 |
-| Arduino Leonardo | AVR109 | 2341:8036 |
-| Arduino Micro | AVR109 | 2341:8037 |
+| Board | Board id | Bootloader protocol | Bootloader baud |
+|-------|----------|---------------------|-----------------|
+| Arduino Uno | `uno` | STK500v1 | 115200 |
+| Arduino Nano (older bootloader) | `nano` | STK500v1 | 57600 |
+| Arduino Nano (newer bootloader) | `nanoNew` | STK500v1 | 115200 |
+| Arduino Mega 2560 | `mega` | STK500v2 | 115200 |
+| Arduino Leonardo | `leonardo` | AVR109 | 57600 |
+| Arduino Micro | `micro` | AVR109 | 57600 |
 
-### Flash Process
+### Drivers and executors
 
-```
-1. Detect board by USB VID/PID
-2. Select appropriate protocol
-3. Reset board into bootloader mode
-4. Sync with bootloader
-5. Erase flash memory
-6. Write hex data in pages
-7. Verify written data
-8. Exit bootloader (board resets)
-```
+The bootloader protocols are not in the desktop crate. Each is a sans-IO
+`FlashDriver` in `crates/microflow-core/src/flasher/` (`stk500v1.rs`,
+`stk500v2.rs`, `avr109.rs`). A driver owns the whole protocol: the bytes, the
+reset sequence, the sync retries, the baud fallback, the timeouts and when to
+give up. It asks for one `FlashStep` at a time.
 
-### Hex Files
-
-Pre-compiled StandardFirmata hex files are embedded in the binary:
+The desktop `flasher/` module is a **flash executor**
+([ADR-0038](adr/0038-bootloader-protocols-once-in-core.md)):
 
 ```
-flasher/hex/
-├── uno/StandardFirmata.cpp.hex
-├── nano/StandardFirmata.cpp.hex
-├── mega/StandardFirmata.cpp.hex
-├── leonardo/StandardFirmata.cpp.hex
-└── ...
+flasher/
+├── mod.rs            # Flasher: parse the hex, pick the driver, run it
+├── executor.rs       # Runs a FlashDriver's steps on a serial port
+├── serial.rs         # SerialHost: the seam to the OS's serial ports
+├── sim_serial.rs     # Test adapter of that seam: a modelled board
+├── hardware_smoke.rs # Ignored test: flash a real board
+├── commands.rs       # Tauri command handlers
+└── types.rs          # Command result payloads
+```
+
+What the executor owns is what differs per machine: opening and closing the
+port, the DTR/RTS writes of a reset, and finding a Leonardo or Micro again after
+its 1200-baud touch, when it comes back as its bootloader on the same port name
+or another. The browser has the second executor, over Web Serial (`runFlash` in
+`apps/web/src/board/web-serial.ts`).
+
+Both executors keep the same step contract (`crates/microflow-core/src/flasher/driver.rs`):
+
+- A `FlashStep::Transact` discards buffered input first, unless it says
+  `keep_input`. A driver keeps the input while it asks a board that was just
+  reset again and again, so a late answer to an earlier attempt is not lost.
+- `timeout_ms` is one deadline for the whole step, counted from the write.
+  Bytes that arrive do not extend it. The drivers' bounds on how long a flash
+  can take rest on this.
+- A read that comes up short is reported as the bytes that did arrive; the
+  driver decides whether that is a retry or the end.
+
+### Firmware images
+
+The StandardFirmata images are embedded in core
+(`crates/microflow-core/src/flasher/firmware/`: `uno.hex`, `nano.hex`,
+`mega.hex`, `leonardo.hex`, `micro.hex`) and selected by
+`firmware::standard_firmata_hex(board)`. Both hosts flash the same bytes.
+
+`apps/web/src-tauri/src/flasher/hex/StandardFirmata/` holds the sketch source of
+Microflow's StandardFirmata, for people who flash it by hand from the Arduino
+IDE.
+
+### Tests
+
+The drivers are tested against **modelled bootloaders**
+(`microflow_core::flasher::sim::SimBootloader`): Optiboot, ATmegaBOOT,
+stk500boot and Caterina, each transcribed from the Arduino AVR core. A test
+flashes an image and asserts on what ended up in the chip's flash. The desktop
+executor is tested through `SimSerial`, a modelled board behind a port. The
+browser executor runs against a fake Web Serial port on a fake clock, through
+the compiled drivers (`apps/web/src/board/web-serial.flash.wasm.test.ts`). A real
+board is checked with the opt-in flash check of the hardware smoke suite:
+
+```bash
+# from apps/web
+MICROFLOW_HW_PORT=/dev/cu.usbserial-2110 MICROFLOW_HW_FLASH=nano bun run smoke:hardware
 ```
 
 ---
 
 ## Threading Model
 
-### Thread Overview
-
 | Thread | Purpose | Lifetime |
 |--------|---------|----------|
-| Main (Tauri) | UI events, command handlers | App lifetime |
-| Event Forwarding | Route ComponentEvents to frontend & executor | App lifetime |
-| MQTT Publish Handler | Process publish requests | App lifetime |
-| Hardware Monitor | Detect port changes, auto-flash | App lifetime |
-| Firmata Reader | Read serial data, detect pin changes | While board connected |
-| Input Polling | Poll input components at 100Hz | App lifetime |
+| Main (Tauri) | Window events, command handlers | App lifetime |
+| `microflow-runtime` (the actor) | Owns the `FlowRuntime`, the open port and the MIDI connections; runs every turn | App lifetime |
+| Hardware monitor | Port scans, the board link, probing and flashing | App lifetime |
+| Tokio runtime (Tauri's) | Wakeup timers, MQTT clients, the `CloudPerformer` task, the MCP listener, agent CLI subprocesses (owned by `AgentCliRuns`) | App lifetime |
 
-### Synchronization Primitives
+### Agent CLI runs
+
+`AgentCliRuns` (`cli_llm/runs.rs`) starts every agent CLI process and is the one
+place one is ended. The webview names each run, and stops it by that name with
+`llm_cli_stop`. A stop for a run that is over finds nothing. A stop that
+arrives before its run starts is kept (up to 32), and the run is not started.
+A run ends when its process exits, when its turn is stopped, when the page
+reloads (`on_page_load` → `cli_llm::page_gone`, which also closes the flow tool
+session) and when the app quits (`cli_llm::quit`). Ending a run ends its whole
+process tree: on unix a process group gets `SIGTERM`, then `SIGKILL` after
+`STOP_GRACE` (2 s); on Windows a job object is terminated.
+
+The `FlowRuntime` is `!Send`. It is built inside the actor thread and never
+leaves it; everything else talks to it by sending an `ActorMsg` over a channel.
+There is no lock around the runtime.
+
+### Shared state
 
 ```rust
-// Shared state in AppState
 pub struct AppState {
-    pub hardware_service: Arc<Mutex<HardwareService>>,      // std::sync::Mutex
-    pub flow_runtime: Arc<Mutex<FlowRuntime>>,              // std::sync::Mutex
-    pub pending_flow: Arc<RwLock<Option<FlowUpdate>>>,      // std::sync::RwLock
-    pub board_connected: Arc<RwLock<bool>>,                 // std::sync::RwLock
-    pub mqtt_manager: MqttManager,                          // Internal tokio::sync
-    pub mqtt_publish_tx: mpsc::UnboundedSender<...>,        // tokio::sync::mpsc
+    pub hardware_service: Arc<Mutex<HardwareService>>,
+    pub actor: tokio::sync::mpsc::UnboundedSender<ActorMsg>,
+    pub mqtt_manager: MqttManager,
 }
 ```
 
-### ⚠️ Known Threading Issues
+The flow's MQTT subscriptions are not in `AppState`. The `CloudPerformer` owns
+them, and one task applies its reconciles in order.
 
-1. **Blocking locks in async context** — `std::sync::Mutex` used where `tokio::sync::Mutex` should be
-2. **Reader thread not properly joined** — Can cause resource leaks
-3. **No lock timeouts** — Potential for deadlocks under contention
+### Supervision
 
----
-
-## Known Issues & Technical Debt
-
-### Critical (P0)
-
-| Issue | Location | Impact | Recommended Fix |
-|-------|----------|--------|-----------------|
-| Reader thread not joined | `base.rs:stop_reader()` | Resource leaks, undefined behavior | Implement proper cancellation token |
-| Blocking mutex in async | `lib.rs`, `commands.rs` | Can block Tokio runtime | Use `tokio::sync::Mutex` |
-| Race condition on flow update | `mod.rs:update_flow()` | Stale pin events | Add sequence numbers to events |
-
-### High (P1)
-
-| Issue | Location | Impact | Recommended Fix |
-|-------|----------|--------|-----------------|
-| No MQTT reconnection | `broker.rs` | Lost connections stay dead | Add exponential backoff retry |
-| Inconsistent error handling | Throughout | Hard to debug failures | Unified `RuntimeError` type |
-| No tests | — | Regressions go unnoticed | Add unit & integration tests |
-
-### Medium (P2)
-
-| Issue | Location | Impact | Recommended Fix |
-|-------|----------|--------|-----------------|
-| Excessive cloning | Throughout | Memory pressure | Use `Arc<str>`, `Cow` |
-| Magic numbers | Various | Hard to tune | Centralize in config module |
-| Mixed async/sync | `control/delay.rs` | Confusing, potential panics | Clear async boundaries |
+Every actor turn runs under `catch_unwind`. A panic emits `runtime-crashed` with
+a fingerprint (the turn's op and code location, never the message), throws the
+runtime away, writes the safe state, and respawns a fresh runtime with the live
+session's pins and the last flow. After 3 panics within 60 s the actor halts
+until the user restarts it (`runtime_restart`). A halt empties the
+`CloudPerformer`'s subscriptions without asking the runtime that panicked, so
+the design-tool plugins hear that Studio left. The desktop release profile must
+not use `panic = "abort"` ([ADR-0017](adr/0017-wasm-fault-seam.md), amendment).
 
 ---
 
@@ -551,54 +555,46 @@ pub struct AppState {
 ### Building
 
 ```bash
-# From apps/web directory
-cd apps/web
-
-# Development build
-bun run desktop:dev
-
-# Production build
-bun run desktop:build
+# From apps/web
+bun run desktop:dev      # development
+bun run desktop:build    # production
 ```
 
-### Debugging
+### Testing
 
-1. **Enable logging:**
-```rust
-// In lib.rs, logging is enabled in debug builds
-tauri_plugin_log::Builder::default()
-    .level(log::LevelFilter::Info)  // Change to Debug or Trace
-    .build()
-```
-
-2. **View logs:**
-   - macOS: `~/Library/Logs/com.microflow.app/`
-   - Linux: `~/.local/share/com.microflow.app/logs/`
-   - Windows: `%APPDATA%\com.microflow.app\logs\`
-
-3. **Serial port debugging:**
 ```bash
-# List ports
-ls /dev/cu.* /dev/tty.*
-
-# Monitor serial (macOS)
-screen /dev/cu.usbmodem14101 57600
+cargo test --workspace --lib --tests                      # what CI runs
+cargo test -p microflow-core --features runtime,cloud     # the engine, with its gated modules
+cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
 ```
 
-### Testing Hardware Without Hardware
+`microflow-core`'s `runtime` and `cloud` are non-default features: a bare
+`cargo test -p microflow-core` compiles no runtime code.
 
-For development without physical Arduino:
+Hardware behaviour is tested without hardware. The **sim board**
+(`microflow_core::firmata::sim`) answers a runtime's bytes the way
+StandardFirmata would, and the modelled bootloaders do the same for a flash
+([ADR-0030](adr/0030-hardware-tested-at-the-byte-seam.md)). The hardware smoke
+suite (`bun run smoke:hardware`, from `apps/web`) runs the real path against a
+plugged-in board and is run locally only.
 
-1. Use a virtual serial port pair (e.g., `socat`)
-2. Run a Firmata simulator
-3. Or use the Monitor component which doesn't require hardware
+### Logs
 
-### Code Style
+Application logs (`log::`) go to stdout and to the OS log directory in every
+build:
 
-- Run `cargo clippy` before committing
-- Format with `cargo fmt`
-- Follow existing patterns for new components
-- Add doc comments for public APIs
+- macOS: `~/Library/Logs/tech.microflow`
+- Windows: `%LOCALAPPDATA%\tech.microflow\logs`
+
+Flow-turn tracing (`tracing::`) is separate and goes to stdout. `RUST_LOG`
+filters it; the default shows `microflow_core` at `debug`.
+
+### Code style
+
+- CI runs clippy with `-D warnings -W clippy::pedantic`.
+- Follow the node folder layout for new nodes.
+- A type the webview reads derives `ts_rs::TS`; `cargo test` regenerates its
+  binding in `apps/web/src/lib/bindings/`.
 
 ---
 
@@ -606,25 +602,32 @@ For development without physical Arduino:
 
 | Command | Parameters | Description |
 |---------|------------|-------------|
-| `flow_update` | `flow: FlowUpdate, brokers?: BrokerConfig[]` | Update the running flow |
-| `component_call` | `component_id, method, args` | Call a method on a component |
+| `flow_update` | `flow, brokers?, providers?` | Apply a flow to the runtime; returns when its subscriptions are reconciled |
+| `component_call` | `component_id, method, args` | Send a value to a node's port |
+| `llm_result` | `source, handle, value` | Return an LLM result to the node that asked |
+| `runtime_restart` | — | Leave a crash-loop halt |
+| `runtime_status` | — | Whether the runtime is halted, and the crash that halted it |
+| `generate_sketch` | `flow, target_id?, credentials?` | Generate an Arduino sketch |
+| `check_credentials` | `flow, target_id?, credentials?` | List the credentials the flow's sketch is missing |
+| `list_board_targets` | — | Boards a sketch can target |
 | `get_available_serial_ports` | — | List detected serial ports |
-| `flash_firmware` | `port, board_type, hex_content` | Flash custom firmware |
-| `flash_standard_firmata` | `port, board_type` | Flash StandardFirmata |
-| `auto_flash_firmata` | `port, vid, pid` | Auto-detect and flash |
-| `get_supported_boards` | — | List supported board types |
-| `mqtt_connect` | `config: BrokerConfig` | Connect to MQTT broker |
-| `mqtt_disconnect` | `broker_id` | Disconnect from broker |
-| `mqtt_subscribe` | `broker_id, topic` | Subscribe to topic |
-| `mqtt_unsubscribe` | `broker_id, topic` | Unsubscribe from topic |
-| `mqtt_publish` | `broker_id, topic, payload, retain` | Publish message |
-| `mqtt_status` | `broker_id` | Get connection status |
-| `mqtt_connected_brokers` | — | List connected brokers |
-| `mqtt_all_statuses` | — | Get all broker statuses |
+| `confirm_board_flash` / `decline_board_flash` | `port, vid, pid` | Answer a flash offer |
+| `flash_firmware` | `port_name, board_type, hex_content` | Flash a given hex image |
+| `flash_standard_firmata` | `port_name, board_type` | Flash StandardFirmata |
+| `auto_flash_firmata` | `port_name, vid, pid` | Flash a positively identified board |
+| `get_supported_boards` | — | List board ids |
+| `mqtt_connect` / `mqtt_disconnect` | broker config / broker id | Connect or disconnect a broker |
+| `mqtt_sync_brokers` | broker configs | Make the pool match the settled broker settings; the newest list wins |
+| `mqtt_subscribe` / `mqtt_unsubscribe` | broker id, topic | Connection Console subscriptions |
+| `mqtt_publish` | broker id, topic, payload, retain | Publish a message |
+| `mqtt_status` / `mqtt_all_statuses` / `mqtt_connected_brokers` | — | Connection status |
+| `llm_cli_probe` / `llm_cli_models` / `llm_cli_generate` | — | Find and run an agent CLI |
+| `llm_cli_stop` | run name | End an Agent CLI run and its process tree |
+| `mcp_session_start` / `mcp_session_end` / `mcp_tool_result` | — | The flow tool session for an agent CLI |
 
 ---
 
-## Appendix: ComponentValue Types
+## Appendix: ComponentValue
 
 ```rust
 pub enum ComponentValue {
@@ -636,14 +639,5 @@ pub enum ComponentValue {
 }
 ```
 
-Conversion helpers:
-- `as_bool()` — Truthy check (numbers: non-zero, strings: non-empty)
-- `as_number()` — Extract f64 (bools convert to 0.0/1.0)
-- `as_u8()` — Clamped to 0-255
-- `is_truthy()` — Convenience for `as_bool().unwrap_or(false)`
-
----
-
-## Contact
-
-For questions about this codebase, reach out to the engineering team or consult the broader project documentation in `/docs`.
+Defined in `crates/microflow-core/src/runtime/value.rs`. Conversion helpers:
+`as_bool()`, `as_number()`, `as_u8()`, `is_truthy()`.

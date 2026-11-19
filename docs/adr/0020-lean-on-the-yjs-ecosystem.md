@@ -1,6 +1,6 @@
 # ADR-0020 — Lean on the Yjs ecosystem; justify what stays custom
 
-- **Status:** accepted
+- **Status:** accepted; amended (2026-11-19)
 - **Date:** 2026-08-28
 - **Deciders:** sander
 
@@ -118,8 +118,7 @@ interacts with the server's authority over the document) and is not done.
 
 **Gained, beyond deleted code.** `y-websocket` brings behaviour we did not
 have: a "no message in 30 seconds" watchdog that reconnects a silently-dead
-socket, cross-tab `BroadcastChannel` relay so two tabs on one flow sync
-directly, and a terminal-close convention (codes 4400–4499) that stops a
+socket, and a terminal-close convention (codes 4400–4499) that stops a
 revoked or refused client from reconnecting. Our close handling builds on that
 convention rather than replacing it: `classifyClose` (`protocol.ts`) sorts every
 close into terminal (4400–4499: 4401 revoked, 4403 forbidden, 4404 flow gone),
@@ -127,6 +126,14 @@ re-authenticate (1008, a bounded number of token refreshes) and retry
 (everything else, including 1011 and 1012), and the provider's `shouldReconnect`
 follows it. The table and the server side are in
 [ADR-0015](0015-room-connection-owns-access.md).
+
+**One upstream feature is switched off.** `y-websocket` relays document
+updates and presence between tabs of one browser over a `BroadcastChannel`.
+`SyncProvider` passes `disableBc: true`: the room is the only path between two
+clients, tabs of one browser included, for the document and for awareness. The
+relay would hand a tab its neighbour's updates in an order the room never gave
+them, and while the tab is not in sync with the room. Two tabs that are both
+offline do not see each other until they reconnect.
 
 **A constraint we did not have before.** Message numbering is no longer ours.
 `MESSAGE_ACK` was 2, which collides with y-websocket's `messageAuth`; the

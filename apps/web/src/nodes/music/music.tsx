@@ -1,23 +1,13 @@
 import { button, folder } from "leva";
 import { Disc3Icon, Music4Icon } from "lucide-react";
-import { useEffect, useMemo, useRef } from "react";
-import { useUpdateNodeInternals } from "@xyflow/react";
+import { useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useNodeHandleValue, useNodeValue } from "@/nodes/live/node-data";
 import { dispatchPort } from "@/runtime/dispatch-port";
-import { Handle as BaseHandle } from "../_base/handle";
-import {
-  NodeContainer,
-  useDeleteHandles,
-  useNodeControls,
-  useNodeData,
-  useNodeId,
-  type BaseNode,
-} from "../_base/_base";
+import { NodeContainer, useNodeControls, useNodeData, useNodeId, type BaseNode } from "../_base/_base";
 import { NodeHandles } from "../_base/node-handles";
 import {
   MAX_FILE_BYTES,
-  MAX_HANDLES,
   MAX_TOTAL_BYTES,
   defaults,
   type Data,
@@ -51,19 +41,7 @@ export function Music(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Music"
-        portOverrides={{
-          play: { handleType: "command", offset: -1 },
-          stop: { handleType: "command", offset: 0 },
-          set: { handleType: "value", offset: 1, hint: "name or number" },
-        }}
-        emitOverrides={{
-          value: { handleType: "value", offset: -0.5 },
-          track: { handleType: "value", offset: 0.5 },
-        }}
-      />
-      <RecordHandles />
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -89,47 +67,6 @@ function Value() {
         {selected || "no songs yet"}
       </span>
     </section>
-  );
-}
-
-/** One target handle per record, named after it — wire a trigger to a record to
- *  play that one. The open-port outlier the `Function` node also uses: these are
- *  not catalogued **Ports**, so they take the raw handle with a cast id. */
-function RecordHandles() {
-  const data = useMusicData();
-  const id = useNodeId();
-  const deleteHandles = useDeleteHandles();
-  const update = useUpdateNodeInternals();
-  const previous = useRef<string[]>([]);
-
-  const names = useMemo(
-    () => data.tracks.slice(0, MAX_HANDLES).map((track) => track.name),
-    [data.tracks],
-  );
-
-  useEffect(() => {
-    // Removing a record must take its edges with it, or the runtime keeps
-    // receiving a name it no longer knows.
-    const gone = previous.current.filter((name) => !names.includes(name));
-    if (gone.length) deleteHandles(gone);
-    previous.current = names;
-    update(id);
-  }, [names, id, update, deleteHandles]);
-
-  return (
-    <>
-      {names.map((name, index) => (
-        <BaseHandle
-          key={name}
-          type="target"
-          position="bottom"
-          id={name as never}
-          handleType="command"
-          title={name}
-          offset={index - (names.length - 1) / 2}
-        />
-      ))}
-    </>
   );
 }
 

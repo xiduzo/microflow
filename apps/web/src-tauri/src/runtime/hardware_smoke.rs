@@ -17,7 +17,6 @@
 //! on-board LED, so a passing run also blinks it.
 
 use super::*;
-use crate::runtime::services::RecordingMqttPublisher;
 use crate::hardware::SerialPortInfo;
 use microflow_core::flasher::{BoardConfig as CoreFlasher, UsbMatch};
 use microflow_core::flow::{FlowNode, Position};
@@ -87,7 +86,6 @@ impl HostEvents for SharedEvents {
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
         self.0.lock().unwrap().push((event.to_string(), serde_json::to_value(payload).unwrap()));
     }
-    fn subscriptions_changed(&self, _wirings: Vec<(String, SubscriberWiring)>) {}
 }
 
 impl SharedEvents {
@@ -127,8 +125,8 @@ impl Board {
         let stopped = spawn_actor(rx, move || {
             let mut actor = Actor::new(
                 actor_events,
-                handle,
-                Arc::new(RecordingMqttPublisher::new()),
+                handle.clone(),
+                CloudPerformer::on_recording_pool(self_tx.clone(), handle).0,
                 self_tx,
                 ended_tx,
                 Box::new(FlowRuntime::new),

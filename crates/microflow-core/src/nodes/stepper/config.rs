@@ -32,17 +32,17 @@ pub(crate) struct StepperConfig {
     pub(crate) motor_pin3: u8,
     #[serde(default = "default_motor_pin4", deserialize_with = "serde_utils::deserialize_pin_u8")]
     pub(crate) motor_pin4: u8,
-    #[serde(default = "default_steps_per_rev")]
+    #[serde(default = "default_steps_per_rev", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) steps_per_rev: u16,
     #[serde(default = "default_speed")]
     pub(crate) speed: f32,
     #[serde(default = "default_acceleration")]
     pub(crate) acceleration: f32,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) device_num: u8,
     #[serde(default)]
     pub(crate) interface: StepperInterface,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "serde_utils::deserialize_optional_pin_u8")]
     pub(crate) enable_pin: Option<u8>,
 }
 
@@ -55,22 +55,3 @@ fn default_motor_pin4() -> u8 { 7 }
 fn default_steps_per_rev() -> u16 { 200 }
 fn default_speed() -> f32 { 200.0 }
 fn default_acceleration() -> f32 { 100.0 }
-
-impl Default for StepperConfig {
-    fn default() -> Self {
-        Self {
-            step_pin: default_step_pin(),
-            dir_pin: default_dir_pin(),
-            motor_pin1: default_motor_pin1(),
-            motor_pin2: default_motor_pin2(),
-            motor_pin3: default_motor_pin3(),
-            motor_pin4: default_motor_pin4(),
-            steps_per_rev: default_steps_per_rev(),
-            speed: default_speed(),
-            acceleration: default_acceleration(),
-            device_num: 0,
-            interface: StepperInterface::default(),
-            enable_pin: None,
-        }
-    }
-}

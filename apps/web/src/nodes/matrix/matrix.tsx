@@ -1,7 +1,5 @@
 import { NodeContainer } from "../_base/_base";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Matrix">;
+import { NodeHandles } from "../_base/node-handles";
 import { button, folder } from "leva";
 import { useNodeData } from "../_base/_base";
 import { useNodeValue } from "@/nodes/live/node-data";
@@ -41,16 +39,7 @@ export function Matrix(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="target"
-        position="left"
-        id="value"
-        handleType="value"
-        hint="shape #"
-        offset={-0.5}
-      />
-      <Handle type="target" position="left" id="reset" handleType="command" offset={0.5} />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

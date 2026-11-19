@@ -1,0 +1,205 @@
+// What the nodes that play a song (Piezo, Midi) share about notes: the pitches
+// a note may name, the durations it may last, the demo melody a new song
+// starts as, and the shape of a note. No React and no node: the schemas of
+// both nodes import it.
+
+import type { ReactNode } from "react";
+
+/** The pitches a note may name, each with the frequency a buzzer plays it at. */
+// Based on https://github.com/bhagman/Tone?tab=readme-ov-file#musical-notes
+export const NOTES_AND_FREQUENCIES = new Map<string, number>([
+  // ['B0', 31],
+  // ['C1', 33],
+  // ['C#1', 35],
+  // ['D1', 37],
+  // ['D#1', 39],
+  // ['E1', 41],
+  // ['F1', 44],
+  // ['F#1', 46],
+  // ['G1', 49],
+  // ['G#1', 52],
+  // ['A1', 55],
+  // ['A#1', 58],
+  // ['B1', 62],
+  // ['C2', 65],
+  // ['C#2', 69],
+  // ['D2', 73],
+  // ['D#2', 78],
+  // ['E2', 82],
+  // ['F2', 87],
+  // ['F#2', 93],
+  // ['G2', 98],
+  // ['G#2', 104],
+  // ['A2', 110],
+  // ['A#2', 117],
+  // ['B2', 123],
+  ["C3", 131],
+  ["C#3", 139],
+  ["D3", 147],
+  ["D#3", 156],
+  ["E3", 165],
+  ["F3", 175],
+  ["F#3", 185],
+  ["G3", 196],
+  ["G#3", 208],
+  ["A3", 220],
+  ["A#3", 233],
+  ["B3", 247],
+  ["C4", 262],
+  ["C#4", 277],
+  ["D4", 294],
+  ["D#4", 311],
+  ["E4", 330],
+  ["F4", 349],
+  ["F#4", 370],
+  ["G4", 392],
+  ["G#4", 415],
+  ["A4", 440],
+  ["A#4", 466],
+  ["B4", 494],
+  ["C5", 523],
+  ["C#5", 554],
+  ["D5", 587],
+  ["D#5", 622],
+  ["E5", 659],
+  ["F5", 698],
+  ["F#5", 740],
+  ["G5", 784],
+  ["G#5", 831],
+  ["A5", 880],
+  ["A#5", 932],
+  ["B5", 988],
+  ["C6", 1047],
+  ["C#6", 1109],
+  ["D6", 1175],
+  ["D#6", 1245],
+  ["E6", 1319],
+  ["F6", 1397],
+  ["F#6", 1480],
+  ["G6", 1568],
+  ["G#6", 1661],
+  ["A6", 1760],
+  ["A#6", 1865],
+  ["B6", 1976],
+  // ['C7', 2093],
+  // ['C#7', 2217],
+  // ['D7', 2349],
+  // ['D#7', 2489],
+  // ['E7', 2637],
+  // ['F7', 2794],
+  // ['F#7', 2960],
+  // ['G7', 3136],
+  // ['G#7', 3322],
+  // ['A7', 3520],
+  // ['A#7', 3729],
+  // ['B7', 3951],
+  // ['C8', 4186],
+  // ['C#8', 4435],
+  // ['D8', 4699],
+  // ['D#8', 4978],
+]);
+
+export const NOTE_DURATION = {
+  DoubleWhole: 2,
+  Whole: 1,
+  Half: 1 / 2,
+  Quarter: 1 / 4,
+  Eighth: 1 / 8,
+  Sixteenth: 1 / 16,
+};
+
+export const DEFAULT_NOTE = "C4";
+export const DEFAULT_NOTE_DURATION = NOTE_DURATION.Quarter;
+
+/** A duration as a fraction of a whole note; nothing for a duration that is
+ *  not one of `NOTE_DURATION`. */
+export function durationLabel(duration: number): string | undefined {
+  switch (duration) {
+    case NOTE_DURATION.DoubleWhole:
+      return "2";
+    case NOTE_DURATION.Whole:
+      return "1";
+    case NOTE_DURATION.Half:
+      return "1/2";
+    case NOTE_DURATION.Quarter:
+      return "1/4";
+    case NOTE_DURATION.Eighth:
+      return "1/8";
+    case NOTE_DURATION.Sixteenth:
+      return "1/16";
+  }
+}
+
+/**
+ * A note of a song as a node stores it: a pitch (a key of
+ * `NOTES_AND_FREQUENCIES`, or `null` for a rest), a duration (a
+ * `NOTE_DURATION`), then whatever else that node's notes carry. A Piezo note
+ * is exactly these two slots; a MIDI note has a third, its velocity.
+ */
+export type SongNote = [pitch: string | null, duration: number, ...rest: unknown[]];
+
+/**
+ * What a node's song notes are beyond a pitch and a duration, which is all the
+ * song editor (`./song-editor.tsx`) knows of a note by itself.
+ */
+export type NoteShape<N extends SongNote> = {
+  /** The note a new slot of the song starts as. */
+  blank: N;
+  /** What a note's badge says after its pitch and duration. */
+  detail?: (note: N) => string;
+  /** The controls for what the note carries beyond a pitch and a duration. */
+  Extra?: (props: { note: N; onChange: (note: N) => void }) => ReactNode;
+};
+
+/** `note` at another pitch (`null`: a rest); every other slot as it was. */
+export function withPitch<N extends SongNote>(note: N, pitch: string | null): N {
+  return [pitch, ...note.slice(1)] as unknown as N;
+}
+
+/** `note` with another duration; every other slot as it was. */
+export function withDuration<N extends SongNote>(note: N, duration: number): N {
+  return [note[0], duration, ...note.slice(2)] as unknown as N;
+}
+
+/** The durations `note` may be given: a rest is a whole note at most. */
+export function selectableDurations(note: SongNote): number[] {
+  return Object.values(NOTE_DURATION).filter((duration) => note[0] !== null || duration <= 1);
+}
+
+// "Never Gonna Give You Up" - Rick Astley (chorus melody, 113 BPM)
+export const DEFAULT_SONG: [string | null, number][] = [
+  // "Never gonna"
+  ["A4", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "give you up"
+  ["F#5", NOTE_DURATION.Half],
+  ["F#5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Whole],
+  // "Never gonna"
+  ["A4", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "let you down"
+  ["E5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Half],
+  ["D5", NOTE_DURATION.Half],
+  ["C#5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "Never gonna"
+  ["A4", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  ["D5", NOTE_DURATION.Quarter],
+  ["B4", NOTE_DURATION.Quarter],
+  // "run around and"
+  ["D5", NOTE_DURATION.Half],
+  ["E5", NOTE_DURATION.Half],
+  ["C#5", NOTE_DURATION.Half],
+  ["A4", NOTE_DURATION.Quarter],
+  // "desert you"
+  ["A4", NOTE_DURATION.Quarter],
+  ["E5", NOTE_DURATION.Half],
+  ["D5", NOTE_DURATION.Whole],
+];

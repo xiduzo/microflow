@@ -2,6 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 import type { Credentials } from "@/lib/bindings/Credentials";
 import type { ValidationProblem } from "@/lib/bindings/ValidationProblem";
 import type { GenerateSketchCommand, SketchInvoker } from "@/sketch/codegen/sketch-protocol";
+import { toCoreEdge } from "@/runtime/flow-update-dispatcher";
 import { projectFlowStructure } from "@microflow/collab/schema";
 
 /**
@@ -105,6 +106,12 @@ export function buildSketchDownloadRequest(
  * Build the `generate_sketch` command from the current Flow graph and the
  * selected board target. `targetId` is omitted when no board is selected so the
  * backend falls back to the default target.
+ *
+ * `edges` are the document's, and a document can hold an edge that names no
+ * handle. The generator is given each in the shape core requires
+ * (`toCoreEdge`, as the runtime is): for such an edge it writes a note into
+ * the sketch and wires nothing, where the edge as stored would make it refuse
+ * the whole Flow.
  */
 export function buildGenerateSketchCommand(
   nodes: Node[],
@@ -112,7 +119,10 @@ export function buildGenerateSketchCommand(
   targetId?: string,
   credentials?: Credentials,
 ): GenerateSketchCommand {
-  const command: GenerateSketchCommand = { type: "generate_sketch", flow: { nodes, edges } };
+  const command: GenerateSketchCommand = {
+    type: "generate_sketch",
+    flow: { nodes, edges: edges.map((edge) => ({ ...toCoreEdge(edge), id: edge.id })) },
+  };
   if (targetId !== undefined) command.targetId = targetId;
   if (credentials !== undefined) command.credentials = credentials;
   return command;

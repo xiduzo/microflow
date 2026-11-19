@@ -14,6 +14,8 @@ int sensor_sensor_1_value = 0;
 // node servo-1 (Servo)
 const uint8_t servo_servo_1_pin = 9;
 Servo servo_servo_1;
+double servo_servo_1_value = 90.0;
+double servo_servo_1_value_prev0 = 0.0;
 
 void setup() {
   // --- Setup ---
@@ -29,7 +31,11 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    sensor_sensor_1_value = analogRead(sensor_sensor_1_pin);
-    servo_servo_1.write((int)constrain(((double)(sensor_sensor_1_value)), (double)0, (double)180));
+    int sensor_sensor_1_reading = analogRead(sensor_sensor_1_pin);
+    if ((sensor_sensor_1_reading > sensor_sensor_1_value ? sensor_sensor_1_reading - sensor_sensor_1_value : sensor_sensor_1_value - sensor_sensor_1_reading) >= 1) { sensor_sensor_1_value = sensor_sensor_1_reading; }
+    double servo_servo_1_value_now0 = ((double)(sensor_sensor_1_value));
+    bool servo_servo_1_value_fired0 = (servo_servo_1_value_now0 != servo_servo_1_value_prev0);
+    servo_servo_1_value_prev0 = servo_servo_1_value_now0;
+    if (servo_servo_1_value_fired0) { const int servo_servo_1_position = (int)constrain(((double)(sensor_sensor_1_value)), (double)0, (double)180); servo_servo_1.write(servo_servo_1_position); servo_servo_1_value = servo_servo_1_position; }
   }
 }

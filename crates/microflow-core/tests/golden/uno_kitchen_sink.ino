@@ -15,12 +15,21 @@ const char* wifi_password = "";
 // node btn-1 (Button)
 const uint8_t button_btn_1_pin = 4;
 bool button_btn_1_state = false;
+bool button_btn_1_changed = false;
+bool button_btn_1_hold = false;
+bool button_btn_1_hold_said = false;
+unsigned long button_btn_1_pressed_at = 0;
+bool button_btn_1_line = false;
+bool button_btn_1_seen = false;
+bool button_btn_1_pending = false;
+unsigned long button_btn_1_edge_at = 0;
 // node gizmo-1 (Gizmo)
 // unsupported Node gizmo_1 (Gizmo): no emitter for this Node type — no code generated
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 13;
 bool led_led_1_on = false;
-// note: input 'toggle' from node 'btn-1' (Button) output 'toggle' has no on-device value — edge ignored
+uint8_t led_led_1_level = 0;
+// note: input 'toggle' from node 'btn-1' (Button) output 'toggle' has no on-device value (it is not an output of that node) — edge ignored
 // node mqtt-1 (Mqtt)
 #warning "MQTT Node mqtt_1: missing network credentials — using REPLACE_ME placeholder; set WiFi SSID and broker before flashing"
 const char* mqtt_mqtt_1_broker = "REPLACE_ME";
@@ -40,7 +49,6 @@ void mqtt_mqtt_1_ensure_connected() {
     }
   }
 }
-bool mqtt_mqtt_1_trigger_prev0 = false;
 
 void setup() {
   // --- Setup ---
@@ -64,13 +72,26 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    button_btn_1_state = (digitalRead(button_btn_1_pin) == HIGH);
+    button_btn_1_changed = false;
+    bool button_btn_1_now = (digitalRead(button_btn_1_pin) == HIGH);
+    bool button_btn_1_settle = false;
+    if (!button_btn_1_seen || button_btn_1_now != button_btn_1_line) {
+      button_btn_1_settle = !button_btn_1_seen || millis() - button_btn_1_edge_at >= 50UL;
+      button_btn_1_pending = !button_btn_1_settle;
+      button_btn_1_line = button_btn_1_now; button_btn_1_seen = true; button_btn_1_edge_at = millis();
+    } else if (button_btn_1_pending && millis() - button_btn_1_edge_at >= 50UL) {
+      button_btn_1_pending = false; button_btn_1_settle = true;
+    }
+    if (button_btn_1_settle && button_btn_1_line != button_btn_1_state) {
+      button_btn_1_state = button_btn_1_line;
+      button_btn_1_changed = true;
+      if (button_btn_1_state) { button_btn_1_pressed_at = millis(); button_btn_1_hold_said = false; }
+    }
+    button_btn_1_hold = button_btn_1_state && !button_btn_1_hold_said && millis() - button_btn_1_pressed_at >= 500UL;
+    if (button_btn_1_hold) { button_btn_1_hold_said = true; }
     mqtt_mqtt_1_ensure_connected();
     mqtt_mqtt_1_client.loop();
-    bool mqtt_mqtt_1_trigger_now0 = (button_btn_1_state);
-    bool mqtt_mqtt_1_trigger_fired0 = mqtt_mqtt_1_trigger_now0 && !mqtt_mqtt_1_trigger_prev0;
-    mqtt_mqtt_1_trigger_prev0 = mqtt_mqtt_1_trigger_now0;
-    if (mqtt_mqtt_1_trigger_fired0 && mqtt_mqtt_1_client.connected()) {
+    if ((button_btn_1_changed && button_btn_1_state) && mqtt_mqtt_1_client.connected()) {
       mqtt_mqtt_1_client.publish(mqtt_mqtt_1_topic, (((button_btn_1_state) ? String("true") : String("false"))).c_str());
     }
   }

@@ -1,0 +1,145 @@
+{
+  "$comment": "Which messages an MQTT subscription receives: [filter, topic, matches]. The one table both hosts route by. The browser checks `apps/web/src/cloud/topic-filter.ts` against it (`topic-filter.test.ts`), the desktop checks `MqttBroker::topic_matches` (`src-tauri/tests/mqtt_routing.rs`). Section numbers are MQTT 3.1.1 unless they say MQTT 5. An invalid filter or topic name matches nothing: a broker refuses such a SUBSCRIBE and never delivers on such a topic.",
+  "groups": [
+    {
+      "rule": "§4.7.1.2: a # is the last level, alone, and matches the parent level and every level below it",
+      "cases": [
+        ["sport/tennis/player1/#", "sport/tennis/player1", true],
+        ["sport/tennis/player1/#", "sport/tennis/player1/ranking", true],
+        ["sport/tennis/player1/#", "sport/tennis/player1/score/wimbledon", true],
+        ["sport/#", "sport", true],
+        ["sport/#", "sport/", true],
+        ["sport/#", "sports", false],
+        ["sport/#", "other/sport", false],
+        ["#", "a", true],
+        ["#", "a/b/c", true],
+        ["#", "/", true],
+        ["#", "/a", true],
+        ["/#", "/a", true],
+        ["/#", "/", true],
+        ["/#", "a", false],
+        ["a/#", "a/", true],
+        ["+/#", "a", true],
+        ["a/+/#", "a/b", true],
+        ["a/+/#", "a/b/c", true],
+        ["a/+/#", "a", false]
+      ]
+    },
+    {
+      "rule": "§4.7.1.2: a # anywhere else makes the filter invalid",
+      "cases": [
+        ["sport/tennis#", "sport/tennis", false],
+        ["sport/tennis/#/ranking", "sport/tennis/x/ranking", false],
+        ["sport/tennis/#/ranking", "sport/tennis", false],
+        ["#/a", "x/a", false],
+        ["#/a", "a", false],
+        ["#/#", "a/b", false],
+        ["a/#/c", "a/b/c", false]
+      ]
+    },
+    {
+      "rule": "§4.7.1.3: a + fills a whole level and matches exactly one level, an empty one included",
+      "cases": [
+        ["sport/tennis/+", "sport/tennis/player1", true],
+        ["sport/tennis/+", "sport/tennis/player1/ranking", false],
+        ["sport/+", "sport", false],
+        ["sport/+", "sport/", true],
+        ["+", "finance", true],
+        ["+", "/finance", false],
+        ["+/+", "/finance", true],
+        ["/+", "/finance", true],
+        ["+/tennis/#", "sport/tennis", true],
+        ["+/tennis/#", "sport/tennis/a/b", true],
+        ["+/tennis/#", "sport/golf/a", false],
+        ["sport/+/player1", "sport/tennis/player1", true],
+        ["sport/+/player1", "sport//player1", true],
+        ["sport/+/player1", "sport/player1", false],
+        ["+/+/+", "a/b/c", true],
+        ["+/+/+", "a/b", false],
+        ["a/+/", "a/x/", true],
+        ["a/+/", "a/x", false]
+      ]
+    },
+    {
+      "rule": "§4.7.1.3: a + that shares its level with other characters makes the filter invalid",
+      "cases": [
+        ["sport+", "sport", false],
+        ["sport/+x/a", "sport/yx/a", false],
+        ["a/b+", "a/bb", false]
+      ]
+    },
+    {
+      "rule": "§4.7.2: a topic that starts with $ is not matched by a filter that starts with a wildcard",
+      "cases": [
+        ["#", "$SYS/broker/uptime", false],
+        ["+/monitor/Clients", "$SYS/monitor/Clients", false],
+        ["+/#", "$SYS/x", false],
+        ["+", "$SYS", false],
+        ["$SYS/#", "$SYS/broker/uptime", true],
+        ["$SYS/#", "$SYS", true],
+        ["$SYS/monitor/+", "$SYS/monitor/Clients", true],
+        ["$SYS/+/Clients", "$SYS/monitor/Clients", true],
+        ["a/#", "a/$b", true],
+        ["a/+", "a/$b", true]
+      ]
+    },
+    {
+      "rule": "§4.7.3: levels are compared as written, empty levels and case included",
+      "cases": [
+        ["a/b/c", "a/b/c", true],
+        ["a/b/c", "a/b", false],
+        ["a/b", "a/b/c", false],
+        ["a//b", "a//b", true],
+        ["a//b", "a/b", false],
+        ["a/b", "a/b/", false],
+        ["a/b/", "a/b/", true],
+        ["a/b/", "a/b", false],
+        ["/a", "a", false],
+        ["/a", "/a", true],
+        ["/", "/", true],
+        ["A/b", "a/b", false],
+        ["a b/c", "a b/c", true]
+      ]
+    },
+    {
+      "rule": "§4.7.3: a topic name holds no wildcard and is at least one character long, so no message is ever on one that does not",
+      "cases": [
+        ["sport/tennis#", "sport/tennis#", false],
+        ["sport+", "sport+", false],
+        ["#", "a/+", false],
+        ["a/+", "a/+", false],
+        ["a/#", "a/#", false],
+        ["#", "", false],
+        ["+", "", false]
+      ]
+    },
+    {
+      "rule": "MQTT 5 §4.8.2: $share/<group>/<filter> delivers on the plain topic, so the group is not part of the match ($queue/<filter> is the older form)",
+      "cases": [
+        ["$share/g/a/+", "a/b", true],
+        ["$share/g/a/+", "a/b/c", false],
+        ["$share/g/#", "a/b", true],
+        ["$share/g/#", "$SYS/x", false],
+        ["$share/g/$SYS/#", "$SYS/x", true],
+        ["$share/g/a", "$share/g/a", false],
+        ["$share/g/a", "g/a", false],
+        ["$queue/a/#", "a/b", true],
+        ["$queue/a/#", "$queue/a/b", false],
+        ["share/g/a", "share/g/a", true],
+        ["share/g/a", "a", false]
+      ]
+    },
+    {
+      "rule": "MQTT 5 §4.8.2: a shared filter without a group, with a wildcard in its group, or with nothing after its group is invalid",
+      "cases": [
+        ["$share//a", "a", false],
+        ["$share/g", "g", false],
+        ["$share/g", "$share/g", false],
+        ["$share/g/", "", false],
+        ["$share/g+/a", "a", false],
+        ["$share/#/a", "a", false],
+        ["$queue/", "", false]
+      ]
+    }
+  ]
+}

@@ -10,20 +10,38 @@ The Delay node holds a signal for a set amount of time before passing it on. Ins
 - Keep a light on for 10 seconds after motion is detected, then let it turn off
 - Add a gap between steps in a sequence
 
+## Inputs
+
+- **trigger** — a signal to pass on later. The Delay keeps the value that came with it.
+
+## Outputs
+
+- **event** — fires when a held signal's time is up, with that signal's value.
+
+## Queue
+
+With **debounce** off (the default), the Delay passes on every signal. Each one fires `delay` ms after it arrived, in the order they arrived, with its own value.
+
+**Example:** with a 1000 ms delay, three presses at 0 ms, 200 ms and 500 ms fire at 1000 ms, 1200 ms and 1500 ms.
+
+The Delay holds up to 16 signals at once. When a signal arrives while 16 are waiting, it takes the place of the newest waiting one. The older ones still fire on time. In a live flow, the node then shows a warning until every waiting signal has fired.
+
 ## Debouncing
 
-When **debounce** is enabled, the timer resets every time a new signal arrives. The Delay only fires after signals have stopped arriving for the full duration.
+With **debounce** on, the Delay holds one signal. A new signal takes the place of the waiting one. So only the latest signal fires, `delay` ms after it arrived. The Delay only fires after signals have stopped arriving for the full duration.
 
 This is useful for sensors that fire many times in quick succession. Instead of acting on every single reading, you wait for activity to settle down first.
 
 **Example:** A vibration sensor fires 20 times when tapped. With a 500 ms debounce, the Delay waits until tapping has fully stopped for half a second before passing the signal through.
 
+The Delay works the same in a live flow and in an exported Arduino sketch.
+
 ## Settings
 
 Open the settings panel to configure:
 
-- **Duration** — how long to wait, in milliseconds (1000 ms = 1 second)
-- **Debounce** — when enabled, the timer resets on every new incoming signal instead of starting once
+- **delay (ms)** — how long to wait, in milliseconds (1000 ms = 1 second). The default is 1000 ms.
+- **debounce** — off: every signal is passed on (queue). On: only the latest signal is passed on.
 
 ## Related
 

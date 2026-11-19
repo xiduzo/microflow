@@ -21,6 +21,7 @@
 use super::config::{MidiConfig, MidiDirection, MidiMode};
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The shared `MIDI` instance + inbound rx state + the once-per-tick pump.
@@ -51,10 +52,6 @@ MIDI.turnThruOff();";
 /// The pump runs once per tick, before every in-node reads the rx state.
 const SHARED_LOOP: &str = "midi_pump();";
 
-fn config_of(node: &FlowNode) -> MidiConfig {
-    serde_json::from_value(node.data.clone()).unwrap_or_default()
-}
-
 /// The send channel: the runtime clamps 1-16 (0/omni is receive-only).
 fn send_channel(config: &MidiConfig) -> u8 {
     config.channel.clamp(1, 16)
@@ -64,9 +61,8 @@ fn send_channel(config: &MidiConfig) -> u8 {
 /// node-scoped variables (the exact port of `Midi::receive_raw_message`);
 /// out-direction sends one message per new sample on the `send` port (the
 /// on-device twin of one dispatch == one `MidiSend`).
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-    let config = config_of(node);
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
+    let config = resolve::<MidiConfig>(&node.data)?;
     let mut e = NodeEmission {
         includes: vec!["#include <MIDI.h>".to_string()],
         shared_declarations: vec![SHARED_DECLS.to_string()],
@@ -78,7 +74,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         MidiDirection::In => emit_in(node, &config, &mut e),
         MidiDirection::Out => emit_out(node, &config, inputs, &mut e),
     }
-    e
+    Ok(e)
 }
 
 fn emit_in(node: &FlowNode, config: &MidiConfig, e: &mut NodeEmission) {
@@ -98,13 +94,18 @@ fn emit_in(node: &FlowNode, config: &MidiConfig, e: &mut NodeEmission) {
                 format!("byte midi_{token}_note = 0;"),
                 format!("byte midi_{token}_velocity = 0;"),
                 format!("bool midi_{token}_gate = false;"),
+                format!("bool midi_{token}_on = false;"),
+                format!("bool midi_{token}_off = false;"),
             ]);
             // NoteOn (0x90) with velocity 0 is a NoteOff by MIDI convention,
-            // exactly as the runtime treats it.
+            // exactly as the runtime treats it. `on` / `off` are up on the
+            // tick a message arrives: the live node emits `note`, `velocity`
+            // and `on` or `off` for every message, repeated or not.
             e.loop_body.extend([
+                format!("midi_{token}_on = false; midi_{token}_off = false;"),
                 format!("if (midi_rx_fresh{channel_ok}) {{"),
-                format!("  if (midi_rx_type == 0x90 && midi_rx_data2 > 0) {{ midi_{token}_note = midi_rx_data1; midi_{token}_velocity = midi_rx_data2; midi_{token}_gate = true; }}"),
-                format!("  else if (midi_rx_type == 0x80 || midi_rx_type == 0x90) {{ midi_{token}_note = midi_rx_data1; midi_{token}_velocity = 0; midi_{token}_gate = false; }}"),
+                format!("  if (midi_rx_type == 0x90 && midi_rx_data2 > 0) {{ midi_{token}_note = midi_rx_data1; midi_{token}_velocity = midi_rx_data2; midi_{token}_gate = true; midi_{token}_on = true; }}"),
+                format!("  else if (midi_rx_type == 0x80 || midi_rx_type == 0x90) {{ midi_{token}_note = midi_rx_data1; midi_{token}_velocity = 0; midi_{token}_gate = false; midi_{token}_off = true; }}"),
                 "}".to_string(),
             ]);
         }
@@ -146,9 +147,9 @@ fn emit_out(node: &FlowNode, config: &MidiConfig, inputs: &NodeInputs, e: &mut N
     }
     for (fired, source) in binding.fired.iter().zip(sources) {
         match config.mode {
-            // CC: clamp the firing sample to 0-127, mirror of `Midi::encode`.
+            // CC: round the firing sample and clamp it to 0-127, mirror of `Midi::encode`.
             MidiMode::Cc => e.loop_body.push(format!(
-                "if ({fired}) {{ MIDI.sendControlChange({}, (byte)constrain((int)({}), 0, 127), {channel}); }}",
+                "if ({fired}) {{ MIDI.sendControlChange({}, (byte)constrain((int)round({}), 0, 127), {channel}); }}",
                 config.control,
                 source.value.as_double_or("0.0"),
             )),
@@ -169,24 +170,30 @@ fn emit_out(node: &FlowNode, config: &MidiConfig, inputs: &NodeInputs, e: &mut N
 /// the codegen twin of the runtime's emits. Out-direction exposes nothing.
 #[must_use]
 pub(crate) fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
-    let config = config_of(node);
+    let config = resolve::<MidiConfig>(&node.data).ok()?;
     if config.direction == MidiDirection::Out {
         return None;
     }
     let token = node.id_token();
+    let message = format!("(midi_{token}_on || midi_{token}_off)");
     match (config.mode, handle) {
+        // Every note message, on or off, emits its note and its velocity.
         (MidiMode::Note, "note") => {
-            Some(SourceExpr::level(CppExpr::number(format!("(double)midi_{token}_note"))))
+            Some(SourceExpr::event(CppExpr::number(format!("(double)midi_{token}_note")), message))
+        }
+        (MidiMode::Note, "velocity") => {
+            Some(SourceExpr::event(CppExpr::number(format!("(double)midi_{token}_velocity")), message))
         }
         // The runtime keeps `value` = the latest velocity in note mode.
-        (MidiMode::Note, "velocity" | "value") => {
+        (MidiMode::Note, "value") => {
             Some(SourceExpr::level(CppExpr::number(format!("(double)midi_{token}_velocity"))))
         }
+        // `on` and `off` each carry `true`.
         (MidiMode::Note, "on") => {
-            Some(SourceExpr::rising(CppExpr::boolean(format!("midi_{token}_gate"))))
+            Some(SourceExpr::event(CppExpr::boolean(format!("midi_{token}_gate")), format!("midi_{token}_on")))
         }
         (MidiMode::Note, "off") => {
-            Some(SourceExpr::rising(CppExpr::boolean(format!("!midi_{token}_gate"))))
+            Some(SourceExpr::event(CppExpr::boolean(format!("!midi_{token}_gate")), format!("midi_{token}_off")))
         }
         (MidiMode::Cc, "value") => {
             Some(SourceExpr::level(CppExpr::number(format!("(double)midi_{token}_value"))))
@@ -219,7 +226,7 @@ mod tests {
     #[test]
     fn every_direction_shares_one_instance_setup_and_includes() {
         for data in [json!({ "direction": "in" }), json!({ "direction": "out" })] {
-            let e = emit(&midi("m-1", data), &NodeInputs::default());
+            let e = emit(&midi("m-1", data), &NodeInputs::default()).unwrap();
             assert!(e.includes.iter().any(|i| i.contains("MIDI.h")));
             assert_eq!(e.shared_declarations, vec![SHARED_DECLS.to_string()]);
             assert_eq!(e.shared_setup, vec![SHARED_SETUP.to_string()]);
@@ -231,7 +238,7 @@ mod tests {
         let e = emit(
             &midi("m-1", json!({ "direction": "in", "mode": "note", "channel": 2 })),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert_eq!(e.shared_loop, vec![SHARED_LOOP.to_string()], "in-nodes arm the pump");
         assert!(body.contains("midi_rx_channel == 2"), "channel filter: {body}");
@@ -244,7 +251,7 @@ mod tests {
 
     #[test]
     fn in_omni_channel_has_no_channel_filter() {
-        let e = emit(&midi("m-1", json!({ "direction": "in", "channel": 0 })), &NodeInputs::default());
+        let e = emit(&midi("m-1", json!({ "direction": "in", "channel": 0 })), &NodeInputs::default()).unwrap();
         assert!(!e.loop_body.join("\n").contains("midi_rx_channel"), "omni filters nothing");
     }
 
@@ -253,7 +260,7 @@ mod tests {
         let e = emit(
             &midi("m-1", json!({ "direction": "in", "mode": "cc", "control": 7 })),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("midi_rx_type == 0xB0 && midi_rx_data1 == 7"), "{body}");
         assert!(body.contains("midi_m_1_value = midi_rx_data2"), "{body}");
@@ -264,9 +271,9 @@ mod tests {
         let e = emit(
             &midi("m-1", json!({ "direction": "out", "mode": "cc", "control": 7, "channel": 2 })),
             &send_input("pot_p_1_value"),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
-        assert!(body.contains("sendControlChange(7, (byte)constrain((int)("), "clamped CC send: {body}");
+        assert!(body.contains("sendControlChange(7, (byte)constrain((int)round("), "rounded, clamped CC send: {body}");
         assert!(body.contains("pot_p_1_value"), "sends the wired sample: {body}");
         assert!(body.contains(", 0, 127), 2)"), "clamps to 0-127 on channel 2: {body}");
         assert!(body.contains("!= midi_m_1_send_prev0"), "sends once per new sample: {body}");
@@ -278,7 +285,7 @@ mod tests {
         let e = emit(
             &midi("m-1", json!({ "direction": "out", "mode": "note", "note": 64, "velocity": 90 })),
             &send_input("btn_b_1_value"),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("sendNoteOn(64, 90, 1)"), "{body}");
         assert!(body.contains("sendNoteOff(64, 0, 1)"), "{body}");
@@ -306,6 +313,6 @@ mod tests {
     #[test]
     fn emits_deterministically() {
         let n = midi("m-1", json!({ "direction": "out", "mode": "cc" }));
-        assert_eq!(emit(&n, &send_input("v")), emit(&n, &send_input("v")));
+        assert_eq!(emit(&n, &send_input("v")).unwrap(), emit(&n, &send_input("v")).unwrap());
     }
 }

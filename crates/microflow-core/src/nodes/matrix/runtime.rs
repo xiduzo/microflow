@@ -13,11 +13,11 @@
 //! - Binary shape parsing logs warnings on malformed data instead of
 //!   silently producing zeros.
 
+use super::config::MatrixConfig;
 use crate::runtime::{
-    pin_mode, serde_utils, Component, ComponentBase, ComponentBuilder, ComponentValue,
-    HardwareComponent, RuntimeContext, RuntimeError,
+    pin_mode, Component, ComponentBase, ComponentBuilder, ComponentValue, HardwareComponent,
+    RuntimeContext, RuntimeError,
 };
-use serde::{Deserialize, Serialize};
 
 // MAX7219 registers
 const REG_DECODE_MODE: u8 = 0x09;
@@ -28,41 +28,6 @@ const REG_DISPLAY_TEST: u8 = 0x0F;
 
 /// Maximum number of SPI transaction retries before giving up.
 const MAX_RETRIES: u8 = 2;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct MatrixPins {
-    #[serde(default = "default_data", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub(crate) data: u8,
-    #[serde(default = "default_clock", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub(crate) clock: u8,
-    #[serde(default = "default_cs", deserialize_with = "serde_utils::deserialize_pin_u8")]
-    pub(crate) cs: u8,
-}
-
-fn default_data() -> u8 { 2 }
-fn default_clock() -> u8 { 3 }
-fn default_cs() -> u8 { 4 }
-
-impl Default for MatrixPins {
-    fn default() -> Self {
-        Self { data: default_data(), clock: default_clock(), cs: default_cs() }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub(crate) struct MatrixConfig {
-    #[serde(default)]
-    pub(crate) pins: MatrixPins,
-    #[serde(default = "default_devices")]
-    pub(crate) devices: u8,
-    #[serde(default = "default_dims")]
-    pub(crate) dims: String,
-    #[serde(default)]
-    pub(crate) shapes: Vec<Vec<String>>,
-}
-
-fn default_devices() -> u8 { 1 }
-fn default_dims() -> String { "8x8".to_string() }
 
 pub(crate) struct Matrix {
     base: ComponentBase,
@@ -134,7 +99,7 @@ impl Matrix {
         for device in 0..self.config.devices {
             // Match J5 LedControl init order exactly — wrong order causes all LEDs to stay lit
             self.send(ctx, device, REG_DECODE_MODE, 0)?;
-            self.send(ctx, device, REG_INTENSITY, 3)?;
+            self.send(ctx, device, REG_INTENSITY, MatrixConfig::INTENSITY)?;
             self.send(ctx, device, REG_SCAN_LIMIT, 7)?;
             self.send(ctx, device, REG_SHUTDOWN, 1)?;
             self.send(ctx, device, REG_DISPLAY_TEST, 0)?;
@@ -359,6 +324,43 @@ mod sim_tests {
         assert_eq!(rig.board.max7219(0).device(0).rows, rows(&["11111111"]), "index clamps");
         rig.dispatch("m", "reset", true);
         assert_eq!(rig.board.max7219(0).device(0).rows, [0; 8]);
+    }
+
+    /// `reinitialize` sets the chip up again and shows the current shape: the
+    /// way back from a display that a glitch on its wires left garbled.
+    #[test]
+    fn reinitialize_sets_the_chip_up_and_shows_the_current_shape_again() {
+        let mut rig = matrix(1, json!([ARROW, ["11111111"]]));
+        rig.dispatch("m", "value", 1.0);
+        rig.dispatch("m", "reinitialize", true);
+        let chip = rig.board.max7219(0).device(0);
+        assert!(chip.on && !chip.display_test);
+        assert_eq!((chip.decode_mode, chip.intensity, chip.scan_limit), (0, 3, 7));
+        assert_eq!(chip.rows, rows(&["11111111"]), "the shape it was showing");
+
+        // After `reset` the current shape is the first one.
+        rig.dispatch("m", "reset", true);
+        assert_eq!(rig.board.max7219(0).device(0).rows, [0; 8]);
+        rig.dispatch("m", "reinitialize", true);
+        assert_eq!(rig.board.max7219(0).device(0).rows, rows(&ARROW));
+        assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
+    }
+
+    /// The board lights the matrix as brightly as the live runtime does: the
+    /// sketch's chip init, at setup and on `reinitialize`, sets the intensity
+    /// the runtime's init writes to the chip.
+    #[test]
+    fn the_sketch_sets_the_intensity_the_runtime_sets() {
+        use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+
+        let live = matrix(1, json!([])).board.max7219(0).device(0).intensity;
+        let mut inputs = NodeInputs::default();
+        inputs.add("reinitialize", SourceExpr::level(CppExpr::boolean("again")));
+        let data = json!({ "pins": { "data": 2, "clock": 3, "cs": 4 } });
+        let e = super::super::codegen::emit(&node("m", "Matrix", data), &inputs).unwrap();
+        let set = format!("matrix_m.setIntensity(matrix_m_i, {live});");
+        assert!(e.setup.iter().any(|l| l.trim() == set), "setup: {:?}", e.setup);
+        assert!(e.loop_body.iter().any(|l| l.trim() == set), "reinitialize: {:?}", e.loop_body);
     }
 
     #[test]

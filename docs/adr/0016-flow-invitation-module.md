@@ -1,6 +1,6 @@
 # ADR-0016 — Flow Invitation lives in `@microflow/db`, with the mailer injected
 
-- **Status:** accepted (2026-08-23)
+- **Status:** accepted (2026-08-23); amended (2026-11-19)
 - **Date:** 2026-08-23
 - **Deciders:** sander
 
@@ -35,8 +35,8 @@ withdrawable only in SQL.
 One module owning `grantAccess`, `inviteByEmail`, `acceptInvites`,
 `listPendingInvites` and `revokeInvite`.
 
-**Placement.** It belongs conceptually beside `flow-role.ts` and
-`flow-access.ts` in `@microflow/api`, but `@microflow/auth` cannot import
+**Placement.** It belongs conceptually beside `flow-access.ts` in
+`@microflow/api`, but `@microflow/auth` cannot import
 `@microflow/api` — api already depends on auth for `sendEmail`, and the reverse
 edge is a cycle. `@microflow/db` is the only package both callers already
 reach. The alternative, a new `@microflow/flows` package for five functions,
@@ -63,3 +63,27 @@ existing duplicates first, keeping the more permissive role.
 - `packages/db` now holds one domain module alongside the schema. If more
   follow, that is the signal to promote them into their own package rather than
   to let db accrete them.
+
+---
+
+## Amendment (2026-11-19): accept is atomic, self-invite is a typed refusal, and the tests run on real SQL
+
+**Accept is all or nothing.** `acceptInvites(email, userId)` is one
+transaction. The pending invites are consumed by a `DELETE … RETURNING`, and
+exactly the rows it returns are granted, through the upsert `grantAccess` uses
+(`upsertGrants`, which takes the handle or an open transaction). An invite
+revoked or re-issued with another role while the accept runs is either gone
+before the delete or granted as it stood. The better-auth hook runs once per
+account and nothing retries it, so a failure rolls back and leaves every invite
+pending.
+
+**Inviting yourself is `CannotInviteSelf`.** `inviteByEmail` throws that class,
+with the message "Cannot add yourself as a collaborator"; the api layer maps it
+to `BAD_REQUEST` ([ADR-0034](0034-database-handle-bound-at-the-composition-root.md)).
+
+**The module is tested on the in-process Postgres.** `flow-invitation.test.ts`
+imports `@microflow/db/testing` and runs against the real migrations, so the
+unique index behind the idempotent grant is exercised, not modelled: a double
+grant is one row, a re-invite updates the pending invite, a revoked invite
+grants nothing. The mailer and the grant are injected (the `GrantRole`
+adapter is [ADR-0022](0022-flow-role-transition-has-one-owner.md)).

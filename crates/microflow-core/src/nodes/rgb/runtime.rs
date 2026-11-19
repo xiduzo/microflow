@@ -205,6 +205,19 @@ mod sim_tests {
         assert!(rig.board.violations().is_empty(), "{:?}", rig.board.violations());
     }
 
+    /// `off` darkens the LED and forgets the colour and its intensity; the LED
+    /// stays dark until a channel is sent a value again.
+    #[test]
+    fn off_holds_until_a_channel_is_sent_again() {
+        let mut rig = rgb(false);
+        rig.dispatch("rgb", "red", 200.0);
+        rig.dispatch("rgb", "alpha", 50.0);
+        rig.dispatch("rgb", "off", true);
+        assert_eq!(duty(&rig), (Some(0), Some(0), Some(0)));
+        rig.dispatch("rgb", "green", 80.0);
+        assert_eq!(duty(&rig), (Some(0), Some(80), Some(0)), "red and the 50% are gone");
+    }
+
     /// A channel on a pin without PWM (12 on an Uno) rounds like
     /// `analogWrite`: on from 128.
     #[test]

@@ -21,6 +21,23 @@ You can map any input range to any output range - they don't have to match. For 
 
 The output range can be completely different from the input range - it doesn't have to overlap at all.
 
+A value outside the **from** range is not cut off: it maps to a value outside the **to** range. The result is rounded to a whole number, or to one decimal when the **to** range spans 10 or less.
+
+## Inputs
+
+- **value** — the number to convert
+
+## Outputs
+
+- **to** — the converted number
+
+## Settings
+
+Open the settings panel to configure:
+
+- **from** — the minimum and maximum of the incoming range. The default is 0 to 1023
+- **to** — the minimum and maximum of the outgoing range. The default is 0 to 1023
+
 ## Related
 
 - Tutorial: [Fade an LED with a potentiometer](/docs/learn/fade-with-potentiometer) — Map's main use case in one short lesson.

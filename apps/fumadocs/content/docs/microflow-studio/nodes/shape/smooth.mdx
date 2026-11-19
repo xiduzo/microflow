@@ -3,19 +3,32 @@ title: Smooth
 description: Stabilize noisy or jumpy sensor readings by averaging them out over time.
 ---
 
-Some sensors give readings that jump around even when conditions have not really changed. This is called *noise* — tiny electrical fluctuations that affect the output. The Smooth node removes this jitter by averaging the last several readings into one stable value.
+Some sensors give readings that jump around even when conditions have not really changed. This is called *noise* — tiny electrical fluctuations that affect the output. The Smooth node removes this jitter by blending recent readings into one stable value.
 
-**How it works:** The Smooth node keeps a rolling window of recent readings and outputs their average. The larger the window, the smoother — but slower to respond to real changes.
+**How it works:** The Smooth node has two methods:
+
+- **smooth** — each new reading moves the output only a little. The output follows the readings slowly and steadily
+- **moving average** — the output is the average of the last few readings. The more readings in the window, the smoother — but slower to respond to real changes
 
 **Example:** A light sensor reads 100, then 105, then 98, then 102 in quick succession, even though the light has not moved. The Smooth node averages these into a stable value around 101, making it much easier to work with.
 
 This is especially useful before feeding sensor data into a [Compare](/docs/microflow-studio/nodes/decide/compare) or [Map](/docs/microflow-studio/nodes/shape/map) node, where erratic values would cause unwanted triggering.
 
+## Inputs
+
+- **value** — the reading to smooth
+
+## Outputs
+
+- **value** — the smoothed value
+
 ## Settings
 
 Open the settings panel to configure:
 
-- **Samples** — how many recent readings to average together. More samples = smoother output, but slower to react to genuine changes. A value of 5–10 is a good starting point for most sensors
+- **type** — **smooth** (the default) or **moving average**
+- **attenuation** *(smooth)* — how much of the previous output to keep, from 0 to 1. Higher = smoother, but slower to react to genuine changes. 0 passes every reading straight through. The default is 0.995
+- **windowSize** *(moving average)* — how many recent readings to average together. More readings = smoother output, but slower to react to genuine changes. The default is 25
 
 ## Related
 

@@ -1,25 +1,18 @@
 /** @jsxImportSource preact */
 import { Button, Textbox, VerticalSpace } from "@create-figma-plugin/ui";
-import { storedMqttConfig, useAppStore, useMqttSettingsForm } from "@microflow/design-bridge/react";
-import type { MqttConfig } from "@microflow/mqtt";
+import { useBridgeSettingsForm } from "@microflow/design-bridge/react";
 import { Dices, Info } from "lucide-react";
 import type { ComponentChildren } from "preact";
-import { useCallback } from "preact/hooks";
-import { settingsStorage, showToast } from "../channel";
+import { session, showToast } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
 import { useWindowSize } from "../hooks/use-window-size";
 
+function onSaved() {
+  showToast("Broker settings saved!");
+}
+
 export function MqttSettings() {
-  const { setMqttConfig } = useAppStore();
-  const onSave = useCallback(
-    (config: MqttConfig) => {
-      setMqttConfig(config);
-      settingsStorage.save(storedMqttConfig(config));
-      showToast("Broker settings saved!");
-    },
-    [setMqttConfig],
-  );
-  const { fields, errors, setField, randomizeId, submit } = useMqttSettingsForm(onSave);
+  const { fields, errors, setField, randomizeId, submit } = useBridgeSettingsForm(session, onSaved);
 
   useWindowSize({ width: 350, height: 440 });
 
@@ -29,13 +22,13 @@ export function MqttSettings() {
       <PageContent>
         <Field
           label="Bridge ID"
-          error={errors.uniqueId}
+          error={errors.bridgeId}
           hint="Must match the Bridge ID shown in Microflow Studio."
         >
           <div style={{ display: "flex", gap: 4 }}>
             <Textbox
-              value={fields.uniqueId}
-              onValueInput={(value) => setField("uniqueId", value)}
+              value={fields.bridgeId}
+              onValueInput={(value) => setField("bridgeId", value)}
               placeholder="your_bridge_id"
               style={{ flex: 1 }}
             />

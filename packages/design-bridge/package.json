@@ -5,6 +5,9 @@
     ".": {
       "default": "./src/index.ts"
     },
+    "./session": {
+      "default": "./src/session.ts"
+    },
     "./react": {
       "default": "./src/react.ts"
     },
@@ -15,7 +18,7 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@microflow/mqtt": "workspace:*",
+    "mqtt": "^5.15.0",
     "zustand": "^5.0.9"
   },
   "peerDependencies": {
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@microflow/config": "workspace:*",
     "@types/react": "^19.1.0",
+    "mqtt-packet": "^9.0.2",
     "typescript": "catalog:"
   }
 }

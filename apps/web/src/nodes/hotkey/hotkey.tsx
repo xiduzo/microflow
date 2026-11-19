@@ -1,8 +1,6 @@
 import { button } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Hotkey">;
+import { NodeHandles } from "../_base/node-handles";
 import { useState } from "react";
 import {
   dataSchema,
@@ -34,9 +32,7 @@ export function Hotkey(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
-      <Handle type="source" position="right" id="true" handleType="state" offset={0} />
-      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
+      <NodeHandles />
     </NodeContainer>
   );
 }

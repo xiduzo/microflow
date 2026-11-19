@@ -9,7 +9,7 @@ export function Constant(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles instance="Constant" emitOverrides={{ value: { handleType: "value" } }} />
+      <NodeHandles />
     </NodeContainer>
   );
 }

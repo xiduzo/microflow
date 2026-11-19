@@ -35,7 +35,10 @@
 use serde::{Deserialize, Serialize};
 
 mod profile;
-pub use profile::{mode_name, PinCaps, PinInfo, PinLabel, PinProfile, MAX_PINS, UNO_FIRST_ANALOG_PIN};
+pub use profile::{
+    analog_write_lights_from, mode_name, PinCaps, PinInfo, PinLabel, PinProfile, ANALOG_WRITE_ON_THRESHOLD, MAX_PINS,
+    UNO_FIRST_ANALOG_PIN,
+};
 
 // --- Protocol constants (mirrors firmata-rs) --------------------------------
 

@@ -122,10 +122,10 @@ describe("ReactFlowBridge — Yjs → React", () => {
 
   test("untouched edges keep their object identity across a Yjs change", () => {
     const { doc, bridge } = setup();
-    doc.addEdge({ id: "e1", source: "a", target: "b" });
+    doc.addEdge({ id: "e1", source: "a", sourceHandle: "out", target: "b", targetHandle: "in" });
     const untouchedBefore = bridge.getSnapshot().edges[0]!;
 
-    doc.addEdge({ id: "e2", source: "b", target: "c" });
+    doc.addEdge({ id: "e2", source: "b", sourceHandle: "out", target: "c", targetHandle: "in" });
 
     const after = bridge.getSnapshot().edges;
     expect(after.find((e) => e.id === "e1")).toBe(untouchedBefore);
@@ -252,14 +252,14 @@ describe("ReactFlowBridge — React → Yjs", () => {
 
   test("edge add propagates to doc", () => {
     const { doc, bridge } = setup();
-    bridge.applyEdgeChanges([{ type: "add", item: { id: "e1", source: "a", target: "b" } }]);
+    bridge.applyEdgeChanges([{ type: "add", item: { id: "e1", source: "a", sourceHandle: "out", target: "b", targetHandle: "in" } }]);
     bridge.flush();
     expect(doc.getEdges().map((e) => e.id)).toEqual(["e1"]);
   });
 
   test("edge remove propagates to doc", () => {
     const { doc, bridge } = setup();
-    doc.addEdge({ id: "e1", source: "a", target: "b" });
+    doc.addEdge({ id: "e1", source: "a", sourceHandle: "out", target: "b", targetHandle: "in" });
     bridge.applyEdgeChanges([{ type: "remove", id: "e1" }]);
     bridge.flush();
     expect(doc.getEdges()).toHaveLength(0);
@@ -267,7 +267,7 @@ describe("ReactFlowBridge — React → Yjs", () => {
 
   test("edge select does not propagate to doc", () => {
     const { doc, bridge } = setup();
-    doc.addEdge({ id: "e1", source: "a", target: "b" });
+    doc.addEdge({ id: "e1", source: "a", sourceHandle: "out", target: "b", targetHandle: "in" });
     const beforeCanUndo = doc.canUndo();
     bridge.applyEdgeChanges([{ type: "select", id: "e1", selected: true }]);
     bridge.flush();

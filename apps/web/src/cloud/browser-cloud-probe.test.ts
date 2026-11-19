@@ -1,6 +1,34 @@
 import { describe, expect, it } from "bun:test";
-import { isProbeOk, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
+import { isProbeOk, probeBroker, probeLlmProvider, probeStatus } from "./browser-cloud-probe";
 import type { LlmProviderConfig } from "@/ai/llm-provider";
+import type { MqttBrokerConfig } from "@/cloud/mqtt-broker";
+
+describe("probeBroker", () => {
+  const broker: MqttBrokerConfig = { id: "b1", name: "Lab", url: "wss://broker.test", isDefault: true };
+  type Connect = NonNullable<Parameters<typeof probeBroker>[1]>;
+
+  it("reports a URL no connection can be opened to as unreachable, without throwing", async () => {
+    // What `mqtt.connect` does on "ws://a b" or "ws://host:99999": the URL has
+    // the right scheme, and no WebSocket can be opened to it.
+    const connect = ((url: string) => {
+      throw new SyntaxError(`Invalid URL: ${url}`);
+    }) as unknown as Connect;
+
+    expect(await probeBroker({ ...broker, url: "ws://a b" }, connect)).toBe("error");
+  });
+
+  it("does not try a URL no browser can reach", async () => {
+    let tried = 0;
+    const connect = (() => {
+      tried += 1;
+      throw new Error("not reached");
+    }) as unknown as Connect;
+
+    expect(await probeBroker({ ...broker, url: "mqtt://broker.test:1883" }, connect)).toBe("error");
+    expect(await probeBroker({ ...broker, url: "broker.test" }, connect)).toBe("error");
+    expect(tried).toBe(0);
+  });
+});
 
 const provider: LlmProviderConfig = {
   id: "p1",

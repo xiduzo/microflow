@@ -24,7 +24,7 @@ import {
   type FlowRuntimeCalls,
   type RuntimeFault,
 } from "./runtime-bridge";
-import { CloudPerformer, type CloudDeps } from "@/cloud/cloud-performer";
+import { CloudPerformer, type CloudDeps, type MqttClientFactory } from "@/cloud/cloud-performer";
 import { MidiPerformer } from "./midi/midi-performer";
 import { AudioPerformer, audioSourcesOf } from "@/runtime/audio/audio-performer";
 import {
@@ -55,6 +55,9 @@ export type AttachOptions = {
   /** Use this runtime instead of loading the wasm module. The injection seam
    *  the fault tests drive; production leaves it unset. */
   runtime?: FlowRuntimeCalls;
+  /** Open broker connections with these clients instead of `mqtt.js`. The
+   *  seam the announce tests drive; production leaves it unset. */
+  mqttClients?: MqttClientFactory;
 };
 
 const now = (): number =>
@@ -76,7 +79,8 @@ export class FlowReactor implements EffectsSink {
    *  reactor supplies the two runtime re-entry seams the performer needs. */
   private readonly cloudPerformer: CloudPerformer;
   /** The MIDI half (Web MIDI): the browser twin of the desktop `MidiManager`.
-   *  Inbound messages re-enter via the same `deliverMessage` path MQTT uses. */
+   *  It moves bytes; the runtime says which ports are wanted and which nodes
+   *  hear a message. */
   private readonly midiPerformer: MidiPerformer;
   /** Host speaker playback (the `Music` node). Shared with the desktop host,
    *  which forwards the same requests into the webview. */
@@ -91,8 +95,12 @@ export class FlowReactor implements EffectsSink {
    *  the wires the runtime fired them across. */
   private edges: FlowEdge[] = [];
   private disposed = false;
+  /** Ends the watch on the page's `pagehide`/`pageshow`. */
+  private unwatchPage: () => void = () => {};
   private writeFailed = false;
-  /** The fault the last bridge call reported, read back by `applyFlow`. */
+  /** The first fault reported since `applyFlow` cleared it, read back as its
+   *  verdict. The first: what a fault sets off (a host tearing the reactor
+   *  down inside the call) may report more, and the user is to see the cause. */
   private lastFault: RuntimeFault | null = null;
 
   private constructor(
@@ -104,6 +112,7 @@ export class FlowReactor implements EffectsSink {
     private readonly connection: BoardConnection | null,
     cloud: CloudDeps | null,
     private readonly onEngineFault: ((message: string) => void) | undefined,
+    mqttClients: MqttClientFactory | undefined,
   ) {
     this.cloudPerformer = new CloudPerformer(
       cloud,
@@ -118,11 +127,25 @@ export class FlowReactor implements EffectsSink {
         this.applyTurn(this.bridge?.deliverMessage(nodeId, topic, payload, now()));
       },
       // Figma handshake policy: core's `figma_announce_actions` via the wasm
-      // binding, so the browser announces identically to the desktop host.
-      figmaAnnounceActions,
+      // binding, so the browser announces identically to the desktop host. It
+      // crosses the bridge like every call into the module (ADR-0017): a
+      // module that trapped is not asked, and nothing new is announced then.
+      // What Studio says when it leaves was asked for when it announced, so
+      // the goodbyes the teardown after an engine fault says need no module.
+      (prev, next) => this.bridge?.figmaAnnounce(() => figmaAnnounceActions(prev, next)) ?? [],
+      mqttClients,
     );
-    this.midiPerformer = new MidiPerformer((nodeId, portName, bytes) => {
-      this.applyTurn(this.bridge?.deliverMessage(nodeId, portName, bytes, now()));
+    this.midiPerformer = new MidiPerformer({
+      // A dead or missing runtime listens to nothing.
+      listens: () => this.bridge?.listensToMidi() ?? false,
+      wantsInput: (portName) => this.bridge?.wantsMidiInput(portName) ?? false,
+      deviceMatches: (portName, deviceName) =>
+        this.bridge?.midiDeviceMatches(portName, deviceName) ?? false,
+      // Inbound message re-entry (mirrors the desktop `ActorMsg::MidiMessage` →
+      // `dispatch_midi_message`).
+      message: (portName, bytes) => {
+        this.applyTurn(this.bridge?.midiMessage(portName, bytes, now()));
+      },
     });
     this.audioPerformer = new AudioPerformer(
       (nodeId, track) => this.audioSources.get(nodeId)?.[track],
@@ -142,8 +165,16 @@ export class FlowReactor implements EffectsSink {
     cloud?: CloudDeps,
     options: AttachOptions = {},
   ): Promise<FlowReactor> {
-    const reactor = new FlowReactor(connection, cloud ?? null, options.onEngineFault);
+    // The runtime first: a reactor watches the broker settings from the moment
+    // it exists (its cloud performer does), and one whose engine failed to load
+    // would never be disposed.
     const runtime = options.runtime ?? (await createFlowRuntime());
+    const reactor = new FlowReactor(
+      connection,
+      cloud ?? null,
+      options.onEngineFault,
+      options.mqttClients,
+    );
     reactor.bridge = new RuntimeBridge(runtime, (fault) => {
       reactor.handleFault(fault);
     });
@@ -155,6 +186,7 @@ export class FlowReactor implements EffectsSink {
     // every byte after it is replayed by the link once this reactor attaches,
     // so seed + replay is exactly what the detection codec saw (ADR-0018).
     reactor.bridge.setPins(connection?.pinSeed ?? "[]");
+    reactor.watchPage();
     return reactor;
   }
 
@@ -185,11 +217,17 @@ export class FlowReactor implements EffectsSink {
     return { ok: false, error: fault?.message ?? "the flow runtime is not running" };
   }
 
-  /** Deliver one host-originated input to a node's port — the browser twin of
-   *  the desktop actor's `ActorMsg::Key`/`component_call` paths. Used by the
-   *  hotkey listener; the runtime owns all routing from there. */
+  /** Deliver one host-originated value to a node's port — the browser twin of
+   *  the desktop `component_call` path. The runtime owns all routing from
+   *  there. */
   dispatchToNode(nodeId: string, port: string, value: unknown): void {
     this.applyTurn(this.bridge?.dispatch(nodeId, port, value, now()));
+  }
+
+  /** A hotkey was pressed or released — the browser twin of the desktop
+   *  actor's `ActorMsg::Key`. The runtime decides which nodes hear it. */
+  keyEvent(accelerator: string, pressed: boolean): void {
+    this.applyTurn(this.bridge?.keyEvent(accelerator, pressed, now()));
   }
 
   /** Feed raw inbound serial bytes (from the Web Serial read loop). */
@@ -198,16 +236,55 @@ export class FlowReactor implements EffectsSink {
   }
 
   /** Tear down: cancel every pending timer, tear down the cloud performer (abort
-   *  in-flight cloud calls + end broker connections), and drop the runtime. */
+   *  in-flight cloud calls + end broker connections), the MIDI and audio
+   *  performers, and drop the runtime. Every step runs, whatever the ones
+   *  before it threw: a teardown that fails half-way must not leave a track
+   *  playing or a runtime that can still be called. */
   dispose(): void {
     this.disposed = true;
+    this.unwatchPage();
     for (const handle of this.timers.values()) clearTimeout(handle);
     this.timers.clear();
-    this.cloudPerformer.dispose();
-    this.midiPerformer.dispose();
-    this.audioPerformer.dispose();
-    this.bridge?.dispose();
-    this.bridge = null;
+    try {
+      this.cloudPerformer.dispose();
+    } finally {
+      try {
+        this.midiPerformer.dispose();
+      } finally {
+        try {
+          this.audioPerformer.dispose();
+        } finally {
+          this.bridge?.dispose();
+          this.bridge = null;
+        }
+      }
+    }
+  }
+
+  /**
+   * Tell the design-tool plugins Studio left when the page goes away, as no
+   * teardown runs then: a closed tab, a reload, a navigation away
+   * (`pagehide`). What is said reaches the broker if the socket gets it out
+   * before the page is gone, which is up to the browser; when it does not, the
+   * broker publishes the link's will, the goodbye of the first Bridge ID
+   * announced there. A tab that crashes or is killed fires no event and is
+   * left to the will. A page restored from
+   * the back/forward cache (`pageshow` with `persisted`) announces again.
+   * Where there are no such events nothing is watched.
+   */
+  private watchPage(): void {
+    const page = globalThis as Partial<Pick<typeof globalThis, "addEventListener" | "removeEventListener">>;
+    if (page.addEventListener === undefined || page.removeEventListener === undefined) return;
+    const hide = () => this.cloudPerformer.leave();
+    const show = (event: Event) => {
+      if ((event as PageTransitionEvent).persisted) this.cloudPerformer.rejoin();
+    };
+    page.addEventListener("pagehide", hide);
+    page.addEventListener("pageshow", show);
+    this.unwatchPage = () => {
+      page.removeEventListener?.("pagehide", hide);
+      page.removeEventListener?.("pageshow", show);
+    };
   }
 
   /** Apply one turn's effects in the canonical order (ADR-0008). The order
@@ -234,7 +311,7 @@ export class FlowReactor implements EffectsSink {
    *   already surfaced; a badge here would blame a node for a dead engine.
    */
   private handleFault(fault: RuntimeFault): void {
-    this.lastFault = fault;
+    this.lastFault ??= fault;
     if (fault.kind === "engineBroken") {
       console.error(`[flow-reactor] wasm engine fault in ${fault.op}:`, fault.message);
       this.onEngineFault?.(`The flow engine stopped: ${fault.message}`);
@@ -251,15 +328,14 @@ export class FlowReactor implements EffectsSink {
    *  WSS subscriptions after every `applyFlow`. The collapse + winner-selection is
    *  core policy (`reconcile_desired`); the wasm binding hands back an
    *  already-reconciled desired set (one per topic), which the performer diffs
-   *  against its live set. */
+   *  against its live set. The MIDI performer then re-reads which inputs the
+   *  new flow wants. */
   private reconcile(): void {
     if (this.disposed) return;
     const reconciled = this.bridge?.reconcileSubscriptions();
     if (reconciled === undefined) return;
     this.cloudPerformer.reconcile(reconciled);
-    const midiListeners = this.bridge?.midiListeners();
-    if (midiListeners === undefined) return;
-    this.midiPerformer.reconcile(midiListeners);
+    this.midiPerformer.reconcile();
   }
 
   // --- EffectsSink: the browser platform primitives (ADR-0008) ---------------

@@ -18,6 +18,7 @@ pub mod component;
 pub mod context;
 pub mod error;
 mod health;
+pub mod host_input;
 mod pin_check;
 pub mod pin_mode;
 pub mod reconcile;
@@ -42,7 +43,7 @@ pub mod cloud;
 // (so shared configs can use them without the `runtime` feature); re-exported
 // here so existing `crate::runtime::serde_utils` references keep resolving.
 pub use crate::config::serde_utils;
-pub use board::{analog_write_like_arduino, BoardWriter, BufferBoardWriter, I2cBus, ANALOG_WRITE_ON_THRESHOLD};
+pub use board::{analog_write_like_arduino, BoardWriter, BufferBoardWriter, I2cBus};
 pub use component::{
     Component, ComponentBase, ComponentBuilder, EventSink, HardwareComponent,
 };
@@ -52,6 +53,7 @@ pub use context::{
     RuntimeContext, ScheduleRequests, Wakeup, WakeupId,
 };
 pub use error::{HardwareError, RuntimeError};
+pub use host_input::midi_device_matches;
 pub use registry::ComponentRegistry;
 pub use router::{ComponentLookup, DispatchCall, EdgeTarget, FlowRouter};
 pub use subscriptions::{
@@ -66,6 +68,7 @@ pub use error::MqttError;
 
 use crate::firmata::FirmataClient;
 use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
+use context::TimerRequest;
 use health::NodeHealth;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -158,8 +161,10 @@ pub struct FlowRuntime {
     pin_listeners: HashMap<u8, Vec<Arc<str>>>,
     /// I2C address → listening component ids.
     i2c_listeners: HashMap<u8, Vec<(u8, Arc<str>)>>,
-    /// Hotkey accelerator (lowercased) → listening component ids.
+    /// Hotkey accelerator (lowercased) → listening component ids, sorted.
     key_listeners: HashMap<String, Vec<Arc<str>>>,
+    /// MIDI in-nodes as `(component id, folded device filter)`, sorted by id.
+    midi_listeners: Vec<(Arc<str>, String)>,
     /// Monotonic id source for wakeups handed to the host.
     next_wakeup_id: WakeupId,
     /// Outstanding wakeups keyed by node id, then method, so a re-schedule or
@@ -211,6 +216,7 @@ impl FlowRuntime {
             pin_listeners: HashMap::new(),
             i2c_listeners: HashMap::new(),
             key_listeners: HashMap::new(),
+            midi_listeners: Vec::new(),
             next_wakeup_id: 1,
             outstanding: HashMap::new(),
             pin_scan_scratch: Vec::new(),
@@ -363,6 +369,7 @@ impl FlowRuntime {
         self.pin_listeners = tables.pin_listeners;
         self.i2c_listeners = tables.i2c_listeners;
         self.key_listeners = tables.key_listeners;
+        self.midi_listeners = tables.midi_listeners;
         self.report_set = desired.report;
 
         // 6. Initialize newly-built hardware (pin modes + initial output state).
@@ -522,6 +529,9 @@ impl FlowRuntime {
 
     /// Deliver an inbound external message (MQTT / Figma broker payload) to a
     /// subscribe component by id; it updates + emits, then the cascade drains.
+    /// The host names the component because the broker subscription it holds
+    /// has exactly one owner; host input with several listeners (keys, MIDI)
+    /// goes through [`host_input`] instead.
     pub fn deliver_message(&mut self, component_id: &str, topic: &str, payload: &[u8]) -> Effects {
         if let Some(component) = self.components.get_mut(component_id) {
             component.receive_raw_message(topic, payload);
@@ -552,23 +562,6 @@ impl FlowRuntime {
         self.finish("inject", Vec::new(), ScheduleRequests::default())
     }
 
-    /// Deliver a hotkey press (`pressed = true`) or release (`pressed = false`)
-    /// to every component listening on `accelerator` (matched lowercased), then
-    /// drain the cascade.
-    pub fn dispatch_key_event(&mut self, accelerator: &str, pressed: bool) -> Effects {
-        let ids = self
-            .key_listeners
-            .get(&accelerator.to_lowercase())
-            .cloned()
-            .unwrap_or_default();
-        let mut out = Vec::new();
-        let mut reqs = ScheduleRequests::default();
-        for id in ids {
-            self.dispatch_to(id.as_ref(), "key_event", ComponentValue::Bool(pressed), &mut out, &mut reqs);
-        }
-        self.finish("key", out, reqs)
-    }
-
     /// Every active component's subscriber wiring paired with its id — the host
     /// uses this to (un)subscribe brokers as the flow changes.
     #[must_use]
@@ -579,30 +572,6 @@ impl FlowRuntime {
                 out.push((id.clone(), wiring));
             }
         }
-        out
-    }
-
-    /// Every active MIDI listener: `(node id, device-name filter)`. Unlike MQTT
-    /// there is no one-owner-per-topic reconcile — the host opens the union of
-    /// matching devices and routes every message to every matching listener via
-    /// [`deliver_message`](Self::deliver_message) (`topic` = the host port name,
-    /// `payload` = the raw `[status, data1, data2]`). Sorted by node id so an
-    /// unchanged flow yields an identical list (zero host churn).
-    #[must_use]
-    pub fn collect_midi_listeners(&self) -> Vec<crate::runtime::subscriptions::MidiListener> {
-        let mut out: Vec<_> = self
-            .components
-            .iter()
-            .filter_map(|(id, component)| {
-                component.midi_wiring().map(|device_name| {
-                    crate::runtime::subscriptions::MidiListener {
-                        node_id: id.clone(),
-                        device_name,
-                    }
-                })
-            })
-            .collect();
-        out.sort_by(|a, b| a.node_id.cmp(&b.node_id));
         out
     }
 
@@ -714,7 +683,28 @@ impl FlowRuntime {
 
     /// Drain the emit queue to completion, accumulating side effects, then
     /// resolve the turn's scheduling requests into concrete wakeups.
-    fn finish(&mut self, stimulus: &'static str, mut out: Vec<u8>, mut reqs: ScheduleRequests) -> Effects {
+    fn finish(&mut self, stimulus: &'static str, out: Vec<u8>, reqs: ScheduleRequests) -> Effects {
+        self.finish_fed(stimulus, out, reqs, |_, _, _| false)
+    }
+
+    /// [`finish`](Self::finish) for a turn whose input arrives in pieces: each
+    /// time the queue runs dry, `feed` delivers the next piece (its emits are
+    /// drained before it is asked again) and returns `false` once there is
+    /// none left.
+    ///
+    /// The pieces share the turn's [`Effects`] and nothing else. Each piece's
+    /// cascade has the whole [`TURN_BUDGET`]: one that spends it is stopped
+    /// like a runaway turn, and the next piece is fed all the same. And each
+    /// piece's timer requests are resolved before the next piece is fed, so
+    /// what the host is left to arm is what one turn per piece would have left.
+    /// A turn that is never fed is one piece, which is every other entry point.
+    fn finish_fed(
+        &mut self,
+        stimulus: &'static str,
+        mut out: Vec<u8>,
+        mut reqs: ScheduleRequests,
+        mut feed: impl FnMut(&mut Self, &mut Vec<u8>, &mut ScheduleRequests) -> bool,
+    ) -> Effects {
         // One `flow_tick` span per turn; the per-event `trace!`s below nest under
         // it, and the host subscriber (desktop fmt / browser `tracing-web`) times
         // the drain. No clock lives here — `now_ms` is host-fed and `Instant` is
@@ -724,19 +714,37 @@ impl FlowRuntime {
         let span = tracing::debug_span!("flow_tick", run_id, stimulus, seq = self.current_sequence);
         let _enter = span.enter();
         let mut events = Vec::new();
+        let mut wakeups = Vec::new();
+        let mut cancellations = Vec::new();
+        // Events drained by the whole turn, and by the piece being drained now:
+        // the budget is the piece's.
         let mut drained = 0u32;
+        let mut spent = 0u32;
         // Emitters seen in the last `TRACE_TAIL` events before the budget — only
-        // filled once a turn is already close to running away.
+        // filled once a piece is already close to running away.
         let mut tail: HashSet<Arc<str>> = HashSet::new();
         loop {
             // Pop in its own scope so a component is free to push during dispatch.
             let next = self.sink.borrow_mut().pop_front();
-            let Some(event) = next else { break };
+            let Some(event) = next else {
+                // This piece has settled (or was stopped): its timers are
+                // resolved before the next piece can ask for its own.
+                self.resolve_schedule(&mut reqs, &mut wakeups, &mut cancellations);
+                if feed(self, &mut out, &mut reqs) {
+                    spent = 0;
+                    tail.clear();
+                    continue;
+                }
+                break;
+            };
             drained += 1;
-            if drained > TURN_BUDGET - turn_budget::TRACE_TAIL {
-                if drained > TURN_BUDGET {
+            spent += 1;
+            if spent > TURN_BUDGET - turn_budget::TRACE_TAIL {
+                if spent > TURN_BUDGET {
+                    // The queue is empty now, so the loop falls through to the
+                    // next piece, if the turn is fed one.
                     self.stop_runaway_turn(&tail, &event.source);
-                    break;
+                    continue;
                 }
                 tail.insert(Arc::clone(&event.source));
             }
@@ -774,7 +782,6 @@ impl FlowRuntime {
         // neither origin's clear can touch the other's diagnostic.
         let mut node_diagnostics = std::mem::take(&mut reqs.diagnostics);
         self.health.flush(&mut node_diagnostics);
-        let (wakeups, cancellations) = self.resolve_schedule(reqs);
         // One wide event per turn that *did something* — drained an event, wrote
         // bytes, (re)armed a timer, issued a cloud call, or hit a dispatch error.
         // Truly-idle turns (pin scans with no change) stay silent to bound volume.
@@ -812,9 +819,10 @@ impl FlowRuntime {
         }
     }
 
-    /// The turn drained [`TURN_BUDGET`] events: drop the rest of the queue (the
-    /// runtime stays alive and the turn's effects so far still apply), then
-    /// decide why it ran long. `tail` holds the emitters of the last events.
+    /// The turn (or, in a fed turn, the piece being drained) spent
+    /// [`TURN_BUDGET`] events: drop the rest of the queue (the runtime stays
+    /// alive and the turn's effects so far still apply), then decide why it ran
+    /// long. `tail` holds the emitters of the last events.
     ///
     /// - If they sit on a cycle of the flow's edges, every node of that cycle
     ///   is paused, so the next stimulus cannot spin again.
@@ -1021,34 +1029,58 @@ impl FlowRuntime {
         }
     }
 
-    /// Resolve a turn's [`ScheduleRequests`] into host-facing wakeups and the
-    /// ids of any timers that are no longer wanted. A re-schedule of an
-    /// outstanding `(node, method)` cancels the prior timer first.
-    fn resolve_schedule(&mut self, reqs: ScheduleRequests) -> (Vec<Wakeup>, Vec<WakeupId>) {
-        let mut wakeups = Vec::new();
-        let mut cancellations = Vec::new();
-        for (node, method) in reqs.cancels {
-            if let Some(id) = Self::take_outstanding(&mut self.outstanding, &node, &method) {
-                cancellations.push(id);
-            }
-        }
-        for (node, method, delay_ms) in reqs.schedules {
-            let id = self.next_wakeup_id;
-            self.next_wakeup_id += 1;
-            // One `insert` does the read-and-replace: the previous timer for this
-            // `(node, method)`, if any, is the value it hands back — no separate
-            // `remove` and no second pair of key clones on the hot timer path.
-            let previous = self
-                .outstanding
-                .entry(node.clone())
-                .or_default()
-                .insert(method.clone(), id);
+    /// Resolve the timer requests gathered in `reqs` since the last call, in
+    /// the order the nodes made them, into the turn's host-facing `wakeups`
+    /// and the ids of the host's timers that are no longer wanted. A schedule
+    /// of an outstanding `(node, method)` replaces the prior timer.
+    ///
+    /// The host applies a turn's cancellations before its wakeups, so a
+    /// cancellation cannot stop a timer of the same turn. A timer this turn
+    /// asked for that is cancelled or re-scheduled later in the turn — in the
+    /// same cascade, or in a later piece of a fed turn — is therefore
+    /// withdrawn from `wakeups` and never reaches the host; only a timer an
+    /// earlier turn handed over is cancelled. What the host is left holding is
+    /// what it would hold had each request reached it on its own.
+    ///
+    /// Called once per piece of a fed turn (so once for any other turn), with
+    /// the turn's one `wakeups` list.
+    fn resolve_schedule(
+        &mut self,
+        reqs: &mut ScheduleRequests,
+        wakeups: &mut Vec<Wakeup>,
+        cancellations: &mut Vec<WakeupId>,
+    ) {
+        for request in reqs.timers.drain(..) {
+            let (previous, wakeup) = match request {
+                TimerRequest::Cancel { node_id, method } => {
+                    (Self::take_outstanding(&mut self.outstanding, &node_id, &method), None)
+                }
+                TimerRequest::Schedule { node_id, method, delay_ms } => {
+                    let id = self.next_wakeup_id;
+                    self.next_wakeup_id += 1;
+                    // One `insert` does the read-and-replace: the previous timer
+                    // for this `(node, method)`, if any, is the value it hands
+                    // back — no separate `remove` and no second pair of key
+                    // clones on the hot timer path.
+                    let previous = self
+                        .outstanding
+                        .entry(node_id.clone())
+                        .or_default()
+                        .insert(method.clone(), id);
+                    (previous, Some(Wakeup { id, node_id, method, delay_ms }))
+                }
+            };
             if let Some(old) = previous {
-                cancellations.push(old);
+                // Ids only grow, so the turn's wakeups are in id order.
+                match wakeups.binary_search_by_key(&old, |w| w.id) {
+                    Ok(at) => {
+                        wakeups.remove(at);
+                    }
+                    Err(_) => cancellations.push(old),
+                }
             }
-            wakeups.push(Wakeup { id, node_id: node, method, delay_ms });
+            wakeups.extend(wakeup);
         }
-        (wakeups, cancellations)
     }
 
     /// Remove one outstanding timer, pruning the node's sub-map when it empties.
@@ -2059,6 +2091,242 @@ mod tests {
         assert_eq!(clears.len(), 1, "{clears:?}");
         assert!(clears[0].message.is_none());
         assert_eq!(clears[0].origin, DiagnosticOrigin::Runtime, "the runtime clears only its own");
+    }
+
+    // --- One timer asked for more than once in one cascade ----------------------
+    //
+    // A turn's timer requests are applied by the host as one batch,
+    // cancellations before wakeups. What it is left holding must be what it
+    // would hold had each request reached it on its own, in the order the
+    // nodes made them.
+
+    /// `arm` schedules its `_t` wakeup, any other port cancels it; the wakeup
+    /// emits `fired`.
+    pub(in crate::runtime) struct TestTimer {
+        pub(in crate::runtime) base: ComponentBase,
+    }
+
+    impl Component for TestTimer {
+        fn base(&self) -> &ComponentBase { &self.base }
+        fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
+        fn component_type(&self) -> &'static str { "TestTimer" }
+        fn dispatch(&mut self, method: &str, _a: ComponentValue, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            match method {
+                "arm" => ctx.schedule_wakeup("_t", 100),
+                _ => ctx.cancel_wakeup("_t"),
+            }
+            Ok(())
+        }
+        fn dispatch_internal(&mut self, _m: &str, _v: ComponentValue, _c: &mut RuntimeContext) -> Result<(), RuntimeError> {
+            self.base.emit("fired");
+            Ok(())
+        }
+    }
+
+    /// The timers a host has armed after applying each of `turns` in the
+    /// canonical order (cancel before arm) — what is left ticking.
+    pub(in crate::runtime) fn armed_after(turns: &[&Effects]) -> Vec<Wakeup> {
+        let mut armed: Vec<Wakeup> = Vec::new();
+        for effects in turns {
+            armed.retain(|w| !effects.cancellations.contains(&w.id));
+            armed.extend(effects.wakeups.iter().cloned());
+        }
+        armed
+    }
+
+    /// A timer `d` that hears `steps` one after the other in a single cascade:
+    /// `src` drives the first, and each relay down the chain the next.
+    fn timer_hearing(steps: &[&str]) -> FlowRuntime {
+        let mut rt = FlowRuntime::new();
+        rt.add_component("d", Box::new(TestTimer { base: base("d") }));
+        let mut edges = Vec::new();
+        let mut from = "src".to_string();
+        for (at, step) in steps.iter().enumerate() {
+            rt.add_component(&from, Box::new(Passthrough { base: base(&from) }));
+            edges.push(edge(&from, "value", "d", step));
+            if at + 1 < steps.len() {
+                let relay = format!("relay-{at}");
+                edges.push(edge(&from, "value", &relay, "value"));
+                from = relay;
+            }
+        }
+        rt.set_edges(edges);
+        rt
+    }
+
+    /// Run the cascade of [`timer_hearing`]: a new value into `src`.
+    fn cascade(rt: &mut FlowRuntime, value: f64) -> Effects {
+        rt.dispatch("src", "value", ComponentValue::Number(value))
+    }
+
+    /// Every armed timer elapses: how often `node` emits `handle` for it.
+    fn fires(rt: &mut FlowRuntime, armed: &[Wakeup], node: &str, handle: &str) -> usize {
+        armed
+            .iter()
+            .map(|wakeup| {
+                rt.wake(&wakeup.node_id, &wakeup.method)
+                    .component_events
+                    .iter()
+                    .filter(|e| e.source.as_ref() == node && e.source_handle.as_ref() == handle)
+                    .count()
+            })
+            .sum()
+    }
+
+    #[test]
+    fn a_timer_scheduled_twice_in_one_cascade_is_left_armed_once() {
+        let mut rt = timer_hearing(&["arm", "arm"]);
+
+        let turn = cascade(&mut rt, 1.0);
+
+        let armed = armed_after(&[&turn]);
+        assert_eq!(armed.len(), 1, "{turn:?}");
+        assert!(turn.cancellations.is_empty(), "nothing the host holds was cancelled: {turn:?}");
+        // The runtime agrees with the host about which timer is left.
+        let disarmed = rt.dispatch("d", "disarm", ComponentValue::default());
+        assert_eq!(disarmed.cancellations, vec![armed[0].id]);
+    }
+
+    #[test]
+    fn a_timer_scheduled_twice_in_one_cascade_wakes_its_node_once() {
+        let mut rt = timer_hearing(&["arm", "arm"]);
+
+        let turn = cascade(&mut rt, 1.0);
+
+        assert_eq!(fires(&mut rt, &armed_after(&[&turn]), "d", "fired"), 1, "{turn:?}");
+    }
+
+    #[test]
+    fn a_timer_scheduled_then_cancelled_in_one_cascade_is_not_left_armed() {
+        let mut rt = timer_hearing(&["arm", "disarm"]);
+
+        let turn = cascade(&mut rt, 1.0);
+
+        assert!(armed_after(&[&turn]).is_empty(), "{turn:?}");
+        assert!(turn.cancellations.is_empty(), "{turn:?}");
+        // The runtime agrees with the host: there is nothing left to cancel.
+        let disarmed = rt.dispatch("d", "disarm", ComponentValue::default());
+        assert!(disarmed.cancellations.is_empty(), "{disarmed:?}");
+    }
+
+    #[test]
+    fn a_running_timer_rescheduled_then_cancelled_in_one_cascade_is_stopped() {
+        let mut rt = timer_hearing(&["arm", "disarm"]);
+        let before = rt.dispatch("d", "arm", ComponentValue::default());
+
+        let turn = cascade(&mut rt, 1.0);
+
+        assert!(armed_after(&[&before, &turn]).is_empty(), "{turn:?}");
+        let disarmed = rt.dispatch("d", "disarm", ComponentValue::default());
+        assert!(disarmed.cancellations.is_empty(), "{disarmed:?}");
+    }
+
+    #[test]
+    fn a_running_timer_cancelled_then_scheduled_in_one_cascade_is_left_armed_once() {
+        let mut rt = timer_hearing(&["disarm", "arm"]);
+        let before = rt.dispatch("d", "arm", ComponentValue::default());
+
+        let turn = cascade(&mut rt, 1.0);
+
+        let armed = armed_after(&[&before, &turn]);
+        assert_eq!(armed.len(), 1, "{turn:?}");
+        assert_ne!(armed[0].id, before.wakeups[0].id, "the earlier timer is the one cancelled");
+        let disarmed = rt.dispatch("d", "disarm", ComponentValue::default());
+        assert_eq!(disarmed.cancellations, vec![armed[0].id]);
+    }
+
+    #[test]
+    fn a_timer_scheduled_cancelled_and_scheduled_again_in_one_cascade_is_left_armed_once() {
+        let mut rt = timer_hearing(&["arm", "disarm", "arm"]);
+        let before = rt.dispatch("d", "arm", ComponentValue::default());
+
+        let turn = cascade(&mut rt, 1.0);
+
+        let armed = armed_after(&[&before, &turn]);
+        assert_eq!(armed.len(), 1, "{turn:?}");
+        assert_eq!(turn.cancellations, vec![before.wakeups[0].id], "the running timer, once: {turn:?}");
+        let disarmed = rt.dispatch("d", "disarm", ComponentValue::default());
+        assert_eq!(disarmed.cancellations, vec![armed[0].id]);
+        assert_eq!(fires(&mut rt, &armed, "d", "fired"), 1);
+    }
+
+    #[test]
+    fn a_timer_scheduled_and_cancelled_over_and_over_in_one_cascade_reaches_the_host_as_one_cancellation() {
+        // The timer that was running is the only one the host ever hears of.
+        let mut rt = timer_hearing(&["arm", "disarm", "arm", "disarm"]);
+        let before = rt.dispatch("d", "arm", ComponentValue::default());
+
+        let turn = cascade(&mut rt, 1.0);
+
+        assert!(turn.wakeups.is_empty(), "{turn:?}");
+        assert_eq!(turn.cancellations, vec![before.wakeups[0].id]);
+    }
+
+    /// A key that reaches `target`'s `port` twice in one cascade: once
+    /// straight from the Hotkey and once through a Gate.
+    fn key_reaching_twice(target: FlowNode, port: &str) -> FlowRuntime {
+        use serde_json::json;
+        let mut rt = FlowRuntime::new();
+        let edges = vec![
+            edge("hk", "true", &target.id, port),
+            edge("hk", "true", "gate", "value"),
+            edge("gate", "true", &target.id, port),
+        ];
+        rt.update_flow(FlowUpdate {
+            nodes: vec![
+                node("hk", "Hotkey", json!({ "accelerator": "x" })),
+                node("gate", "Gate", json!({ "gate": "or" })),
+                target,
+            ],
+            edges,
+        });
+        rt
+    }
+
+    #[test]
+    fn a_delay_triggered_twice_in_one_cascade_emits_once() {
+        use serde_json::json;
+        let delay = node("delay", "Delay", json!({ "delay": 500, "forgetPrevious": true }));
+        let mut rt = key_reaching_twice(delay, "trigger");
+
+        let pressed = rt.dispatch_key_event("x", true);
+
+        let armed = armed_after(&[&pressed]);
+        assert_eq!(armed.len(), 1, "{pressed:?}");
+        assert_eq!(fires(&mut rt, &armed, "delay", "event"), 1);
+    }
+
+    /// A Delay that keeps every trigger holds both, behind the one wakeup it
+    /// arms for the oldest.
+    #[test]
+    fn a_queueing_delay_triggered_twice_in_one_cascade_emits_twice_from_one_timer() {
+        use serde_json::json;
+        let delay = node("delay", "Delay", json!({ "delay": 500, "forgetPrevious": false }));
+        let mut rt = key_reaching_twice(delay, "trigger");
+
+        let pressed = rt.dispatch_key_event("x", true);
+
+        let armed = armed_after(&[&pressed]);
+        assert_eq!(armed.len(), 1, "{pressed:?}");
+        rt.set_now(500.0);
+        assert_eq!(fires(&mut rt, &armed, "delay", "event"), 2);
+    }
+
+    #[test]
+    fn an_interval_started_twice_in_one_cascade_ticks_once_per_period() {
+        use serde_json::json;
+        let interval = node("every", "Interval", json!({ "interval": 500, "autoStart": false }));
+        let mut rt = key_reaching_twice(interval, "start");
+
+        let pressed = rt.dispatch_key_event("x", true);
+
+        // Each tick arms the next one: a second timer would tick alongside the
+        // first for as long as the interval runs.
+        let armed = armed_after(&[&pressed]);
+        assert_eq!(armed.len(), 1, "{pressed:?}");
+        let ticked = rt.wake(&armed[0].node_id, &armed[0].method);
+        assert_eq!(ticked.wakeups.len(), 1, "{ticked:?}");
+        assert!(ticked.cancellations.is_empty(), "{ticked:?}");
     }
 
     fn contains(haystack: &[u8], needle: &[u8]) -> bool {

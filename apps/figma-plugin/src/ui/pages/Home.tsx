@@ -1,11 +1,9 @@
 /** @jsxImportSource preact */
 import { IconButton } from "@create-figma-plugin/ui";
-import { STUDIO } from "@microflow/design-bridge";
-import { useAppStore, useNavigation } from "@microflow/design-bridge/react";
-import { type ConnectionStatus, useMqttStore } from "@microflow/mqtt";
+import { useBridgeSession, useNavigation } from "@microflow/design-bridge/react";
+import { type ConnectionStatus, settingsProblems } from "@microflow/design-bridge/session";
 import { ExternalLink, Heart, Settings, Variable } from "lucide-react";
-import { useMemo } from "preact/hooks";
-import { openLink } from "../channel";
+import { openLink, session } from "../channel";
 import { PageContent } from "../components/PageLayout";
 import { useWindowSize } from "../hooks/use-window-size";
 
@@ -34,45 +32,58 @@ function StatusDot(props: { status?: ConnectionStatus }) {
   );
 }
 
+/** Room one line of `problems` takes in the window. */
+const PROBLEM_LINE_HEIGHT = 18;
+
 function ConnectionRow(props: {
   label: string;
   status?: ConnectionStatus;
+  /** Why there is no connection, when the reason is on this side. */
+  problems?: string[];
   actions?: preact.ComponentChildren;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "4px 0",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", fontSize: "13px" }}>
-        {props.label}
-        <StatusDot status={props.status} />
+    <>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "4px 0",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", fontSize: "13px" }}>
+          {props.label}
+          <StatusDot status={props.status} />
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>{props.actions}</div>
       </div>
-      <div style={{ display: "flex", gap: 4 }}>{props.actions}</div>
-    </div>
+      {props.problems?.map((problem) => (
+        // As the settings page shows a setting's error.
+        <div
+          key={problem}
+          style={{ color: "#ef4444", fontSize: "11px", lineHeight: `${PROBLEM_LINE_HEIGHT}px` }}
+        >
+          {problem}
+        </div>
+      ))}
+    </>
   );
 }
 
 export function Home() {
-  const { status, connectedClients } = useMqttStore();
-  const { mqttConfig } = useAppStore();
+  const { connection, studio, settingsErrors } = useBridgeSession(session);
   const { navigate } = useNavigation();
-  useWindowSize({ width: 275, height: 220 });
-
-  const appStatus = useMemo(
-    () => connectedClients.find(({ appName }) => appName === STUDIO)?.status,
-    [connectedClients],
-  );
+  // Stored settings that today's rules refuse are not connected with: say which, and why.
+  const problems = settingsProblems(settingsErrors);
+  useWindowSize({ width: 275, height: 220 + PROBLEM_LINE_HEIGHT * problems.length });
 
   return (
     <PageContent>
       <ConnectionRow
         label="MQTT"
-        status={mqttConfig ? status : undefined}
+        status={connection}
+        problems={problems}
         actions={
           <>
             <IconButton onClick={() => navigate("variables")}>
@@ -86,7 +97,7 @@ export function Home() {
       />
       <ConnectionRow
         label="Microflow studio"
-        status={appStatus}
+        status={studio}
         actions={
           <IconButton onClick={() => openLink("https://microflow.tech/")}>
             <ExternalLink size={16} />

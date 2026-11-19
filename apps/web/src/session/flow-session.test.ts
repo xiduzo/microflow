@@ -1,9 +1,14 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import * as Y from "yjs";
 import { FlowDocument } from "@microflow/collab";
-import { createCloudSession, makeSession } from "./flow-session";
+import { createCloudSession, makeSession, provideHandleSets } from "./flow-session";
 import { constantSessionStatus } from "./session-status";
 import type { SyncAdapter } from "./sync-adapter";
+
+// These sessions are not about handle pruning. A writable session without
+// handle sets reports the missing wiring, so give them one that knows no node.
+beforeAll(() => provideHandleSets(() => null));
+afterAll(() => provideHandleSets(null));
 
 describe("createCloudSession", () => {
   test("a seed persisted before ADR-0019 is readable, and the client writes no upgrade into it", () => {

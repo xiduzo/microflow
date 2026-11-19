@@ -95,11 +95,11 @@ describe("startCloudCapabilitySync", () => {
     expect(store.listenerCount).toBe(0);
   });
 
-  test("starts and cleans up listen channels; snapshot-only capabilities need no sync", () => {
+  test("starts and cleans up listen channels; snapshot-only capabilities need no sync", async () => {
     let listening = false;
     const withListen: CloudCapability = {
       name: "mqtt",
-      listen: () => {
+      listen: async () => {
         listening = true;
         return () => {
           listening = false;
@@ -115,7 +115,59 @@ describe("startCloudCapabilitySync", () => {
     const stop = startCloudCapabilitySync([withListen, snapshotOnly]);
     expect(listening).toBe(true);
     stop();
+    await Promise.resolve();
     expect(listening).toBe(false);
+  });
+
+  /** A listen channel that opens when the test says so. */
+  function channel() {
+    let open: (stop: () => void) => void = () => {};
+    let stopped = false;
+    const opening = new Promise<() => void>((resolve) => {
+      open = resolve;
+    });
+    return {
+      listen: () => opening,
+      open: () =>
+        open(() => {
+          stopped = true;
+        }),
+      get stopped() {
+        return stopped;
+      },
+    };
+  }
+
+  test("pushes only once the listen channel is open, and in order", async () => {
+    // What the runtime says in answer to the first push must find the
+    // listener there.
+    const store = makeFakeStore([{ id: "b1" }]);
+    const { capability, pushes } = makeCapability("mqtt", store);
+    const events = channel();
+    const stop = startCloudCapabilitySync([{ ...capability, listen: events.listen }]);
+
+    store.setSlice([{ id: "b2" }]);
+    await Promise.resolve();
+    expect(pushes).toEqual([]);
+
+    events.open();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(pushes).toEqual([[{ id: "b2" }], [{ id: "b2" }]]);
+    stop();
+  });
+
+  test("a push waiting for the channel is dropped by the cleanup, and the channel is closed", async () => {
+    const store = makeFakeStore([{ id: "b1" }]);
+    const { capability, pushes } = makeCapability("mqtt", store);
+    const events = channel();
+    const stop = startCloudCapabilitySync([{ ...capability, listen: events.listen }]);
+
+    stop();
+    events.open();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(pushes).toEqual([]);
+    expect(events.stopped).toBe(true);
   });
 });
 

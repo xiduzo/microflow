@@ -12,11 +12,3 @@ pub(crate) struct HotkeyConfig {
 fn default_accelerator() -> String {
     "x".to_string()
 }
-
-impl Default for HotkeyConfig {
-    fn default() -> Self {
-        Self {
-            accelerator: default_accelerator(),
-        }
-    }
-}

@@ -47,7 +47,6 @@ function throwingRuntime(error: unknown): { runtime: FlowRuntimeCalls; calls: ()
     injectEvent: unused,
     deliverMessage: unused,
     reconcileSubscriptions: unused,
-    midiListeners: unused,
   } as unknown as FlowRuntimeCalls;
   return { runtime, calls: () => calls };
 }
@@ -160,13 +159,108 @@ describe("RuntimeBridge (ADR-0017)", () => {
 
   test("an undecodable reply classifies as badInput through the taxonomy", () => {
     const faults: RuntimeFault[] = [];
-    const runtime = { midiListeners: () => "not json{" } as unknown as FlowRuntimeCalls;
+    const runtime = {
+      reconcileSubscriptions: () => "not json{",
+    } as unknown as FlowRuntimeCalls;
     const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
 
-    expect(bridge.midiListeners()).toBeUndefined();
-    expect(faults[0]).toMatchObject({ kind: "badInput", op: "midiListeners", node: null });
+    expect(bridge.reconcileSubscriptions()).toBeUndefined();
+    expect(faults[0]).toMatchObject({
+      kind: "badInput",
+      op: "reconcileSubscriptions",
+      node: null,
+    });
     // The call returned, so the module is intact — not a poisoned engine.
     expect(bridge.live).toBe(true);
+  });
+
+  test("host input crosses as given: a key by accelerator, a MIDI message by port", () => {
+    const seen: unknown[][] = [];
+    const effects = { ...NO_EFFECTS_OBJ, outboundBytes: [0x90, 0x01] };
+    const runtime = {
+      keyEvent: (accelerator: string, pressed: boolean, nowMs: number) => {
+        seen.push(["keyEvent", accelerator, pressed, nowMs]);
+        return JSON.stringify(effects);
+      },
+      midiMessage: (portName: string, bytes: Uint8Array, nowMs: number) => {
+        seen.push(["midiMessage", portName, [...bytes], nowMs]);
+        return "";
+      },
+    } as unknown as FlowRuntimeCalls;
+    const bridge = new RuntimeBridge(runtime, () => {});
+
+    // No node id goes in: which nodes hear the input is the runtime's answer.
+    expect(bridge.keyEvent("Mod+K", true, 7)).toEqual(effects);
+    expect(bridge.midiMessage("Launchpad Mini", new Uint8Array([0x90, 60, 100]), 8)).toBeUndefined();
+    expect(seen).toEqual([
+      ["keyEvent", "Mod+K", true, 7],
+      ["midiMessage", "Launchpad Mini", [0x90, 60, 100], 8],
+    ]);
+  });
+
+  test("a MIDI query answers false as false, and nothing at all once the engine is gone", () => {
+    const faults: RuntimeFault[] = [];
+    const runtime = {
+      listensToMidi: () => true,
+      wantsMidiInput: (portName: string) => portName === "Launchpad Mini",
+      midiDeviceMatches: (portName: string, deviceName: string) =>
+        portName === "Micro Synth" && deviceName === "synth",
+      feedBytes: () => {
+        throw new WebAssembly.RuntimeError("unreachable executed");
+      },
+    } as unknown as FlowRuntimeCalls;
+    const bridge = new RuntimeBridge(runtime, (fault) => faults.push(fault));
+
+    expect(bridge.listensToMidi()).toBe(true);
+    expect(bridge.wantsMidiInput("Launchpad Mini")).toBe(true);
+    // A `false` answer is an answer, not a faulted call.
+    expect(bridge.wantsMidiInput("Keystation 49")).toBe(false);
+    expect(bridge.midiDeviceMatches("Micro Synth", "synth")).toBe(true);
+    expect(bridge.midiDeviceMatches("Drum Machine", "synth")).toBe(false);
+    expect(faults).toEqual([]);
+
+    bridge.feedBytes(new Uint8Array([1]), 0);
+    expect(bridge.listensToMidi()).toBeUndefined();
+    expect(bridge.wantsMidiInput("Launchpad Mini")).toBeUndefined();
+  });
+
+  test("the announce policy crosses like an op: answered while the module lives, contained when it throws", () => {
+    const faults: RuntimeFault[] = [];
+    const bridge = new RuntimeBridge({} as FlowRuntimeCalls, (fault) => faults.push(fault));
+    const publishes = [{ brokerId: "b1", topic: "microflow/uid-1/app/status", payload: "connected", retain: true }];
+
+    expect(bridge.figmaAnnounce(() => publishes)).toEqual(publishes);
+    expect(faults).toEqual([]);
+
+    const thrown = bridge.figmaAnnounce<unknown[]>(() => {
+      throw new Error("invalid type: map, expected a string");
+    });
+    expect(thrown).toBeUndefined();
+    expect(faults).toEqual([
+      {
+        kind: "badInput",
+        op: "figmaAnnounceActions",
+        node: null,
+        message: "invalid type: map, expected a string",
+      },
+    ]);
+  });
+
+  test("the announce policy of a module that trapped, or of a disposed bridge, is not called", () => {
+    let asked = 0;
+    const policy = () => {
+      asked += 1;
+      return [];
+    };
+    const { runtime } = throwingRuntime(new WebAssembly.RuntimeError("unreachable executed"));
+    const trapped = new RuntimeBridge(runtime, () => {});
+    trapped.feedBytes(new Uint8Array([1]), 0);
+    const disposed = new RuntimeBridge({} as FlowRuntimeCalls, () => {});
+    disposed.dispose();
+
+    expect(trapped.figmaAnnounce(policy)).toBeUndefined();
+    expect(disposed.figmaAnnounce(policy)).toBeUndefined();
+    expect(asked).toBe(0);
   });
 });
 

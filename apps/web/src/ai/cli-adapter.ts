@@ -3,12 +3,20 @@
 // `adapterFor` is the one seam every AI surface resolves through — the `Llm`
 // node's transport and Ask AI both take whatever it returns — so a CLI provider
 // only has to be an `AnyTextAdapter` to work everywhere an HTTP provider does.
-// That is what this is: `chatStream` spawns the binary through
-// `llm_cli_generate` and reports its stdout as one assistant message.
+// That is what this is: `chatStream` runs the binary and reports its stdout as
+// one assistant message.
 //
 // TanStack AI has no adapter for this (its own docs point at "a future
 // `claudeCode()` harness adapter"), and cannot: running a process is a host
 // capability, and the only host we have with one is the desktop app.
+//
+// ## The host
+//
+// The process and the MCP server it calls back into are reached through an
+// `AgentCliPort` (`agent-cli-port.ts`), which this adapter is constructed with.
+// Everything in this file is above that seam — the argument vector, the prompt,
+// what stdout becomes, the order of the events — so it runs against the scripted
+// host in `cli-adapter.test.ts` as it runs against the desktop one.
 //
 // ## Tools
 //
@@ -28,16 +36,43 @@
 // A CLI with no `mcpArgs` gets no session at all and answers in prose, which is
 // what `hostLimitation` warns about before the user picks one for Ask AI.
 //
+// ## Stop
+//
+// `chat()` hands the turn's abort signal to an adapter as `request.signal`.
+//
+// A turn stopped before its CLI has started never starts it: `run` checks the
+// signal first, on every path.
+//
+// A turn stopped while its CLI is running ends the process: the signal goes
+// with the run to the port, and the host ends the process and everything it
+// started (`AgentCliPort.run`). The same signal goes to the bridge, which
+// closes the turn's session (ADR-0024). Both happen at the stop, so a stopped
+// turn spends no more tokens and reaches the flow no more. This holds for every
+// run: with a session or without, for a chat, a structured answer or an `Llm`
+// node's generation.
+//
+// The stream of a stopped run ends in `RUN_ERROR` carrying the signal's reason,
+// and never in text. Whoever stopped the turn decides what to show for that;
+// `turn-runner.ts` and `llm-performer.ts` both show nothing.
+//
 // ## Streaming
 //
-// One invoke, one string (see `llm_cli_generate`). The text arrives whole at
-// the end; the tool events above are the only thing that streams.
+// One run, one string (see `AgentCliPort.run`). The text arrives whole at the
+// end; the tool events above are the only thing that streams.
 
 import { EventType } from "@tanstack/ai";
 import type { AnyTextAdapter, AnyTool } from "@tanstack/ai";
 
+import type { AgentCliPort, RelayCommand } from "./agent-cli-port";
 import { cliProvider, takesSystemFlag, type CliProvider } from "./cli-providers";
-import { withFlowToolServer, type RelayCommand } from "./mcp-bridge";
+import { withFlowToolServer } from "./mcp-bridge";
+
+/** Resolves the port a CLI adapter runs on. Lazy, so the desktop adapter (and
+ *  the Tauri API behind it) loads only when a CLI is actually run. */
+export type AgentCliPortResolver = () => Promise<AgentCliPort>;
+
+const desktopPort: AgentCliPortResolver = async () =>
+  (await import("./tauri-agent-cli")).tauriAgentCli;
 
 /** The MCP server name Rust registers under. Mirrors `mcp::SERVER_NAME`; the
  *  CLIs' own permission flags are written as `mcp__<server>__<tool>`, so this
@@ -89,7 +124,9 @@ type RunOptions = {
   messages: ReadonlyArray<{ role: string; content: unknown }>;
   systemPrompts?: ReadonlyArray<string | { content?: string }>;
   tools?: ReadonlyArray<AnyTool>;
-  abortSignal?: AbortSignal;
+  /** Where `chat()` puts the turn's abort signal: it is written for adapters
+   *  that pass `request` on to `fetch`. */
+  request?: { signal?: AbortSignal | null };
 };
 
 class CliTextAdapter {
@@ -99,6 +136,7 @@ class CliTextAdapter {
   constructor(
     private readonly cli: CliProvider,
     readonly model: string,
+    private readonly port: AgentCliPortResolver,
   ) {
     this.name = cli.id;
   }
@@ -106,9 +144,16 @@ class CliTextAdapter {
   /** Run the binary once. `mcp` is the server the CLI should call our flow
    *  tools on, when there is one to give it. */
   private async run(
+    port: AgentCliPort,
     options: RunOptions,
     mcp?: { relay: RelayCommand; tools: string[] },
   ): Promise<string> {
+    // The one place a CLI is started, so the one place a stopped turn is turned
+    // down and the one place a run is given its turn's signal: with a session
+    // or without, for a chat or a structured answer. A run nobody is waiting
+    // for is paid for all the same.
+    options.request?.signal?.throwIfAborted();
+
     const system =
       (options.systemPrompts ?? [])
         .map((entry) => (typeof entry === "string" ? entry : (entry.content ?? "")))
@@ -121,14 +166,7 @@ class CliTextAdapter {
     const inline = system && !takesSystemFlag(this.cli);
     const prompt = inline ? `${system}\n\n${flatten(options.messages)}` : flatten(options.messages);
 
-    // Imported here rather than at module scope: `platform/ipc` pulls in the Tauri
-    // API, and this module is reachable from the web build's provider list.
-    const { invokeCommand } = await import("@/platform/ipc");
-    const response = await invokeCommand<
-      { type: "llm_cli_generate"; bin: string; args: string[]; prompt: string },
-      Record<string, unknown>
-    >({
-      type: "llm_cli_generate",
+    const stdout = await port.run({
       bin: this.cli.id,
       // A CLI that takes the prompt as an argument gets it appended and an
       // empty stdin; every other one gets it on stdin and no prompt in argv.
@@ -139,11 +177,10 @@ class CliTextAdapter {
           : []),
         ...(this.cli.promptAsArg ? [prompt] : []),
       ],
-      prompt: this.cli.promptAsArg ? "" : prompt,
+      stdin: this.cli.promptAsArg ? "" : prompt,
+      // The run lives as long as the turn does: a stop ends the process.
+      signal: options.request?.signal ?? undefined,
     });
-
-    if (!response.success) throw new Error(response.error);
-    const stdout = typeof response.data === "string" ? response.data : String(response.data ?? "");
     return clean(this.cli, stdout);
   }
 
@@ -167,21 +204,22 @@ class CliTextAdapter {
     // No `mcpArgs` (or no tools this turn) means no session: publishing tools a
     // CLI was never told how to reach would open the door for the length of the
     // run and get nothing for it.
-    const answer =
+    const answer = this.port().then((port) =>
       this.cli.mcpArgs && names.length > 0
         ? withFlowToolServer(
+            port,
             {
               tools,
-              signal: options.abortSignal,
+              signal: options.request?.signal ?? undefined,
               onCall: (name) => {
                 calls.push(name);
                 bump();
               },
             },
-            (relay) =>
-              this.run(options, relay ? { relay, tools: names } : undefined),
+            (relay) => this.run(port, options, relay ? { relay, tools: names } : undefined),
           )
-        : this.run(options);
+        : this.run(port, options),
+    );
 
     // `done` never rejects: the failure is `answer`'s to report, and an
     // unhandled rejection here would surface as a console error instead.
@@ -273,7 +311,7 @@ class CliTextAdapter {
       chatOptions: RunOptions;
       outputSchema: unknown;
     };
-    const rawText = await this.run({
+    const rawText = await this.run(await this.port(), {
       ...chatOptions,
       // Tools are for `chatStream`; a structured answer wants no side effects.
       tools: undefined,
@@ -294,9 +332,17 @@ class CliTextAdapter {
   }
 }
 
-/** Build an adapter for a CLI provider, or `undefined` if `id` names no CLI. */
-export function cliAdapterFor(id: string, model: string): AnyTextAdapter | undefined {
+/**
+ * Build an adapter for a CLI provider, or `undefined` if `id` names no CLI.
+ *
+ * `port` is the host the CLI runs on: the desktop app unless told otherwise.
+ */
+export function cliAdapterFor(
+  id: string,
+  model: string,
+  port: AgentCliPortResolver = desktopPort,
+): AnyTextAdapter | undefined {
   const cli = cliProvider(id);
   if (!cli) return undefined;
-  return new CliTextAdapter(cli, model) as unknown as AnyTextAdapter;
+  return new CliTextAdapter(cli, model, port) as unknown as AnyTextAdapter;
 }

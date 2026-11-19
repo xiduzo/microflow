@@ -1,6 +1,6 @@
 # ADR-0025 — Per-capability service traits over a single `RuntimeContext` bundle
 
-- **Status:** accepted
+- **Status:** accepted; amended (2026-11-19)
 - **Date:** 2026-05-17
 - **Number:** filed as a second ADR-0002 on the same day as the FlowRouter ADR; renumbered to 0025 on 2026-09-25.
 - **Deciders:** sander
@@ -8,11 +8,11 @@
 > **⚠ Relocated (2026-06 · [ADR-0006](0006-rehost-runtime-on-core.md)):** this ADR
 > predates the re-host of the Live Flow Runtime onto `microflow-core`. The
 > per-capability service-trait decision still holds, but the runtime moved to
-> `crates/microflow-core/src/runtime/…`; the cloud nodes + their service adapters now
-> live in `apps/web/src-tauri/src/runtime/cloud/` and `…/services/` (the old
-> `external/` module was renamed `cloud/`, `builders.rs` is gone, `RuntimeContext`
-> is now the sans-IO per-turn context — a different type from the old service bundle).
-> See ADR-0006.
+> `crates/microflow-core/src/runtime/…`; the cloud nodes live in
+> `crates/microflow-core/src/nodes/{mqtt,llm,figma}/` and the one service trait in
+> `apps/web/src-tauri/src/runtime/services/` (`builders.rs` is gone, `RuntimeContext`
+> is the sans-IO per-turn context — a different type from the old service bundle).
+> See ADR-0006 and the amendment at the end.
 
 ## Context
 
@@ -236,3 +236,39 @@ New terms recorded in `CONTEXT.md`:
   § TestIoLoop (the seam pattern this ADR generalises).
 - `ADR-0001` — Component trait flow separation (sets the precedent for
   splitting an overloaded interface into typed seams).
+
+---
+
+## Amendment (2026-11-19): the MQTT Capability Trait is the broker pool
+
+One Capability Trait lives in `apps/web/src-tauri/src/runtime/services/`:
+`MqttBrokers` (`services/mqtt.rs`). LLM generation is not in this layer; the
+webview performs it for both hosts
+([ADR-0021](0021-one-llm-transport-in-the-webview.md)).
+
+`MqttBrokers` is everything the desktop `CloudPerformer` asks of the broker
+pool, addressed by broker id at call time:
+
+- `publish(broker_id, topic, payload, retain)`;
+- `subscribe(broker_id, topic, on_message)`, which returns the id of the broker
+  session that holds the subscription, and `unsubscribe(broker_id, topic)`;
+- `session(broker_id)`, the `BrokerSession { id, online }` a broker is in;
+- `changes()`, a signal that ticks when a session starts, ends or gets its link
+  back.
+
+Its error type is `MqttError`: `BrokerNotConnected(id)`, so a caller can prompt
+for a reconnect, or `Failed(reason)` for a wire-level failure.
+
+The sub-decisions hold in this shape. **D1**: the trait covers one external
+kind. **D2**: the pool is looked up by broker id on every call, so a changed
+broker config takes effect without rebuilding anything. **D3**: no node holds
+the trait; the cloud nodes are sans-IO and record `CloudRequest`s and
+subscriber wirings, which the performer turns into calls on it
+([ADR-0009](0009-cloud-sans-io-capability.md),
+[ADR-0035](0035-desktop-cloud-performer-owns-subscriptions.md)). **D5**: two
+adapters, `MqttManager` in the app and `RecordingMqttBrokers` in tests. The
+recording pool keeps what the real one keeps (one session per connected broker,
+one callback per topic, forgotten when the session ends), records every call in
+order, and can be scripted to fail a call, hold a subscribe back, drop a link
+or deliver an inbound message. **D4** (`ComponentBuilder::Deps`) is not in the
+code: core's `ComponentBuilder` takes no services.

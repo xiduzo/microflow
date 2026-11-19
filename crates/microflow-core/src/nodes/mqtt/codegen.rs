@@ -21,8 +21,8 @@
 //! - `broker` — broker host (the request shape); falls back to `brokerId`.
 //! - `port` — broker TCP port (default `1883`).
 //! - `topic` — topic to publish on / subscribe to.
-//! - `direction` — `"publish"` or `"subscribe"` (default `"subscribe"`,
-//!   matching `MqttConfig::default`).
+//! - `direction` — publishes when exactly `"publish"`, otherwise subscribes
+//!   (`MqttDirection`, the rule the live runtime reads too).
 //! - credentials: `wifiSsid` (only gates the missing-credentials warning; the
 //!   `WiFi` join itself lives in the shared preamble), `brokerUsername`,
 //!   `brokerPassword`. When `wifiSsid`/`broker` are absent the sketch emits a
@@ -41,12 +41,11 @@ use super::config::MqttConfig;
 use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Default broker port — standard unencrypted MQTT.
 const DEFAULT_PORT: u16 = 1883;
-/// Default direction matches `super::config::MqttConfig::default`.
-const DEFAULT_DIRECTION: &str = "subscribe";
 /// Sentinel emitted in place of a missing credential so the sketch never
 /// silently connects with an empty value.
 const PLACEHOLDER: &str = "REPLACE_ME";
@@ -57,15 +56,6 @@ fn includes() -> Vec<String> {
         "#include <WiFi.h>".to_string(),
         "#include <PubSubClient.h>".to_string(),
     ]
-}
-
-/// The Node's direction from the shared [`MqttConfig`]. An empty value (the
-/// field-level serde default) means subscribe, like the runtime component.
-fn direction(node: &FlowNode) -> String {
-    let d = serde_json::from_value::<MqttConfig>(node.data.clone())
-        .unwrap_or_default()
-        .direction;
-    if d.is_empty() { DEFAULT_DIRECTION.to_string() } else { d }
 }
 
 /// Emit C++ for an Mqtt Cloud Node on a networked target.
@@ -79,17 +69,15 @@ fn direction(node: &FlowNode) -> String {
 /// Broker host/port/auth come from the generate-time `credentials` surface
 /// when supplied there (the same fields `Credentials::missing_for` asks the
 /// Author for), falling back to the Node's own `data` otherwise.
-#[must_use]
 #[allow(clippy::too_many_lines)]
 pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
-) -> NodeEmission {
+) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
-    let config: MqttConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
-    let direction = direction(node);
-    let is_publish = direction == "publish";
+    let config = resolve::<MqttConfig>(&node.data)?;
+    let is_publish = config.is_publish();
 
     let topic = config.topic;
     let broker = supplied_or(
@@ -190,10 +178,13 @@ pub(crate) fn emit(
     // Inbound message handling for subscribe Nodes: copy the latest payload into
     // a Node-scoped buffer so downstream Nodes can read it (mirrors the live
     // component surfacing the message as its value).
+    // `received` is up on the tick a message arrived: the live node emits
+    // `value` for every message, the same payload again included.
     if !is_publish {
         let callback = format!("mqtt_{token}_on_message");
         let value_var = format!("mqtt_{token}_value");
         declarations.push(format!("String {value_var};"));
+        declarations.push(format!("bool {} = false;", received_var(&token)));
         declarations.push(format!(
             "void {callback}(char* topic, byte* payload, unsigned int length) {{"
         ));
@@ -201,6 +192,7 @@ pub(crate) fn emit(
         declarations.push("  for (unsigned int i = 0; i < length; i++) {".to_string());
         declarations.push(format!("    {value_var} += (char)payload[i];"));
         declarations.push("  }".to_string());
+        declarations.push(format!("  {} = true;", received_var(&token)));
         declarations.push("}".to_string());
     }
     // The ensure-connected helper is appended after the message callback it may
@@ -223,10 +215,12 @@ pub(crate) fn emit(
     // loop(): keep the connection alive (reconnect on drop), pump the client,
     // and — for publish Nodes — send one message per pulse on the `trigger`
     // port, the firing source's value as the payload.
-    let mut loop_body = vec![
-        format!("mqtt_{token}_ensure_connected();"),
-        format!("{mqtt_client}.loop();"),
-    ];
+    let mut loop_body = Vec::new();
+    if !is_publish {
+        loop_body.push(format!("{} = false;", received_var(&token)));
+    }
+    loop_body.push(format!("mqtt_{token}_ensure_connected();"));
+    loop_body.push(format!("{mqtt_client}.loop();"));
     if is_publish {
         let sources = inputs.on("trigger");
         let binding = bind_pulses(&format!("mqtt_{token}_trigger"), sources);
@@ -247,29 +241,31 @@ pub(crate) fn emit(
         }
     }
 
-    NodeEmission {
+    Ok(NodeEmission {
         includes: includes(),
         declarations,
         setup,
         loop_body,
         ..NodeEmission::default()
-    }
+    })
 }
 
 /// What downstream Nodes read from a subscribe Mqtt Node: the latest inbound
 /// message parsed as a number (`toFloat`), mirroring the live component's
-/// numeric payload parse — the common case for sensor data over MQTT. Publish
-/// Nodes expose no readable value.
+/// numeric payload parse — the common case for sensor data over MQTT — on
+/// each tick a message arrives. Publish Nodes expose no readable value.
 #[must_use]
 pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
-    let direction = direction(node);
-    if direction == "publish" {
+    if resolve::<MqttConfig>(&node.data).ok()?.is_publish() {
         return None;
     }
     let token = node.id_token();
-    Some(SourceExpr::level(CppExpr::number(format!(
-        "mqtt_{token}_value.toFloat()"
-    ))))
+    Some(SourceExpr::event(CppExpr::number(format!("mqtt_{token}_value.toFloat()")), received_var(&token)))
+}
+
+/// True on the tick a subscribe Node's message arrived.
+fn received_var(token: &str) -> String {
+    format!("mqtt_{token}_received")
 }
 
 #[cfg(test)]
@@ -290,7 +286,7 @@ mod tests {
     /// Test-local default: emit with no generate-time credentials (shadows the
     /// glob-imported `emit`, keeping the node-data call sites unchanged).
     fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-        super::emit(node, inputs, None)
+        super::emit(node, inputs, None).unwrap()
     }
 
     fn joined(lines: &[String]) -> String {
@@ -446,7 +442,7 @@ mod tests {
             &mqtt("m-1", json!({ "broker": "stale.example.com", "port": 1883, "topic": "t" })),
             &NodeInputs::default(),
             Some(&creds),
-        );
+        ).unwrap();
         let decls = joined(&e.declarations);
         assert!(decls.contains("\"surface.example.com\""), "surface broker wins: {decls}");
         assert!(!decls.contains("stale.example.com"), "node-data broker superseded");
@@ -461,7 +457,7 @@ mod tests {
     fn empty_surface_credentials_fall_back_to_node_data() {
         let n = mqtt("m-1", json!({ "broker": "data.example.com", "port": 1884, "topic": "t", "wifiSsid": "net" }));
         let with_empty =
-            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default()));
+            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default())).unwrap();
         assert_eq!(with_empty, emit(&n, &NodeInputs::default()), "empty surface == no surface");
         assert!(
             joined(&with_empty.declarations).contains("\"data.example.com\""),

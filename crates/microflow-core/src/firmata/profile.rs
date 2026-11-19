@@ -31,6 +31,19 @@ use ts_rs::TS;
 /// `"A<n>"` label when no board has described its pins.
 pub const UNO_FIRST_ANALOG_PIN: u8 = 14;
 
+/// Arduino's `analogWrite` on a pin without PWM drives it fully on from this
+/// value up, and off below it (`wiring_analog.c`).
+pub const ANALOG_WRITE_ON_THRESHOLD: u8 = 128;
+
+/// The lowest `analogWrite` value that leaves something on the pin lit: any
+/// duty above 0 where the pin has PWM, [`ANALOG_WRITE_ON_THRESHOLD`] where it
+/// has none. `has_pwm` unknown (`None`) counts as PWM. The one rule the live
+/// Led and its emitted sketch both judge "on" by.
+#[must_use]
+pub fn analog_write_lights_from(has_pwm: Option<bool>) -> u8 {
+    if has_pwm == Some(false) { ANALOG_WRITE_ON_THRESHOLD } else { 1 }
+}
+
 /// The capability-response terminator for one pin.
 const END_OF_PIN: u8 = 127;
 
@@ -245,13 +258,6 @@ impl PinProfile {
         }
     }
 
-    /// [`resolve`](Self::resolve) for a label as stored in node data; an
-    /// unparseable or unknown label reads as `fallback`.
-    #[must_use]
-    pub fn resolve_label(&self, label: &str, fallback: u8) -> u8 {
-        PinLabel::parse(label).and_then(|l| self.resolve(l)).unwrap_or(fallback)
-    }
-
     /// Whether `pin` supports Firmata `mode`: `None` when the board has not
     /// described its modes (empty profile, or a seed without modes),
     /// `Some(false)` for a pin past the board's last pin.
@@ -345,13 +351,14 @@ mod tests {
             caps[pin].analog_channel = Some(channel as u8);
         }
         let mega = PinProfile::new(caps);
-        assert_eq!(mega.resolve_label("A0", 0), 54);
-        assert_eq!(mega.resolve_label("a15", 0), 69);
-        assert_eq!(mega.resolve_label("13", 0), 13);
+        let resolve = |label: &str| mega.resolve(PinLabel::parse(label).expect("a pin label"));
+        assert_eq!(resolve("A0"), Some(54));
+        assert_eq!(resolve("a15"), Some(69));
+        assert_eq!(resolve("13"), Some(13));
         assert_eq!(mega.resolve(PinLabel::Analog(16)), None);
         assert_eq!(mega.analog_range().as_deref(), Some("A0–A15"));
         // No board described: the Uno layout.
-        assert_eq!(PinProfile::default().resolve_label("A2", 0), 16);
+        assert_eq!(PinProfile::default().resolve(PinLabel::Analog(2)), Some(16));
     }
 
     #[test]

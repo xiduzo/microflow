@@ -12,7 +12,6 @@
     "@create-figma-plugin/ui": "^4.0.3",
     "@create-figma-plugin/utilities": "^4.0.3",
     "@microflow/design-bridge": "workspace:*",
-    "@microflow/mqtt": "workspace:*",
     "lucide-react": "^0.577.0",
     "preact": ">=10"
   },

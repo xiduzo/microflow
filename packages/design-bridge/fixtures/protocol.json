@@ -24,7 +24,12 @@
     { "topic": "microflow/in", "uid": null },
     { "topic": "microflow/sensors/kitchen/temperature", "uid": null },
     { "topic": "microflow/swift_fox/figma/variable/1-2/set/extra", "uid": null },
-    { "topic": "home/swift_fox/figma/variables", "uid": null }
+    { "topic": "home/swift_fox/figma/variables", "uid": null },
+    { "topic": "microflow/+/figma/status", "uid": null },
+    { "topic": "microflow/+/app/variable/1-2/set", "uid": null },
+    { "topic": "microflow/swift+fox/figma/variables", "uid": null },
+    { "topic": "microflow/#/figma/status", "uid": null },
+    { "topic": "microflow/swift_fox/+/status", "uid": "swift_fox" }
   ],
   "coerce": [
     { "type": "BOOLEAN", "payload": "true", "value": true },

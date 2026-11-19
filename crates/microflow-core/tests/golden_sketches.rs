@@ -136,6 +136,49 @@ fn corpus() -> Vec<Golden> {
                 edge("compare-1", "false", "relay-1", "false"),
             ],
         ),
+        // Delay in both of its modes: a sensor reading replayed half a second
+        // late (every trigger held, a ring of slots), and a button debounced
+        // into a counter (one slot) as the "Debounced Button" template does.
+        Golden::plain(
+            "uno_delay",
+            vec![
+                node("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node("delay-1", "Delay", json!({ "delay": 500 })),
+                node("led-1", "Led", json!({ "pin": 9 })),
+                node("btn-1", "Button", json!({ "pin": 6 })),
+                node("delay-2", "Delay", json!({ "delay": 30, "forgetPrevious": true })),
+                node("counter-1", "Counter", json!({})),
+            ],
+            vec![
+                edge("sensor-1", "value", "delay-1", "trigger"),
+                edge("delay-1", "event", "led-1", "value"),
+                edge("btn-1", "event", "delay-2", "trigger"),
+                edge("delay-2", "event", "counter-1", "increment"),
+            ],
+        ),
+        // Trigger, each with its window of held readings: the "Edge Trigger
+        // Alarm" template (a sharp rise sounds a buzzer), and a percentage
+        // drop over a second counted.
+        Golden::plain(
+            "uno_trigger",
+            vec![
+                node("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node("trigger-1", "Trigger", json!({ "behaviour": "increasing", "threshold": 50 })),
+                node("piezo-1", "Piezo", json!({ "pin": 8 })),
+                node(
+                    "trigger-2",
+                    "Trigger",
+                    json!({ "behaviour": "decreasing", "threshold": 20, "relative": true, "within": 1000 }),
+                ),
+                node("counter-1", "Counter", json!({})),
+            ],
+            vec![
+                edge("sensor-1", "value", "trigger-1", "value"),
+                edge("trigger-1", "bang", "piezo-1", "trigger"),
+                edge("sensor-1", "value", "trigger-2", "value"),
+                edge("trigger-2", "bang", "counter-1", "increment"),
+            ],
+        ),
         // Generator into an addressable Pixel strip.
         Golden::plain(
             "uno_generator_pixel",
@@ -147,6 +190,7 @@ fn corpus() -> Vec<Golden> {
                     json!({
                         "pin": 6,
                         "length": 8,
+                        "color_order": "GRB",
                         "presets": [["#ff0000", "#00ff00"], ["#0000ff", "#ffffff"]],
                     }),
                 ),
@@ -164,13 +208,25 @@ fn corpus() -> Vec<Golden> {
                 // Blue on 6, not 11: the Piezo's tone() claims Timer2 on AVR,
                 // and PWM on pin 11 next to it now (correctly) warns.
                 node("rgb-1", "Rgb", json!({ "pins": { "red": 9, "green": 10, "blue": 6 } })),
-                node("matrix-1", "Matrix", json!({ "pins": { "data": 4, "clock": 5, "cs": 7 } })),
+                node(
+                    "matrix-1",
+                    "Matrix",
+                    json!({
+                        "pins": { "data": 4, "clock": 5, "cs": 7 },
+                        "shapes": [["10000001", "01000010"], ["11111111"]],
+                    }),
+                ),
             ],
             vec![
                 edge("btn-1", "true", "piezo-1", "trigger"),
                 edge("osc-1", "value", "stepper-1", "value"),
+                // Held while the button is down, released when it is let go.
+                edge("btn-1", "value", "stepper-1", "enable"),
                 edge("osc-1", "value", "rgb-1", "alpha"),
+                // `off` holds until the oscillator next changes `alpha`.
+                edge("btn-1", "false", "rgb-1", "off"),
                 edge("osc-1", "value", "matrix-1", "value"),
+                edge("btn-1", "true", "matrix-1", "reinitialize"),
             ],
         ),
         // Two Midi Nodes sharing one MIDI instance and read-pump. Midi always

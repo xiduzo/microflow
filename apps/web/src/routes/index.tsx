@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  useQuery,
-  useInfiniteQuery,
-  useMutation,
-  useQueryClient,
-} from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { User2Icon, HardDriveDownloadIcon, Plus, SearchIcon } from "lucide-react";
 import { compareDesc } from "date-fns";
 import { toast } from "sonner";
@@ -27,14 +22,8 @@ import { Button } from "@/ui/button";
 import { Input } from "@/ui/input";
 import { CreateFlowDialog } from "@/flows/create-flow-dialog";
 import { EmptyState } from "@/ui/states/empty-state";
-import {
-  exportFlowData,
-  useOverviewImport,
-  type FlowExportData,
-} from "@/flows/use-flow-import-export";
-import { loadLocalFlow, saveLocalFlow } from "@/session";
-import { useActiveFlowStore } from "@/flows/active-flow";
-import { FLOW_COLORS } from "@/flows/flow-colors";
+import { exportFlowData, useImportFlow } from "@/flows/use-flow-import-export";
+import { loadLocalFlow } from "@/session";
 import { cn } from "@/ui/utils";
 
 export const Route = createFileRoute("/")({
@@ -53,63 +42,10 @@ type Scope = (typeof SCOPES)[number]["key"];
 function HomeComponent() {
   const { data: session } = authClient.useSession();
   const isSignedIn = !!session?.user;
-  const triggerImport = useOverviewImport();
-  const queryClient = useQueryClient();
-  const navigate = useNavigate();
-  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
+  const importFlow = useImportFlow(Route.id);
 
   const [scope, setScope] = useState<Scope>("all");
   const [search, setSearch] = useState("");
-
-  const createFromImportMutation = useMutation(
-    trpc.flow.createFromImport.mutationOptions({
-      onSuccess: (result) => {
-        toast.success("Flow imported", {
-          description: `${result.name} has been created`,
-        });
-        queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
-        setActiveFlowId(result.id);
-        navigate({ to: "/flow/$flowId/graph", params: { flowId: result.id } });
-      },
-      onError: (error) => {
-        toast.error("Failed to import flow", {
-          description: error.message,
-        });
-      },
-    })
-  );
-
-  const handleImport = useCallback(
-    async (data: FlowExportData) => {
-      const name = data.meta?.name ?? "Imported flow";
-      const color = FLOW_COLORS[Math.floor(Math.random() * FLOW_COLORS.length)];
-
-      if (isSignedIn) {
-        createFromImportMutation.mutate({
-          name,
-          color,
-          nodes: data.data.nodes,
-          edges: data.data.edges,
-        });
-      } else {
-        try {
-          await saveLocalFlow(data.data.nodes, data.data.edges);
-        } catch (error) {
-          reportError(error, { source: "action", route: Route.id });
-          toast.error("Couldn't import the flow", {
-            description: error instanceof Error ? error.message : undefined,
-          });
-          return;
-        }
-        setActiveFlowId("local");
-        toast.success("Flow imported", {
-          description: `${data.data.nodes.length} nodes, ${data.data.edges.length} edges`,
-        });
-        navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
-      }
-    },
-    [isSignedIn, createFromImportMutation, setActiveFlowId, navigate]
-  );
 
   // Read the local flow from its Yjs document, so the card previews what the
   // editor will actually open rather than the last visited flow.
@@ -213,7 +149,7 @@ function HomeComponent() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => triggerImport(handleImport)}
+              onClick={importFlow}
             >
               <HardDriveDownloadIcon className="size-4 mr-2" />
               Import

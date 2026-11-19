@@ -19,6 +19,8 @@
  *                     B.public. `import type` counts too: type coupling is still coupling.
  *   routes-are-top    No vertical imports routes/** or a root file. They compose the verticals.
  *   infra-layer       `layer: "infra"` verticals (lib, ui, platform) import only each other.
+ *   may-import        A vertical with a `mayImport` list imports only the verticals on it.
+ *                     Pins a dependency direction (session must not know nodes).
  *   restricted-file   A `restricted` file may be imported at runtime only by its own vertical
  *                     and its `allowedImporters`. `import type` is exempt (erased at compile).
  *   unknown-vertical  Every folder and file directly in src/ must be listed here (VERTICALS or
@@ -42,6 +44,8 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "component-types.generated.ts",
       "node-types.generated.ts",
       "node-data-resolver.ts",
+      // The Live Handle Set: a node's connectable Ports and Emits for its settings.
+      "handles.ts",
       "live/node-data.ts",
       "live/node-diagnostics.ts",
       "_base/_base.tsx",
@@ -64,7 +68,10 @@ export const VERTICALS: Record<string, VerticalSpec> = {
     public: ["react-flow-canvas.tsx", "auto-layout.ts", "handle-proximity.ts", "signal.ts"],
   },
   // FlowSession, SyncAdapters, ReactFlowBridge, Presence. The barrel is the whole surface.
-  session: { public: ["index.ts"] },
+  // `mayImport` pins its place under every other feature vertical: the session knows
+  // documents, not nodes, boards or the canvas, and imports none of them. What it needs
+  // from one of them it is handed (`provideHandleSets`, called from src/app-wiring.ts).
+  session: { public: ["index.ts"], mayImport: ["lib", "ui", "platform"] },
   // The Runtime Host: flow reactor, EffectsSink, FlowUpdateDispatcher, event ingest.
   runtime: {
     public: [
@@ -94,12 +101,11 @@ export const VERTICALS: Record<string, VerticalSpec> = {
   // Browser CloudPerformer, MQTT + design-tool bridge connections, capability probe, connection console.
   cloud: {
     public: [
-      "browser-cloud-probe.ts",
-      "browser-mqtt-test-client.ts",
+      "broker-url.ts",
       "cloud-capabilities.ts",
       "cloud-performer.ts",
       "connection-console/connection-console.tsx",
-      "connection-console/parse-command.ts",
+      "connection-console/use-console-session.ts",
       "design-bridge.ts",
       "design-bridge-account.ts",
       "mqtt-broker.ts",
@@ -134,7 +140,9 @@ export const VERTICALS: Record<string, VerticalSpec> = {
       "flow-thumbnail.tsx",
       "share-flow-dialog.tsx",
       "templates/index.ts",
+      "templates/use-open-template.ts",
       "use-flow-import-export.ts",
+      "use-open-flow.ts",
     ],
   },
   community: { public: ["community-card.tsx"] },
@@ -173,6 +181,9 @@ export const VERTICALS: Record<string, VerticalSpec> = {
 /** Files allowed directly in src/. They sit in the top layer, next to routes/. */
 export const ROOT_FILES: readonly string[] = [
   "main.tsx",
+  // What one vertical is handed by the app because it must not import another.
+  "app-wiring.ts",
+  "app-wiring.test.ts",
   "index.css",
   "routeTree.gen.ts",
   "architecture.test.ts",

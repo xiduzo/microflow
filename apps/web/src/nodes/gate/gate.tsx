@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Gate">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, defaults, type Data, type Value } from "./gate.schema";
 
@@ -10,9 +8,7 @@ export function Gate(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
-      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
+      <NodeHandles />
     </NodeContainer>
   );
 }

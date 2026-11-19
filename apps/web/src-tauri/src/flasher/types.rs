@@ -1,12 +1,7 @@
-//! Shared types for the flasher module.
-//!
-//! [`BoardType`] is defined in `microflow-core` (shared with the browser) and
-//! re-exported here. The frontend-facing result/progress types stay desktop-
-//! local since they describe the Tauri command/event payloads.
+//! The frontend-facing result and progress types: the payloads of the Tauri
+//! commands and events, which only the desktop has.
 
 use serde::{Deserialize, Serialize};
-
-pub use microflow_core::flasher::BoardType;
 
 /// Flash operation result
 #[derive(Debug, Clone, Serialize, Deserialize)]

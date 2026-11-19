@@ -13,9 +13,9 @@ pub(crate) enum ServoType {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ServoRange {
-    #[serde(default = "default_min")]
+    #[serde(default = "default_min", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) min: u16,
-    #[serde(default = "default_max")]
+    #[serde(default = "default_max", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) max: u16,
 }
 
@@ -44,10 +44,4 @@ pub(crate) struct ServoConfig {
 
 fn default_pin() -> u8 {
     3
-}
-
-impl Default for ServoConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), range: ServoRange::default(), r#type: ServoType::default() }
-    }
 }

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding";
 import * as syncProtocol from "y-protocols/sync";
@@ -18,8 +18,13 @@ import {
   localSessionStatus,
   type LocalPersistenceSource,
   type SessionStatusSource,
-} from "./session-status";import { makeSession, withLiveAccess } from "./flow-session";
+} from "./session-status";import { makeSession, withLiveAccess, provideHandleSets } from "./flow-session";
 import type { SyncAdapter } from "./sync-adapter";
+
+// These sessions are not about handle pruning. A writable session without
+// handle sets reports the missing wiring, so give them one that knows no node.
+beforeAll(() => provideHandleSets(() => null));
+afterAll(() => provideHandleSets(null));
 
 // ----------------------------------------------------------------------------
 // Fake provider: the `SessionStatusSource` slice, scripted.

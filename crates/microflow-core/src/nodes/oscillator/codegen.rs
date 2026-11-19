@@ -1,17 +1,19 @@
 //! Oscillator emitter — mirrors `nodes/oscillator/runtime.rs`.
 //!
-//! The live Oscillator runs a thread that samples a waveform against the elapsed
-//! time since start and emits the value. On device there is no thread; the
-//! generated sketch instead samples the same waveform against `millis()` since
-//! `setup()` on every loop iteration, writing the result into a module-level
-//! `double`. The waveform math (sine, square, sawtooth, triangle, random) is the
-//! exact port of the runtime's `calculate_waveform`, so the on-device signal
-//! matches live mode. It is self-driving and fully non-blocking — it only reads
-//! the scheduler's clock, never waits.
+//! The live Oscillator samples a waveform against the elapsed time since its
+//! start every [`SAMPLE_MS`] and emits each sample, whether or not it moved.
+//! The generated sketch samples the same waveform against `millis()` since
+//! its start on the same ticks, writing the result into a module-level
+//! `double`, and `value` is an event that fires on each sample. The waveform
+//! math (sine, square, sawtooth, triangle, random) is the exact port of the
+//! runtime's `calculate_waveform`, so the on-device signal matches live mode.
+//! It is self-driving and fully non-blocking — it only reads the scheduler's
+//! clock, never waits.
 
-use super::config::{OscillatorConfig, Waveform};
+use super::config::{OscillatorConfig, Waveform, SAMPLE_MS};
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
-use crate::codegen::wire::NodeInputs;
+use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Default period matches `super::config::default_period` (1000ms). Reused
@@ -24,20 +26,30 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("oscillator_{}_value", node.id_token())
 }
 
+/// True on the ticks the Oscillator took a sample.
+fn sampled_var(node: &FlowNode) -> String {
+    format!("oscillator_{}_sampled", node.id_token())
+}
+
+/// What the Oscillator emits on `value`: each sample, on the tick it is taken.
+#[must_use]
+pub(crate) fn output(node: &FlowNode) -> SourceExpr {
+    SourceExpr::event(CppExpr::number(value_var(node)), sampled_var(node))
+}
+
 /// Emit C++ for an Oscillator Node. It samples its waveform off the loop
 /// scheduler's `millis()` clock while running; `autoStart` (mirroring the
 /// runtime's `on_start`) decides whether it free-runs from `setup()`, and
 /// wired `start` / `stop` / `reset` ports gate and re-base it exactly like
 /// the runtime's dispatch (`reset` restarts the phase only while running).
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let value = value_var(node);
     let start = format!("oscillator_{token}_start");
     let running = format!("oscillator_{token}_running");
     let t = format!("oscillator_{token}_t");
 
-    let config: OscillatorConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<OscillatorConfig>(&node.data)?;
     // Guard against a zero period (division by zero) by clamping to the default.
     let period = cpp_double(if config.period.abs() < f64::EPSILON { DEFAULT_PERIOD } else { config.period });
     let amplitude = cpp_double(config.amplitude);
@@ -112,25 +124,31 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     };
     loop_body.push(sample);
 
+    let sampled = sampled_var(node);
+    let tick_at = format!("oscillator_{token}_tick_at");
     let mut declarations = vec![
         format!("unsigned long {start} = 0;"),
+        format!("unsigned long {tick_at} = 0;"),
         format!("double {value} = 0.0;"),
         format!("bool {running} = {};", config.auto_start),
+        format!("bool {sampled} = false;"),
     ];
     // hash01 precedes vnoise (vnoise calls it; no forward declarations emitted).
     declarations.extend(helper_decls);
     let mut e = NodeEmission {
         declarations,
-        setup: vec![format!("{start} = millis();")],
+        setup: vec![format!("{start} = millis();"), format!("{tick_at} = {start};")],
         ..NodeEmission::default()
     };
 
-    // start: run and re-base the phase; stop: halt; reset: restart the phase
-    // only while running (the runtime's stop-then-start-if-was-running).
+    // start: run and re-base the phase and the sample clock; stop: halt;
+    // reset: restart both only while running (the runtime's
+    // stop-then-start-if-was-running).
     let start_binding = e.bind_port(&format!("oscillator_{token}_start_port"), inputs.on("start"));
     if let Some(any) = start_binding.any_fired() {
-        e.loop_body
-            .push(format!("if ({any}) {{ {running} = true; {start} = millis(); }}"));
+        e.loop_body.push(format!(
+            "if ({any}) {{ {running} = true; {start} = millis(); {tick_at} = {start}; }}"
+        ));
     }
     let stop_binding = e.bind_port(&format!("oscillator_{token}_stop_port"), inputs.on("stop"));
     if let Some(any) = stop_binding.any_fired() {
@@ -138,14 +156,19 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     }
     let reset_binding = e.bind_port(&format!("oscillator_{token}_reset_port"), inputs.on("reset"));
     if let Some(any) = reset_binding.any_fired() {
-        e.loop_body
-            .push(format!("if ({any} && {running}) {{ {start} = millis(); }}"));
+        e.loop_body.push(format!(
+            "if ({any} && {running}) {{ {start} = millis(); {tick_at} = {start}; }}"
+        ));
     }
 
-    e.loop_body.push(format!("if ({running}) {{"));
+    // One sample every SAMPLE_MS while running, the next counted from this
+    // one, as the runtime re-arms its `_tick` wakeup.
+    e.loop_body.push(format!("{sampled} = {running} && millis() - {tick_at} >= {SAMPLE_MS}UL;"));
+    e.loop_body.push(format!("if ({sampled}) {{"));
+    e.loop_body.push(format!("  {tick_at} = millis();"));
     e.loop_body.extend(sample_lines.iter().map(|l| format!("  {l}")));
     e.loop_body.push("}".to_string());
-    e
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -165,7 +188,7 @@ mod tests {
 
     #[test]
     fn oscillator_samples_against_millis_non_blocking() {
-        let e = emit(&oscillator("osc-1", json!({ "waveform": "sinus", "period": 1000 })), &NodeInputs::default());
+        let e = emit(&oscillator("osc-1", json!({ "waveform": "sinus", "period": 1000 })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("millis() - oscillator_osc_1_start")));
         assert!(e.loop_body.iter().any(|l| l.contains("sin(")), "sinus waveform");
         assert!(!e.loop_body.iter().any(|l| l.contains("delay(")), "must not block");
@@ -173,15 +196,15 @@ mod tests {
 
     #[test]
     fn oscillator_square_waveform() {
-        let e = emit(&oscillator("osc-1", json!({ "waveform": "square" })), &NodeInputs::default());
+        let e = emit(&oscillator("osc-1", json!({ "waveform": "square" })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("* 2.0 <")));
     }
 
     #[test]
     fn oscillator_sawtooth_and_triangle() {
-        let saw = emit(&oscillator("osc-1", json!({ "waveform": "sawtooth" })), &NodeInputs::default());
+        let saw = emit(&oscillator("osc-1", json!({ "waveform": "sawtooth" })), &NodeInputs::default()).unwrap();
         assert!(saw.loop_body.iter().any(|l| l.contains("2.0 /")));
-        let tri = emit(&oscillator("osc-1", json!({ "waveform": "triangle" })), &NodeInputs::default());
+        let tri = emit(&oscillator("osc-1", json!({ "waveform": "triangle" })), &NodeInputs::default()).unwrap();
         assert!(tri.loop_body.iter().any(|l| l.contains("4.0 /")));
     }
 
@@ -190,30 +213,31 @@ mod tests {
         let e = emit(
             &oscillator("osc-1", json!({ "waveform": "random", "amplitude": 2.0, "shift": 1.0 })),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("random(")));
     }
 
     #[test]
     fn oscillator_clamps_zero_period() {
-        let e = emit(&oscillator("osc-1", json!({ "period": 0 })), &NodeInputs::default());
+        let e = emit(&oscillator("osc-1", json!({ "period": 0 })), &NodeInputs::default()).unwrap();
         // Falls back to the default period rather than dividing by zero.
         assert!(e.loop_body.iter().any(|l| l.contains("1000.0")));
     }
 
     #[test]
     fn oscillator_seeds_start_in_setup() {
-        let e = emit(&oscillator("osc-1", json!({})), &NodeInputs::default());
+        let e = emit(&oscillator("osc-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains("= millis()")));
         assert!(e.declarations.iter().any(|d| d.contains("double oscillator_osc_1_value")));
     }
 
     #[test]
     fn oscillator_gates_sampling_on_running() {
-        let e = emit(&oscillator("osc-1", json!({})), &NodeInputs::default());
+        let e = emit(&oscillator("osc-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(
-            e.loop_body.iter().any(|l| l.starts_with("if (oscillator_osc_1_running) {")),
-            "sample block is gated on running"
+            e.loop_body.iter().any(|l| l.starts_with("oscillator_osc_1_sampled = oscillator_osc_1_running && ")),
+            "sample block is gated on running: {:?}",
+            e.loop_body
         );
     }
 
@@ -224,12 +248,12 @@ mod tests {
         inputs.add("start", SourceExpr::level(CppExpr::boolean("go")));
         inputs.add("stop", SourceExpr::level(CppExpr::boolean("halt")));
         inputs.add("reset", SourceExpr::level(CppExpr::boolean("again")));
-        let e = emit(&oscillator("osc-1", json!({})), &inputs);
+        let e = emit(&oscillator("osc-1", json!({})), &inputs).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("oscillator_osc_1_running = true"), "start runs: {body}");
         assert!(body.contains("oscillator_osc_1_running = false"), "stop halts: {body}");
         assert!(
-            body.contains("&& oscillator_osc_1_running) { oscillator_osc_1_start = millis(); }"),
+            body.contains("&& oscillator_osc_1_running) { oscillator_osc_1_start = millis();"),
             "reset re-bases only while running: {body}"
         );
     }
@@ -237,6 +261,6 @@ mod tests {
     #[test]
     fn oscillator_emits_deterministically() {
         let n = oscillator("osc-1", json!({ "waveform": "square", "period": 500 }));
-        assert_eq!(emit(&n, &NodeInputs::default()), emit(&n, &NodeInputs::default()));
+        assert_eq!(emit(&n, &NodeInputs::default()).unwrap(), emit(&n, &NodeInputs::default()).unwrap());
     }
 }

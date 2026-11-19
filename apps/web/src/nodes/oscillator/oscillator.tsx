@@ -19,15 +19,7 @@ export function Oscillator(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Oscillator"
-        portOverrides={{
-          start: { handleType: "command", offset: -1 },
-          reset: { handleType: "command" },
-          stop: { handleType: "command", offset: 1 },
-        }}
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Proximity">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { dataSchema, defaults, type Data, type Value } from "./proximity.schema";
 import { MODES, usePins } from "@/board/board-store";
@@ -13,7 +11,7 @@ export function Proximity(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -37,7 +35,9 @@ function Settings() {
       value: data.controller,
       options: PROXIMITY_CONTROLLERS,
     },
-    freq: { value: data.freq!, min: 10, label: "frequency (ms)" },
+    // A whole number of milliseconds: without a `step` Leva derives one from
+    // the value's distance to `min`, a fraction.
+    freq: { value: data.freq!, min: 10, step: 1, label: "frequency (ms)" },
   });
 
   return <>{render()}</>;

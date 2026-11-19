@@ -1,11 +1,12 @@
 // The node vocabulary Ask AI works from.
 //
-// Built at module load out of the same generated sources the editor itself uses
-// — `NODE_CATALOG` for labels/descriptions/defaults, and `COMPONENT_PORTS` /
-// `COMPONENT_EMITS` for handles, both of which the Catalog Parity Guard pins to
-// the Rust `Component::ports()` / `emits()` (ADR-0007). So the catalogue the
-// model is given cannot drift from the one the runtime enforces: add a node or
-// rename a handle and this text follows on the next `bun run codegen`.
+// Built at module load out of the same sources the editor itself uses:
+// `NODE_CATALOG` for labels/descriptions/defaults, and the nodes' Handle Rules
+// (`handleVariants` in `nodes/handles.ts`) for handles. Every handle a node can
+// offer is listed, and where a setting decides which ones it has, the listing
+// says which value gives which handles. Those are the handles the canvas
+// renders and `connect` accepts, read from the same rules, so the catalogue the
+// model is given cannot drift from what the tools enforce.
 //
 // Inlined into the system prompt rather than offered as a `list_node_types`
 // tool. Forty nodes is a few thousand tokens once, against a tool round-trip on
@@ -15,34 +16,67 @@
 import type { FlowDocument } from "@microflow/collab";
 
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
-import {
-  COMPONENT_EMITS,
-  COMPONENT_PORTS,
-  REQUIRES_HARDWARE,
-  type ComponentType,
-} from "@/nodes/component-types.generated";
+import { REQUIRES_HARDWARE, type ComponentType } from "@/nodes/component-types.generated";
+import { handleVariants } from "@/nodes/handles";
 
 /** Keys every node's `defaults` carries for the editor's own chrome; they are
  *  not configuration and only distract the model. */
 const PRESENTATION_KEYS = new Set(["group", "label", "description", "tags", "icon"]);
 
-/** One catalogue line per node: what it is, what it accepts, what it emits, and
+const keyValues = (config: Readonly<Record<string, unknown>>): string =>
+  Object.entries(config)
+    .map(([key, value]) => `${key}=${JSON.stringify(value)}`)
+    .join(", ");
+
+const listed = (handles: readonly string[]): string =>
+  handles.length > 0 ? handles.join(", ") : "(none)";
+
+/**
+ * A node's handle lines.
+ *
+ * A node whose handles never change gets an `in:` and an `out:` line. A node
+ * whose settings decide its handles gets one line per setting value instead,
+ * `with direction="publish": in trigger; out (none)`, so no handle is shown
+ * without the setting that gives it. Open ports are described in words on
+ * every `in`, since their names are the model's to choose.
+ *
+ * Where those settings are not set but follow from something else (a design
+ * variable's `resolvedType` is the type of the variable the user picked), the
+ * lines drop the "with", which the prompt reads as "set this first", and a
+ * line above them says what the handles follow and not to set it.
+ */
+function handleLines(type: ComponentType): string[] {
+  const { defaults, bySettings, follows, openPorts } = handleVariants(type);
+  const ins = (ports: readonly string[]) =>
+    openPorts ? `${ports.length > 0 ? `${ports.join(", ")}, ` : ""}plus ${openPorts}` : listed(ports);
+
+  if (bySettings.length === 0) {
+    return [`  in: ${ins(defaults.ports)}`, `  out: ${listed(defaults.emits)}`];
+  }
+  const lines = bySettings.map(
+    ({ settings, handles }) =>
+      `  ${follows ? "" : "with "}${keyValues(settings)}: in ${ins(handles.ports)}; out ${listed(handles.emits)}`,
+  );
+  if (!follows) return lines;
+  const derived = [...new Set(bySettings.flatMap(({ settings }) => Object.keys(settings)))];
+  return [`  handles follow ${follows} (shown as ${derived.join(", ")}; do not set it):`, ...lines];
+}
+
+/** One catalogue entry per node: what it is, what it accepts, what it emits, and
  *  the config keys it takes with their default values. */
 function describe(type: ComponentType): string {
   const { defaults } = NODE_CATALOG[type];
-  const ports = COMPONENT_PORTS[type];
-  const emits = COMPONENT_EMITS[type];
 
-  const config = Object.entries(defaults)
-    .filter(([key]) => !PRESENTATION_KEYS.has(key) && key !== "instance")
-    .map(([key, value]) => `${key}=${JSON.stringify(value)}`);
+  const config = keyValues(
+    Object.fromEntries(
+      Object.entries(defaults).filter(
+        ([key]) => !PRESENTATION_KEYS.has(key) && key !== "instance",
+      ),
+    ),
+  );
 
-  const parts = [
-    `- ${type}: ${defaults.description ?? defaults.label ?? type}`,
-    `  in: ${ports.length > 0 ? ports.join(", ") : "(none)"}`,
-    `  out: ${emits.length > 0 ? emits.join(", ") : "(none)"}`,
-  ];
-  if (config.length > 0) parts.push(`  config: ${config.join(", ")}`);
+  const parts = [`- ${type}: ${defaults.description ?? defaults.label ?? type}`, ...handleLines(type)];
+  if (config.length > 0) parts.push(`  config: ${config}`);
   if (REQUIRES_HARDWARE[type]) parts.push("  needs a connected board");
   return parts.join("\n");
 }
@@ -84,7 +118,10 @@ their flow.
 A flow is nodes plus edges. Every edge runs from a named OUTPUT (an "emit") on one
 node to a named INPUT (a "port") on another — never node-to-node. Use the exact handle
 names from the catalogue below; a connection with a handle that does not exist is
-rejected.
+rejected. Where the catalogue lists a node's handles after "with <config>", the node
+has those handles only with that config: set the config first, then connect. "plus one
+input per …" means the node also takes an input under each name its config holds. A
+rejected connect lists the handles the node has now.
 
 ${capability}
 

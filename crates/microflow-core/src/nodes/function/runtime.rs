@@ -4,31 +4,12 @@
 //! and the browser wasm runtime enable. Handles: `trigger` (input → JS
 //! `input`), `{{var}}` template inputs, `value` (output).
 
+use super::config::FunctionConfig;
 use crate::runtime::{
     Component, ComponentBase, ComponentBuilder, ComponentValue, RuntimeContext, RuntimeError,
 };
 use boa_engine::{Context, JsValue, Source};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct FunctionConfig {
-    /// User-authored JS body. Receives `input`; must return a value. Wrapped as
-    /// `(function(input) { <code> })(input)`.
-    #[serde(default = "default_code")]
-    pub(crate) code: String,
-}
-
-fn default_code() -> String {
-    "// Transform the input value and return the result\n// Use {{varName}} to reference connected handle values\nconst value = input;\nreturn value;".to_string()
-}
-
-impl Default for FunctionConfig {
-    fn default() -> Self {
-        Self { code: default_code() }
-    }
-}
 
 /// Loop iterations one function call may run before boa throws.
 const LOOP_ITERATION_LIMIT: u64 = 10_000;

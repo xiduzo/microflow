@@ -148,7 +148,7 @@ crates/
 ├── microflow-firmata-wasm/  Firmata for the browser
 └── microflow-codegen-wasm/  Sketch generation for the browser
 packages/
-└── api · auth · collab · db · design-bridge · env · mqtt · config
+└── api · auth · collab · db · design-bridge · env · config
 ```
 
 <details>

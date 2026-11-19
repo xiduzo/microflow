@@ -1,122 +1,121 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { sql } from "drizzle-orm";
+
+import {
+  acceptInvites,
+  grantAccess,
+  inviteByEmail,
+  listPendingInvites,
+  revokeInvite,
+  type CollaboratorRole,
+  type InviteNotice,
+} from "./flow-invitation";
+import type { Db } from "./index";
+import { flow, flowCollaborator } from "./schema/flow";
+import { user } from "./schema/auth";
+import { useTestDb } from "./testing";
 
 /**
- * A recording stand-in for the drizzle handle. Only the four call shapes the
- * invitation module uses are modelled; anything else throws loudly rather
- * than silently returning undefined.
+ * Flow Invitation against the in-process Postgres: the real schema, the real
+ * unique indexes. Assertions read rows back, never the calls that wrote them.
  */
-type Insert = { table: string; values: Record<string, unknown>; upsert: boolean };
 
-const recorded = {
-  inserts: [] as Insert[],
-  deletes: [] as string[],
-  users: [] as Array<{ id: string; email: string }>,
-  invites: [] as Array<{ flowId: string; email: string; role: "viewer" | "editor" }>,
-};
+const OWNER = "owner-1";
+let db: Db;
 
-function reset() {
-  recorded.inserts = [];
-  recorded.deletes = [];
-  recorded.users = [];
-  recorded.invites = [];
+async function addUser(id: string, email = `${id}@example.com`) {
+  await db.insert(user).values({ id, name: id, email });
 }
 
-/** drizzle tables carry their name on a well-known symbol; read it loosely. */
-function tableName(table: unknown): string {
-  const symbol = Object.getOwnPropertySymbols(table as object).find((s) =>
-    s.toString().includes("Name"),
-  );
-  return symbol ? String((table as Record<symbol, unknown>)[symbol]) : "unknown";
+async function addFlow(id: string, ownerId = OWNER) {
+  await db.insert(flow).values({ id, name: id, ownerId });
 }
 
-mock.module("@microflow/db", () => ({
-  db: {
-    query: {
-      user: {
-        findFirst: async () => recorded.users[0] ?? undefined,
-      },
-      flowInvite: {
-        findMany: async () => recorded.invites,
-      },
-    },
-    insert: (table: unknown) => ({
-      values: (values: Record<string, unknown>) => {
-        const insert: Insert = { table: tableName(table), values, upsert: false };
-        recorded.inserts.push(insert);
-        const thenable = {
-          onConflictDoUpdate: async () => {
-            insert.upsert = true;
-          },
-          then: (resolve: () => void) => resolve(),
-        };
-        return thenable;
-      },
-    }),
-    delete: (table: unknown) => ({
-      where: async () => {
-        recorded.deletes.push(tableName(table));
-      },
-    }),
-  },
-}));
+/** Who holds what on which flow, in a stable order. */
+async function grants() {
+  const rows = await db.select().from(flowCollaborator);
+  return rows
+    .map((row) => `${row.flowId}:${row.userId}:${row.role}`)
+    .sort();
+}
 
-const { acceptInvites, grantAccess, inviteByEmail } = await import("./flow-invitation");
+async function pendingFor(flowId: string) {
+  const invites = await listPendingInvites(flowId);
+  return invites.map((invite) => `${invite.email}:${invite.role}`).sort();
+}
 
 const mailer = () => {
-  const sent: unknown[] = [];
-  return { sent, fn: async (notice: unknown) => void sent.push(notice) };
+  const sent: InviteNotice[] = [];
+  return { sent, fn: async (notice: InviteNotice) => void sent.push(notice) };
 };
 
 /** Recording stand-in for the injected grant (the api layer's setFlowRole). */
 const granter = () => {
-  const calls: Array<{ flowId: string; userId: string; role: string }> = [];
+  const calls: Array<{ flowId: string; userId: string; role: CollaboratorRole }> = [];
   return {
     calls,
-    fn: async (flowId: string, userId: string, role: "viewer" | "editor") =>
+    fn: async (flowId: string, userId: string, role: CollaboratorRole) =>
       void calls.push({ flowId, userId, role }),
   };
 };
 
-describe("grantAccess", () => {
-  beforeEach(reset);
+const invite = (
+  email: string,
+  role: CollaboratorRole,
+  overrides: Partial<Parameters<typeof inviteByEmail>[0]> = {},
+) =>
+  inviteByEmail({
+    flowId: "flow-1",
+    flowName: "Blinky",
+    email,
+    role,
+    invitedBy: { id: OWNER, name: "Sander" },
+    grant: async () => {},
+    mailer: async () => {},
+    ...overrides,
+  });
 
-  test("upserts rather than inserting a second row", async () => {
+beforeEach(async () => {
+  db = await useTestDb();
+  await addUser(OWNER, "me@example.com");
+  await addFlow("flow-1");
+  await addFlow("flow-2");
+});
+
+describe("grantAccess", () => {
+  test("a second grant leaves one row, with the later role", async () => {
+    await addUser("user-1");
+
+    await grantAccess("flow-1", "user-1", "viewer");
     await grantAccess("flow-1", "user-1", "editor");
 
-    expect(recorded.inserts.length).toBe(1);
-    expect(recorded.inserts[0]!.table).toBe("flow_collaborator");
-    expect(recorded.inserts[0]!.upsert).toBe(true);
-    expect(recorded.inserts[0]!.values).toMatchObject({
-      flowId: "flow-1",
-      userId: "user-1",
-      role: "editor",
-    });
+    expect(await grants()).toEqual(["flow-1:user-1:editor"]);
+  });
+
+  test("grants on different flows do not collide", async () => {
+    await addUser("user-1");
+
+    await grantAccess("flow-1", "user-1", "viewer");
+    await grantAccess("flow-2", "user-1", "editor");
+
+    expect(await grants()).toEqual(["flow-1:user-1:viewer", "flow-2:user-1:editor"]);
   });
 });
 
 describe("inviteByEmail", () => {
-  beforeEach(reset);
-
   test("an address with an account is granted through the injected grant", async () => {
-    recorded.users = [{ id: "user-2", email: "her@example.com" }];
+    await addUser("user-2", "her@example.com");
     const m = mailer();
     const g = granter();
 
-    const result = await inviteByEmail({
-      flowId: "flow-1",
-      flowName: "Blinky",
-      email: "her@example.com",
-      role: "editor",
-      invitedBy: { id: "owner-1", name: "Sander" },
-      grant: g.fn,
-      mailer: m.fn,
-    });
+    const result = await invite("her@example.com", "editor", { grant: g.fn, mailer: m.fn });
 
     expect(result).toEqual({ kind: "granted", userId: "user-2" });
     // The grant goes through the adapter — pairing row write + live push is
     // the caller's setFlowRole's job, not a direct row write from here.
     expect(g.calls).toEqual([{ flowId: "flow-1", userId: "user-2", role: "editor" }]);
-    expect(recorded.inserts.length).toBe(0);
+    expect(await grants()).toEqual([]);
+    expect(await pendingFor("flow-1")).toEqual([]);
     expect(m.sent[0]).toMatchObject({
       to: "her@example.com",
       kind: "granted",
@@ -130,55 +129,39 @@ describe("inviteByEmail", () => {
     const m = mailer();
     const g = granter();
 
-    const result = await inviteByEmail({
-      flowId: "flow-1",
-      flowName: "Blinky",
-      email: "stranger@example.com",
-      role: "viewer",
-      invitedBy: { id: "owner-1", name: "Sander" },
-      grant: g.fn,
-      mailer: m.fn,
-    });
+    const result = await invite("stranger@example.com", "viewer", { grant: g.fn, mailer: m.fn });
 
     expect(result).toEqual({ kind: "pending" });
     expect(g.calls.length).toBe(0);
-    expect(recorded.inserts[0]!.table).toBe("flow_invite");
-    expect(recorded.inserts[0]!.upsert).toBe(true); // re-inviting updates the role
+    expect(await pendingFor("flow-1")).toEqual(["stranger@example.com:viewer"]);
     expect(m.sent[0]).toMatchObject({ kind: "pending", role: "viewer" });
   });
 
+  test("re-inviting an address updates the pending invite instead of adding one", async () => {
+    await invite("stranger@example.com", "viewer");
+    await invite("stranger@example.com", "editor");
+
+    expect(await pendingFor("flow-1")).toEqual(["stranger@example.com:editor"]);
+  });
+
   test("inviting yourself is refused", async () => {
-    recorded.users = [{ id: "owner-1", email: "me@example.com" }];
     const m = mailer();
     const g = granter();
 
     await expect(
-      inviteByEmail({
-        flowId: "flow-1",
-        flowName: "Blinky",
-        email: "me@example.com",
-        role: "editor",
-        invitedBy: { id: "owner-1", name: "Sander" },
-        grant: g.fn,
-        mailer: m.fn,
-      }),
+      invite("me@example.com", "editor", { grant: g.fn, mailer: m.fn }),
     ).rejects.toThrow("Cannot add yourself as a collaborator");
 
     expect(g.calls.length).toBe(0);
-    expect(recorded.inserts.length).toBe(0);
+    expect(await pendingFor("flow-1")).toEqual([]);
     expect(m.sent.length).toBe(0);
   });
 
   test("a failing mailer does not undo the grant", async () => {
-    recorded.users = [{ id: "user-2", email: "her@example.com" }];
+    await addUser("user-2", "her@example.com");
     const g = granter();
 
-    const result = await inviteByEmail({
-      flowId: "flow-1",
-      flowName: "Blinky",
-      email: "her@example.com",
-      role: "viewer",
-      invitedBy: { id: "owner-1", name: "Sander" },
+    const result = await invite("her@example.com", "viewer", {
       grant: g.fn,
       mailer: async () => {
         throw new Error("resend is down");
@@ -188,32 +171,126 @@ describe("inviteByEmail", () => {
     expect(result).toEqual({ kind: "granted", userId: "user-2" });
     expect(g.calls).toEqual([{ flowId: "flow-1", userId: "user-2", role: "viewer" }]);
   });
+
+  test("a failing mailer does not undo a pending invite", async () => {
+    await invite("stranger@example.com", "editor", {
+      mailer: async () => {
+        throw new Error("resend is down");
+      },
+    });
+
+    expect(await pendingFor("flow-1")).toEqual(["stranger@example.com:editor"]);
+  });
 });
 
 describe("acceptInvites", () => {
-  beforeEach(reset);
-
   test("every pending invite becomes a grant, then the invites are cleared", async () => {
-    recorded.invites = [
-      { flowId: "flow-1", email: "new@example.com", role: "editor" },
-      { flowId: "flow-2", email: "new@example.com", role: "viewer" },
-    ];
+    await invite("new@example.com", "editor");
+    await invite("new@example.com", "viewer", { flowId: "flow-2" });
+    await invite("other@example.com", "viewer");
+    await addUser("user-9", "new@example.com");
 
     const granted = await acceptInvites("new@example.com", "user-9");
 
-    expect(granted).toEqual(["flow-1", "flow-2"]);
-    expect(recorded.inserts.map((i) => i.values.role)).toEqual(["editor", "viewer"]);
-    expect(recorded.inserts.every((i) => i.values.userId === "user-9")).toBe(true);
-    // Upsert, so a user already holding one of these flows is not duplicated.
-    expect(recorded.inserts.every((i) => i.upsert)).toBe(true);
-    expect(recorded.deletes).toEqual(["flow_invite"]);
+    expect(granted.sort()).toEqual(["flow-1", "flow-2"]);
+    expect(await grants()).toEqual(["flow-1:user-9:editor", "flow-2:user-9:viewer"]);
+    // Somebody else's invite on the same flow is untouched.
+    expect(await pendingFor("flow-1")).toEqual(["other@example.com:viewer"]);
+    expect(await pendingFor("flow-2")).toEqual([]);
   });
 
-  test("no invites means no writes at all", async () => {
+  test("an invite for a flow the user already holds updates that grant", async () => {
+    await invite("new@example.com", "editor");
+    await addUser("user-9", "new@example.com");
+    await grantAccess("flow-1", "user-9", "viewer");
+
+    await acceptInvites("new@example.com", "user-9");
+
+    expect(await grants()).toEqual(["flow-1:user-9:editor"]);
+  });
+
+  test("a revoked invite grants nothing", async () => {
+    await invite("new@example.com", "editor");
+    await invite("new@example.com", "viewer", { flowId: "flow-2" });
+    await revokeInvite("flow-1", "new@example.com");
+    await addUser("user-9", "new@example.com");
+
+    const granted = await acceptInvites("new@example.com", "user-9");
+
+    expect(granted).toEqual(["flow-2"]);
+    expect(await grants()).toEqual(["flow-2:user-9:viewer"]);
+  });
+
+  test("accepting twice grants once", async () => {
+    await invite("new@example.com", "editor");
+    await addUser("user-9", "new@example.com");
+
+    await acceptInvites("new@example.com", "user-9");
+    const second = await acceptInvites("new@example.com", "user-9");
+
+    expect(second).toEqual([]);
+    expect(await grants()).toEqual(["flow-1:user-9:editor"]);
+  });
+
+  test("no invites means no grants", async () => {
+    await addUser("user-9", "nobody@example.com");
+
     const granted = await acceptInvites("nobody@example.com", "user-9");
 
     expect(granted).toEqual([]);
-    expect(recorded.inserts.length).toBe(0);
-    expect(recorded.deletes.length).toBe(0);
+    expect(await grants()).toEqual([]);
+  });
+
+  // The sign-up hook runs once per account, so an accept that fails part-way
+  // is never finished by a retry: what it leaves behind is what stays.
+  test("a failure part-way leaves every invite pending and grants nothing", async () => {
+    await invite("new@example.com", "editor");
+    await invite("new@example.com", "viewer", { flowId: "flow-2" });
+    await addUser("user-9", "new@example.com");
+    // Make the grant on flow-2 fail, as a database error would.
+    await db.execute(sql`
+      CREATE OR REPLACE FUNCTION refuse_flow_2() RETURNS trigger AS $$
+      BEGIN
+        IF NEW.flow_id = 'flow-2' THEN RAISE EXCEPTION 'grant refused'; END IF;
+        RETURN NEW;
+      END $$ LANGUAGE plpgsql
+    `);
+    await db.execute(sql`
+      CREATE TRIGGER refuse_flow_2 BEFORE INSERT ON flow_collaborator
+      FOR EACH ROW EXECUTE FUNCTION refuse_flow_2()
+    `);
+
+    await expect(acceptInvites("new@example.com", "user-9")).rejects.toThrow();
+
+    expect(await grants()).toEqual([]);
+    expect(await pendingFor("flow-1")).toEqual(["new@example.com:editor"]);
+    expect(await pendingFor("flow-2")).toEqual(["new@example.com:viewer"]);
+  });
+});
+
+describe("revokeInvite", () => {
+  test("withdraws one invite and leaves the others", async () => {
+    await invite("a@example.com", "viewer");
+    await invite("b@example.com", "editor");
+
+    await revokeInvite("flow-1", "a@example.com");
+
+    expect(await pendingFor("flow-1")).toEqual(["b@example.com:editor"]);
+  });
+
+  test("is a no-op for an invite that is not there", async () => {
+    await revokeInvite("flow-1", "ghost@example.com");
+
+    expect(await pendingFor("flow-1")).toEqual([]);
+  });
+});
+
+describe("listPendingInvites", () => {
+  test("a deleted flow takes its invites with it", async () => {
+    await invite("a@example.com", "viewer");
+
+    await db.delete(flow);
+
+    expect(await pendingFor("flow-1")).toEqual([]);
   });
 });

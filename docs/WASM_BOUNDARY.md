@@ -12,8 +12,8 @@ same core natively, so neither host is the source of truth for behaviour.
 
 | Module | Surface | Host code |
 |---|---|---|
-| `microflow-runtime-wasm` | `FlowRuntime` — the flow engine | `runtime/flow-reactor.ts` |
-| `microflow-firmata-wasm` | `FirmataSession` (codec), `BringUpMachine`, `FlashSession` | `board/web-serial.ts`, `board-controller.ts` |
+| `microflow-runtime-wasm` | `FlowRuntime` — the flow engine | `runtime/runtime-bridge.ts`, held by `runtime/flow-reactor.ts` |
+| `microflow-firmata-wasm` | `FirmataSession` (codec), `BringUpMachine`, `FlashSession` | `board/board-link.ts`, `board/board-controller-core.ts`, `board/web-serial.ts` |
 | `microflow-codegen-wasm` | Arduino sketch generation | `sketch/codegen/` |
 
 Each has its own memoised `ensureReady()` and is fetched through Vite's `?url`, so
@@ -24,12 +24,41 @@ readiness before touching the module.
 
 Entry points take and return JSON strings; the host `JSON.parse`s the reply. The
 runtime folds each turn into one `Effects` value the host applies in the canonical
-order fixed by [ADR-0008](adr/0008-effects-apply-policy.md).
+order fixed by [ADR-0008](adr/0008-effects-apply-policy.md). A turn that produced
+nothing returns the empty string, which the host reads as "no effects" without
+parsing.
+
+The flow runtime's ops fall into three groups:
+
+| Group | Ops | Returns |
+|---|---|---|
+| Turns on behalf of one node | `wake`, `dispatch`, `injectEvent`, `deliverMessage` | `Effects` |
+| Whole-flow turns | `updateFlow`, `feedBytes`, `keyEvent`, `midiMessage` | `Effects` |
+| Questions | `reconcileSubscriptions`; `listensToMidi`, `wantsMidiInput`, `midiDeviceMatches` | `DesiredSub[]`; a boolean |
+
+Every turn takes the host's time (`now_ms`), which becomes the engine clock that
+nodes read (`ctx.now_ms()`). Core never reads the OS clock: on
+`wasm32-unknown-unknown` that panics. `clippy.toml` in `microflow-core` and
+`microflow-runtime-wasm` bans `std::time::Instant` and `std::time::SystemTime`.
+
+`setPins` seeds the pin table and returns nothing. `keyEvent` and `midiMessage`
+are **host input**: a key or a MIDI message goes in with no node id, and core
+picks the nodes that hear it ([ADR-0037](adr/0037-core-owns-host-input-fan-out.md)).
+The three MIDI questions are how the host learns which ports to open; no listener
+list crosses.
+
+The flash drivers cross the same way in the firmata module: `FlashSession.start()`
+and `advance(bytes)` each return one JSON `FlashStep`, which the Web Serial
+executor (`runFlash` in `board/web-serial.ts`) carries out
+([ADR-0038](adr/0038-bootloader-protocols-once-in-core.md)). It keeps the same
+step contract as the desktop executor: a `transact` step discards buffered
+input unless it says `keepInput`, and its `timeoutMs` is one deadline counted
+from the write, which arriving bytes do not extend.
 
 The **types** describing what crosses are generated, not hand-written. Every seam
 type carries `#[derive(TS)] #[ts(export)]` in Rust and lands in
 `apps/web/src/lib/bindings/`: `Effects`, `Wakeup`, `CloudRequest`,
-`NodeDiagnostic`, `MidiListener`, `FigmaPublish`, `DesiredSub`, `BringUpEvent` /
+`NodeDiagnostic`, `FigmaPublish`, `DesiredSub`, `BringUpEvent` /
 `BringUpPhase` / `BringUpAction`, `FlashStep`, `FeedResult`.
 
 `runtime/wasm.ts`, `board/wasm.ts` and `cloud/mqtt-subscriptions.ts`
@@ -49,8 +78,9 @@ Two conventions apply at the seam:
 
 Every runtime entry point returns `Result<String, JsError>` — a throw on the JS
 side. `runtime/runtime-bridge.ts` is the one crossing into the flow runtime;
-no call site holds a runtime handle directly. `bridge.call()` returns the reply or
-`undefined` and never throws. See [ADR-0017](adr/0017-wasm-fault-seam.md).
+no call site holds a runtime handle directly. Each typed entry point of the
+`RuntimeBridge` returns the decoded reply or `undefined` and never throws. See
+[ADR-0017](adr/0017-wasm-fault-seam.md).
 
 | Fault | Meaning | Surface |
 |---|---|---|
@@ -66,9 +96,9 @@ An undecodable reply — the call returned but `JSON.parse` failed — routes th
 the same handler as a thrown fault, so the crossing has one answer rather than one
 path to the seam and another to the console.
 
-**`onClosed` means the reader ended, and nothing else.** `web-serial.ts`'s
-`pumpReader` contains `session.feed` and `onBytes` per chunk; only a rejecting
-`reader.read()` reaches the transport's close path. An engine fault cannot present
+**`onClosed` means the reader ended, and nothing else.** `pumpReader`
+(`board/board-link.ts`) contains `session.feed` and `onBytes` per chunk; only a
+`reader.read()` that rejects or ends reaches the transport's close path. An engine fault cannot present
 as an unplugged board, and auto-reconnect still fires on genuine port loss.
 
 Not behind this seam: `session.pinsJson`, `FlashSession`, and `machine.handle` run
@@ -77,7 +107,7 @@ which the bring-up machine handles.
 
 ## The inbound stream
 
-`pumpReader` in `board/web-serial.ts` fans each inbound chunk, unfiltered and
+`pumpReader` in `board/board-link.ts` fans each inbound chunk, unfiltered and
 in order, to two wasm instances: the **detection codec** (`FirmataSession`) and the
 flow runtime. Both wrap the same `microflow_core::firmata::FirmataClient` — one
 codec answering two questions at two lifetimes, not two competing parsers. The
@@ -99,6 +129,9 @@ flow is running — nothing consumes it, so the chunk costs one `session.feed` a
   core's `context::apply_tests`.
 - `runtime/runtime-bridge.test.ts` covers fault containment, the latch, and that
   a throwing runtime does not close the board connection.
+- `runtime/host-input.wasm.test.ts` drives a key and a MIDI message through the
+  compiled runtime module, so the browser's fan-out is checked against the same
+  code the desktop runs.
 - `.github/workflows/typescript.yml` runs `bun test` and `tsc --noEmit`. The
   typecheck job builds the wasm first, because the host imports the generated glue.
 

@@ -31,7 +31,7 @@ impl Default for RgbPins {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct RgbConfig {
     #[serde(default)]

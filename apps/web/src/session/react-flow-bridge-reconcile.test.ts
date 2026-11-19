@@ -1,9 +1,14 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import { FlowDocument, type FlowEdge, type FlowNode } from "@microflow/collab";
 import type { EdgeChange, NodeChange } from "@xyflow/react";
-import { makeSession } from "./flow-session";
+import { makeSession, provideHandleSets } from "./flow-session";
 import { ReactFlowBridge } from "./react-flow-bridge";
 import { RecordingSyncAdapter } from "./recording-sync-adapter";
+
+// These sessions are not about handle pruning. A writable session without
+// handle sets reports the missing wiring, so give them one that knows no node.
+beforeAll(() => provideHandleSets(() => null));
+afterAll(() => provideHandleSets(null));
 
 /**
  * Pending local intent versus an incoming doc change.
@@ -32,7 +37,13 @@ const mkNode = (id: string, overrides: Partial<FlowNode> = {}): FlowNode => ({
   ...overrides,
 });
 
-const mkEdge = (id: string, source: string, target: string): FlowEdge => ({ id, source, target });
+const mkEdge = (id: string, source: string, target: string): FlowEdge => ({
+  id,
+  source,
+  sourceHandle: "out",
+  target,
+  targetHandle: "in",
+});
 
 /** A doc seeded outside the undo-tracked origin, plus a bridge over it. */
 function setup(nodeIds: string[] = ["n1", "n2"], edges: FlowEdge[] = []) {

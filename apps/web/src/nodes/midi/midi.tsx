@@ -1,35 +1,20 @@
 import { KeyboardMusicIcon, MusicIcon } from "lucide-react";
 import { button, folder } from "leva";
 import { useMemo, useState } from "react";
-import { Handle as BaseHandle } from "../_base/handle";
+import { NodeHandles } from "../_base/node-handles";
 import { IconWithValue } from "../_base/icon-with-value";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { MidiSongEditor } from "./midi-song-editor";
+import { SongEditor } from "../song/song-editor";
+import { MIDI_NOTE } from "./midi.note";
 import { DEFAULT_MIDI_SONG } from "./midi.constants";
 import { dataSchema, defaults, type Data } from "./midi.schema";
 
-const Handle = BaseHandle<"Midi">;
-
 export function Midi(props: Props) {
-  const { direction, mode } = props.data;
   return (
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      {direction === "out" && (
-        <Handle type="target" position="left" id="send" handleType="command" />
-      )}
-      {direction === "in" && mode === "note" && (
-        <>
-          <Handle type="source" position="right" id="note" handleType="value" offset={-1.5} />
-          <Handle type="source" position="right" id="velocity" handleType="value" offset={-0.5} />
-          <Handle type="source" position="right" id="on" handleType="command" offset={0.5} />
-          <Handle type="source" position="right" id="off" handleType="command" offset={1.5} />
-        </>
-      )}
-      {direction === "in" && mode === "cc" && (
-        <Handle type="source" position="right" id="value" handleType="value" />
-      )}
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -114,8 +99,9 @@ function Settings() {
     <>
       {render()}
       {editorOpened && (
-        <MidiSongEditor
+        <SongEditor
           song={data.song ?? DEFAULT_MIDI_SONG}
+          shape={MIDI_NOTE}
           title={data.label}
           onClose={() => setEditorOpened(false)}
           onSave={(saved) => {

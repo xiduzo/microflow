@@ -1,0 +1,379 @@
+{
+  "meta": {
+    "name": "Local Flow",
+    "description": "Local development flow",
+    "version": 1,
+    "updatedAt": 1795043353991
+  },
+  "data": {
+    "nodes": [
+      {
+        "id": "button-1",
+        "type": "Button",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "data": {
+          "instance": "Button",
+          "tags": [
+            "trigger",
+            "source"
+          ],
+          "pin": 2,
+          "isPullup": true,
+          "isPulldown": false,
+          "holdtime": 500,
+          "group": "sense",
+          "label": "Button",
+          "description": "Detect when a physical button is pressed or released",
+          "icon": "PointerIcon"
+        }
+      },
+      {
+        "id": "led-1",
+        "type": "Led",
+        "position": {
+          "x": 440,
+          "y": 0
+        },
+        "data": {
+          "instance": "Led",
+          "tags": [
+            "action"
+          ],
+          "pin": 9,
+          "group": "express",
+          "label": "LED",
+          "description": "Turn an LED on or off, or dim it by controlling brightness via PWM",
+          "icon": "LightbulbIcon"
+        }
+      },
+      {
+        "id": "oscillator-1",
+        "type": "Oscillator",
+        "position": {
+          "x": 0,
+          "y": 260
+        },
+        "data": {
+          "instance": "Oscillator",
+          "tags": [
+            "value",
+            "source",
+            "time-based"
+          ],
+          "waveform": "sinus",
+          "period": 1000,
+          "amplitude": 1,
+          "phase": 0,
+          "shift": 0,
+          "autoStart": true,
+          "group": "generate",
+          "label": "Oscillator",
+          "description": "Generate repeating wave patterns — sine, square, sawtooth, or triangle — to animate or cycle values",
+          "icon": "AudioWaveformIcon"
+        }
+      },
+      {
+        "id": "rangemap-1",
+        "type": "RangeMap",
+        "position": {
+          "x": 440,
+          "y": 260
+        },
+        "data": {
+          "instance": "RangeMap",
+          "tags": [
+            "value"
+          ],
+          "from": {
+            "min": 0,
+            "max": 1023
+          },
+          "to": {
+            "min": 0,
+            "max": 1023
+          },
+          "group": "shape",
+          "label": "Map",
+          "description": "Remap a value from one range to another — like converting a sensor reading (0–1023) to brightness (0–255)",
+          "icon": "SeparatorVerticalIcon"
+        }
+      },
+      {
+        "id": "servo-1",
+        "type": "Servo",
+        "position": {
+          "x": 880,
+          "y": 260
+        },
+        "data": {
+          "instance": "Servo",
+          "tags": [
+            "action",
+            "value"
+          ],
+          "pin": 3,
+          "range": {
+            "min": 0,
+            "max": 180
+          },
+          "type": "standard",
+          "group": "express",
+          "label": "Servo",
+          "description": "Move a servo motor to a specific angle (0–180°) or spin it continuously",
+          "icon": "RotateCwIcon"
+        }
+      },
+      {
+        "id": "interval-1",
+        "type": "Interval",
+        "position": {
+          "x": 0,
+          "y": 520
+        },
+        "data": {
+          "instance": "Interval",
+          "tags": [
+            "trigger",
+            "source",
+            "time-based"
+          ],
+          "interval": 1000,
+          "autoStart": true,
+          "group": "generate",
+          "label": "Interval",
+          "description": "Automatically send a signal at regular time intervals, like a timer",
+          "icon": "TimerIcon"
+        }
+      },
+      {
+        "id": "counter-1",
+        "type": "Counter",
+        "position": {
+          "x": 440,
+          "y": 520
+        },
+        "data": {
+          "instance": "Counter",
+          "tags": [
+            "value",
+            "source",
+            "stateful"
+          ],
+          "group": "generate",
+          "label": "Counter",
+          "description": "Keep track of a number that can be increased, decreased, set, or reset",
+          "icon": "Tally5Icon"
+        }
+      },
+      {
+        "id": "function-1",
+        "type": "Function",
+        "position": {
+          "x": 880,
+          "y": 520
+        },
+        "data": {
+          "instance": "Function",
+          "tags": [
+            "value",
+            "logic"
+          ],
+          "code": "return {{count}} * {{gain}};",
+          "group": "shape",
+          "label": "Function",
+          "description": "Write custom JavaScript to transform values inline within your flow",
+          "icon": "BracesIcon"
+        }
+      },
+      {
+        "id": "monitor-1",
+        "type": "Monitor",
+        "position": {
+          "x": 1320,
+          "y": 520
+        },
+        "data": {
+          "instance": "Monitor",
+          "tags": [
+            "action"
+          ],
+          "type": "graph",
+          "group": "express",
+          "label": "Monitor",
+          "description": "Inspect and graph values flowing through your flow in real-time — great for debugging",
+          "icon": "MonitorIcon"
+        },
+        "width": 320,
+        "height": 180
+      },
+      {
+        "id": "mqtt-1",
+        "type": "Mqtt",
+        "position": {
+          "x": 0,
+          "y": 780
+        },
+        "data": {
+          "instance": "Mqtt",
+          "tags": [
+            "value",
+            "source",
+            "action",
+            "external"
+          ],
+          "direction": "subscribe",
+          "brokerId": "",
+          "topic": "greenhouse/temperature",
+          "qos": "1",
+          "retain": false,
+          "group": "sense",
+          "label": "MQTT",
+          "description": "Send and receive real-time messages over a network using MQTT protocol",
+          "icon": "RadioTowerIcon"
+        }
+      },
+      {
+        "id": "compare-1",
+        "type": "Compare",
+        "position": {
+          "x": 440,
+          "y": 780
+        },
+        "data": {
+          "instance": "Compare",
+          "tags": [
+            "trigger",
+            "logic"
+          ],
+          "validator": "number",
+          "subValidator": "greater than",
+          "group": "decide",
+          "label": "Compare",
+          "description": "Check if a value meets a condition and output true or false",
+          "icon": "ShieldCheckIcon",
+          "number": 21
+        }
+      },
+      {
+        "id": "figma-1",
+        "type": "Figma",
+        "position": {
+          "x": 880,
+          "y": 780
+        },
+        "data": {
+          "instance": "Figma",
+          "tags": [
+            "action",
+            "external"
+          ],
+          "source": "figma",
+          "brokerId": "",
+          "uniqueId": "",
+          "variableId": "",
+          "resolvedType": "STRING",
+          "initialValue": "",
+          "group": "express",
+          "label": "Design variable",
+          "description": "Link a Figma variable or Penpot design token to your flow: drive hardware from your design, or your design from hardware",
+          "icon": "SwatchBook"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge-1",
+        "source": "button-1",
+        "sourceHandle": "event",
+        "target": "led-1",
+        "targetHandle": "toggle",
+        "type": "animated"
+      },
+      {
+        "id": "edge-2",
+        "source": "oscillator-1",
+        "sourceHandle": "value",
+        "target": "rangemap-1",
+        "targetHandle": "value",
+        "type": "animated"
+      },
+      {
+        "id": "edge-3",
+        "source": "rangemap-1",
+        "sourceHandle": "to",
+        "target": "servo-1",
+        "targetHandle": "value",
+        "type": "animated"
+      },
+      {
+        "id": "edge-4",
+        "source": "interval-1",
+        "sourceHandle": "event",
+        "target": "counter-1",
+        "targetHandle": "increment",
+        "type": "animated"
+      },
+      {
+        "id": "edge-5",
+        "source": "counter-1",
+        "sourceHandle": "value",
+        "target": "function-1",
+        "targetHandle": "count",
+        "type": "animated"
+      },
+      {
+        "id": "edge-6",
+        "source": "oscillator-1",
+        "sourceHandle": "value",
+        "target": "function-1",
+        "targetHandle": "gain",
+        "type": "animated"
+      },
+      {
+        "id": "edge-7",
+        "source": "function-1",
+        "sourceHandle": "value",
+        "target": "monitor-1",
+        "targetHandle": "value",
+        "type": "animated"
+      },
+      {
+        "id": "edge-8",
+        "source": "mqtt-1",
+        "sourceHandle": "value",
+        "target": "compare-1",
+        "targetHandle": "value",
+        "type": "animated"
+      },
+      {
+        "id": "edge-9",
+        "source": "compare-1",
+        "sourceHandle": "true",
+        "target": "led-1",
+        "targetHandle": "true",
+        "type": "animated"
+      },
+      {
+        "id": "edge-10",
+        "source": "compare-1",
+        "sourceHandle": "false",
+        "target": "led-1",
+        "targetHandle": "false",
+        "type": "animated"
+      },
+      {
+        "id": "edge-11",
+        "source": "figma-1",
+        "sourceHandle": "change",
+        "target": "monitor-1",
+        "targetHandle": "value",
+        "type": "animated"
+      }
+    ]
+  },
+  "version": 1,
+  "exportedAt": "2026-11-18T23:09:14.000Z"
+}

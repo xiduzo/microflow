@@ -51,7 +51,7 @@ In Microflow Studio, create a new flow and add:
 
 1. A [**Button**](/docs/microflow-studio/nodes/sense/button) node — set **Pin** to `2`.
 2. An [**LED**](/docs/microflow-studio/nodes/express/led) node — set **Pin** to `9` (or `13` if you skipped step 2).
-3. Connect the Button's output to the LED's input.
+3. Connect the Button's **true** output to the LED's **true** input, and the Button's **false** output to the LED's **false** input.
 
 ## Step 4 — Try it
 
@@ -59,7 +59,7 @@ Press the button. The LED should turn on. Release the button. The LED should tur
 
 If nothing happens:
 
-- Drop a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Button's output to it. Press the button — the Monitor should show `1`. If it stays at `0`, the button is wired wrong.
+- Drop a [**Monitor**](/docs/microflow-studio/nodes/internal/monitor) node onto the canvas and connect the Button's **event** output to it. Press and release the button — the Monitor should change each time. If it never changes, the button is wired wrong.
 - Make sure the board status in the sidebar is still green.
 
 ## What just happened?

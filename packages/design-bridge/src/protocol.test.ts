@@ -77,18 +77,3 @@ describe("pairing", () => {
     expect(bridgeIdFromName(name)).toBe(id);
   });
 });
-
-describe("stored settings", () => {
-  test("migrates the old default broker", async () => {
-    const { readStoredMqttConfig, DEFAULT_BROKER_URL } = await import("./react");
-    const config = readStoredMqttConfig(
-      JSON.stringify({ state: { mqttConfig: { url: "test.mosquitto.org", uniqueId: "swift_fox" } } }),
-    );
-    expect(config).toEqual({
-      url: DEFAULT_BROKER_URL,
-      uniqueId: "swift_fox",
-      username: undefined,
-      password: undefined,
-    });
-  });
-});

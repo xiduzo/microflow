@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
 
-export const valueSchema = z.number();
-export type Value = z.infer<typeof valueSchema>;
-
 export const dataSchema = baseDataSchema.extend({
   instance: z.literal("Stepper").default("Stepper"),
   interface: z.enum(["driver", "four_wire"]).default("driver"),

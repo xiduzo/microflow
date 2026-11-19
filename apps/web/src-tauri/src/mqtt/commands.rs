@@ -2,10 +2,13 @@
 //!
 //! Exposes MQTT functionality to the frontend via Tauri commands.
 
-use super::broker::{BrokerConfig, ConnectionStatus, MqttMessage as BrokerMessage};
+use super::broker::{BrokerConfig, ConnectionStatus, MqttMessage as BrokerMessage, Subscriber};
+use super::manager::StatusSnapshot;
+use super::MqttManager;
+use crate::runtime::host::HostEvents;
 use crate::AppState;
 use std::sync::Arc;
-use tauri::{Emitter, State};
+use tauri::State;
 use ts_rs::TS;
 
 /// Payload of the `mqtt-message` Tauri event. Frontend deserializes this with
@@ -17,7 +20,7 @@ pub struct MqttMessage {
     pub topic: String,
     pub payload: String,
     /// Set when the message reached a subscribed component (Plain/TopicAware
-    /// flows in `runtime::commands`); `null` for direct broker subscriptions.
+    /// flows in `runtime::cloud_performer`); `null` for direct broker subscriptions.
     /// Always serialized so the ts-rs binding mirrors the struct verbatim.
     pub component_id: Option<String>,
 }
@@ -28,6 +31,24 @@ pub struct MqttMessage {
 pub struct BrokerStatus {
     pub id: String,
     pub status: ConnectionStatus,
+}
+
+/// Every broker's status at one moment, numbered: what `mqtt_sync_brokers`
+/// answers and the [`BROKER_STATUS_EVENT`] carries. The two can arrive in
+/// either order; the one with the higher `seq` shows the later state, and the
+/// frontend keeps that one ([`MqttManager::status_snapshot`]).
+#[derive(Debug, Clone, serde::Serialize, TS)]
+#[ts(export)]
+pub struct BrokerStatuses {
+    #[ts(type = "number")]
+    pub seq: u64,
+    pub brokers: Vec<BrokerStatus>,
+}
+
+impl From<&StatusSnapshot> for BrokerStatuses {
+    fn from(snapshot: &StatusSnapshot) -> Self {
+        Self { seq: snapshot.seq, brokers: broker_statuses(&snapshot.statuses) }
+    }
 }
 
 /// Broker config from frontend for sync
@@ -72,7 +93,9 @@ pub async fn mqtt_disconnect(state: State<'_, AppState>, broker_id: String) -> R
     state.mqtt_manager.disconnect(&broker_id).await
 }
 
-/// Subscribe to a topic
+/// Subscribe the Connection Console to a topic. It subscribes as
+/// [`Subscriber::Console`], beside whatever the running flow holds on the same
+/// topic: neither replaces the other's deliveries.
 #[tauri::command]
 pub async fn mqtt_subscribe(
     app: tauri::AppHandle,
@@ -90,23 +113,30 @@ pub async fn mqtt_subscribe(
             payload: String::from_utf8_lossy(&msg.payload).to_string(),
             component_id: None,
         };
-        let _ = app_handle.emit("mqtt-message", message);
+        HostEvents::emit(&app_handle, "mqtt-message", message);
     });
 
     state
         .mqtt_manager
-        .subscribe(&broker_id, &topic, callback)
+        .subscribe(&broker_id, &topic, Subscriber::Console, callback)
         .await
+        .map(|_session| ())
 }
 
-/// Unsubscribe from a topic
+/// Unsubscribe the Connection Console from a topic. A flow node subscribed to
+/// the same topic keeps receiving.
+///
+/// The console's subscription ends with this call whatever the broker is
+/// doing — connected, its link down, or not in the pool: the console calls it
+/// when a page is left and does not look at the answer. The error is for a
+/// topic the console did not hold on a broker that is not connected.
 #[tauri::command]
 pub async fn mqtt_unsubscribe(
     state: State<'_, AppState>,
     broker_id: String,
     topic: String,
 ) -> Result<(), String> {
-    state.mqtt_manager.unsubscribe(&broker_id, &topic).await
+    state.mqtt_manager.unsubscribe(&broker_id, &topic, Subscriber::Console).await
 }
 
 /// Publish a message
@@ -137,84 +167,59 @@ pub async fn mqtt_connected_brokers(state: State<'_, AppState>) -> Result<Vec<St
     Ok(state.mqtt_manager.connected_brokers().await)
 }
 
-/// Sync all broker configs from frontend - connects to all brokers
-/// This is called on app startup and whenever broker configs change
+/// The broker settings, all of them: called on app startup and whenever a
+/// broker's settings change, which while the user types is on every keystroke,
+/// with calls overlapping. The pool takes it from there
+/// ([`MqttManager::sync`](super::MqttManager::sync)): the last list given is
+/// the truth, every broker in it is connected as it says, and the ones no
+/// longer in it leave the pool with the console's subscriptions for their id.
+///
+/// Resolves once the pool has been told, with every broker's status as it is
+/// then — `connecting` for the ones being dialled. No broker is waited for:
+/// how each of them fares follows on the [`BROKER_STATUS_EVENT`], which may
+/// arrive before this answer does.
 #[tauri::command]
 pub async fn mqtt_sync_brokers(
-    app: tauri::AppHandle,
     state: State<'_, AppState>,
     brokers: Vec<SyncBrokerConfig>,
-) -> Result<Vec<BrokerStatus>, String> {
+) -> Result<BrokerStatuses, String> {
     log::info!("[MQTT] Syncing {} broker configs", brokers.len());
-    
-    // Get currently connected broker IDs
-    let current_ids: std::collections::HashSet<String> = state
-        .mqtt_manager
-        .all_broker_ids()
-        .await
+
+    let configs = brokers
         .into_iter()
+        .map(|broker| BrokerConfig {
+            id: broker.id,
+            url: broker.url,
+            username: broker.username,
+            password: broker.password,
+        })
         .collect();
-    
-    // Get new broker IDs
-    let new_ids: std::collections::HashSet<String> = brokers.iter().map(|b| b.id.clone()).collect();
-    
-    // Disconnect brokers that were removed
-    for id in current_ids.difference(&new_ids) {
-        log::info!("[MQTT] Disconnecting removed broker: {id}");
-        let _ = state.mqtt_manager.disconnect(id).await;
-    }
-    
-    // Connect/update brokers
-    for broker in &brokers {
-        let config = BrokerConfig {
-            id: broker.id.clone(),
-            url: broker.url.clone(),
-            username: broker.username.clone(),
-            password: broker.password.clone(),
-        };
-        
-        // Check if already connected with same config
-        let current_status = state.mqtt_manager.status(&broker.id).await;
-        
-        if matches!(current_status, ConnectionStatus::Connected) {
-            // Check if config changed - if so, reconnect
-            if state.mqtt_manager.config_changed(&broker.id, &config).await {
-                log::info!("[MQTT] Config changed for broker {}, reconnecting", broker.name);
-                let _ = state.mqtt_manager.disconnect(&broker.id).await;
-                if let Err(e) = state.mqtt_manager.connect(config).await {
-                    log::error!("[MQTT] Failed to reconnect broker {}: {}", broker.name, e);
-                }
-            } else {
-                log::debug!("[MQTT] Broker {} already connected with same config", broker.name);
-            }
-        } else {
-            // Not connected, try to connect
-            log::info!("[MQTT] Connecting to broker: {} ({})", broker.name, broker.url);
-            if let Err(e) = state.mqtt_manager.connect(config).await {
-                log::error!("[MQTT] Failed to connect to broker {}: {}", broker.name, e);
-            }
-        }
-    }
-    
-    // Emit status update event
-    let statuses = mqtt_all_statuses_inner(&state).await;
-    let _ = app.emit("mqtt-broker-status", &statuses);
-    
-    Ok(statuses)
+    state.mqtt_manager.sync(configs).await;
+
+    Ok(BrokerStatuses::from(&state.mqtt_manager.status_snapshot().await))
 }
 
 /// Get status of all known brokers
 #[tauri::command]
 pub async fn mqtt_all_statuses(state: State<'_, AppState>) -> Result<Vec<BrokerStatus>, String> {
-    Ok(mqtt_all_statuses_inner(&state).await)
+    Ok(broker_statuses(&state.mqtt_manager.status_snapshot().await.statuses))
 }
 
-async fn mqtt_all_statuses_inner(state: &State<'_, AppState>) -> Vec<BrokerStatus> {
-    state
-        .mqtt_manager
-        .all_statuses()
-        .await
-        .into_iter()
-        .map(|(id, status)| BrokerStatus { id, status })
-        .collect()
+/// The pool's statuses, as the frontend takes them.
+fn broker_statuses(statuses: &[(String, ConnectionStatus)]) -> Vec<BrokerStatus> {
+    statuses.iter().map(|(id, status)| BrokerStatus { id: id.clone(), status: *status }).collect()
+}
+
+/// The webview event that carries the status of every broker the pool knows,
+/// as [`BrokerStatuses`]. The frontend replaces what it shows with the list —
+/// a broker that is not in it has no status — unless it holds a newer one.
+pub const BROKER_STATUS_EVENT: &str = "mqtt-broker-status";
+
+/// Emit the [`BROKER_STATUS_EVENT`] on `events` whenever the status of a
+/// broker in `pool` changes, whatever changed it: a `connect` starting,
+/// getting through or failing, a link that dropped, a client that repaired
+/// it, a broker that was disconnected or removed. Nothing is emitted while
+/// nothing changes. Runs for as long as it is polled; the app spawns it once.
+pub async fn report_broker_statuses<E: HostEvents>(pool: MqttManager, events: E) {
+    pool.report_statuses(|snapshot| events.emit(BROKER_STATUS_EVENT, BrokerStatuses::from(snapshot))).await;
 }

@@ -5,9 +5,10 @@ import type { ValidationProblem } from "./ValidationProblem";
  * The outcome of generating a Sketch for a selected board target.
  *
  * Generation always emits the `.ino` source unless a problem of
- * [`validate::ProblemSeverity::Error`] severity exists — those mean the
- * emitted C++ itself would not compile (e.g. two Node ids sanitizing to the
- * same identifier). Board-fit conflicts (missing pin, missing networking, …)
+ * [`validate::ProblemSeverity::Error`] severity exists — those mean no
+ * faithful Sketch can be written: the emitted C++ itself would not compile
+ * (two Node ids sanitizing to the same identifier), or a Node's settings
+ * could not be read. Board-fit conflicts (missing pin, missing networking, …)
  * are [`validate::ProblemSeverity::Warning`]s: the Sketch is still emitted and
  * the warnings ride alongside it, so the Author decides whether they apply to
  * their actual hardware.

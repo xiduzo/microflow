@@ -15,21 +15,12 @@ export function Led(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Led"
+      {/* Whether `value` can be driven depends on the connected board's pin,
+          not on the node's settings, so it is said here and not in the rule. */}
+      <NodeHandles<"Led">
         portOverrides={{
-          true: { handleType: "command", offset: -1.5 },
-          toggle: { handleType: "command", offset: -0.5 },
-          value: {
-            handleType: "value",
-            title: props.data.subType === "vibration" ? "intensity" : "brightness",
-            offset: 0.5,
-            hint: `${isPmw ? "0-255" : "requires a ~ pin"}`,
-            isConnectable: !!isPmw,
-          },
-          false: { handleType: "command", offset: 1.5 },
+          value: { hint: isPmw ? "0-255" : "requires a ~ pin", isConnectable: !!isPmw },
         }}
-        emitOverrides={{ value: { handleType: "value" } }}
       />
     </NodeContainer>
   );

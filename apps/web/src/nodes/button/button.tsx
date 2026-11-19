@@ -1,9 +1,7 @@
 import { MODES, usePins } from "@/board/board-store";
 import { folder } from "leva";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Button">;
+import { NodeHandles } from "../_base/node-handles";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { dataSchema, defaults, type Data, type Value } from "./button.schema";
 import { pinsToOptions } from "@/board/pin-label";
@@ -14,10 +12,7 @@ export function Button(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="event" handleType="event" offset={-1.5} />
-      <Handle type="source" position="right" id="true" handleType="state" offset={-0.5} />
-      <Handle type="source" position="right" id="false" handleType="state" offset={0.5} />
-      <Handle type="source" position="right" id="hold" handleType="event" offset={1.5} hint="long press" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

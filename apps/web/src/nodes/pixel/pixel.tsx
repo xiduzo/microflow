@@ -1,6 +1,4 @@
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Pixel">;
+import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
   useNodeControls,
@@ -44,38 +42,7 @@ export function Pixel(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle
-        type="target"
-        position="left"
-        id="value"
-        handleType="value"
-        hint="preset #"
-        offset={-1.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="color"
-        handleType="value"
-        hint="hex colors"
-        offset={-0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="set"
-        handleType="command"
-        hint="shift pixels"
-        offset={0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="reset"
-        handleType="command"
-        offset={1.5}
-      />
-      <Handle type="source" position="right" id="event" handleType="event" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

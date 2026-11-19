@@ -87,7 +87,7 @@ describe("buildFlowUpdate", () => {
   test("composes nodes + edges + brokers + providers from doc and host snapshot", () => {
     const doc = FlowDocument.createEmpty();
     doc.addNode(mkNode("n1"));
-    doc.addEdge({ id: "e1", source: "n1", target: "n2" });
+    doc.addEdge({ id: "e1", source: "n1", sourceHandle: "out", target: "n2", targetHandle: "in" });
 
     const snapshot: HostSnapshot = {
       brokers: [],

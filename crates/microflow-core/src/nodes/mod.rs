@@ -6,10 +6,12 @@
 //!
 //! - `config.rs` — the Node's config (fields, defaults, config-only enums).
 //!   **Ungated**: the live runtime (interpret) and the emitter (compile to C++)
-//!   both deserialize `node.data` into this one struct, so a default such as
-//!   Smooth's `0.995` exists once and the two sides cannot disagree about what a
-//!   Node means. A Node with no emitter (`Pn532`, `Music`) puts its config
-//!   behind its runtime's gate, since the runtime is its only reader.
+//!   both read `node.data` into this one struct, through the one resolution
+//!   step [`crate::config::resolve`], so a default such as Smooth's `0.995`
+//!   exists once and the two sides cannot disagree about what a Node means —
+//!   or about whether its settings can be read at all. A Node with no emitter
+//!   (`Pn532`, `Music`) puts its config behind its runtime's gate, since the
+//!   runtime is its only reader.
 //! - `runtime.rs` — the live `Component` impl. Behind the `runtime` feature;
 //!   the sans-IO cloud Nodes (`Mqtt`, `Llm`, `Figma`, `Midi`, `Music`) sit
 //!   behind `cloud` and `Function` behind `js` (both imply `runtime`).
@@ -26,13 +28,16 @@
 //! The boundary is enforced. `nodes` and everything in it is `pub(crate)`, so
 //! no other crate reaches a Node's internals, and the `boundaries` test fails
 //! when a Node names another Node, when a file outside the central dispatch
-//! tables names a Node, or when this index and the Node directories disagree.
+//! tables names a Node, when this index and the Node directories disagree, or
+//! when a Node's emitter resolves another config than its runtime is built
+//! from.
 //!
 //! ## Writing an emitter
 //!
 //! Every emitter is a pure function of one [`crate::flow::FlowNode`] (plus its
-//! wired inputs) and reads the same `data` the runtime deserializes into the
-//! Node's config. The emitted C++ reproduces the runtime semantics so that, for
+//! wired inputs) and resolves the same `data` into the same config the runtime
+//! builds the Node from; it returns the `UnreadableConfig` when that fails,
+//! never C++ for substituted defaults. The emitted C++ reproduces the runtime semantics so that, for
 //! identical inputs, the generated Sketch yields the same output the Flow Author
 //! sees in live mode.
 //!

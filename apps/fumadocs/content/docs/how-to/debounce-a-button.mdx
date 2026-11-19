@@ -19,22 +19,20 @@ This is called **bouncing**, and the fix is **debouncing**.
 
 You will *not* need this for analog sensors (potentiometers, light sensors) — they have a different problem (noise) which the [Smooth](/docs/microflow-studio/nodes/shape/smooth) node handles.
 
-## Method 1 — A Delay node with debounce
+## A Delay node with debounce
 
-The [Delay](/docs/microflow-studio/nodes/decide/delay) node has a `Debounce` setting. When enabled, the timer **resets every time a new value arrives** and only fires when no new value has arrived for the full duration.
+The [Button](/docs/microflow-studio/nodes/sense/button) and [Switch](/docs/microflow-studio/nodes/sense/switch) nodes already ignore contact bounce shorter than 50 ms, in Studio and in an exported sketch. For longer bursts, or for other sensors, use a Delay.
+
+The [Delay](/docs/microflow-studio/nodes/decide/delay) node has a **debounce** setting. When enabled, a new signal takes the place of the waiting one, so the Delay only fires when no new signal has arrived for the full duration.
 
 Setup:
 
 1. Sense node (Button or other) → Delay node → next node.
 2. In the Delay node settings, set:
-   - **Duration** — `30` ms is plenty for a typical push-button. `200` ms for a vibration sensor.
-   - **Debounce** — enabled.
+   - **delay (ms)** — `100` ms, the lowest value the settings panel takes, is plenty for a typical push-button. `200` ms for a vibration sensor.
+   - **debounce** — enabled.
 
-Now: press the button, the Delay sees five rapid changes from bouncing contacts, the timer resets each time, and only after 30 ms of stillness does it pass the value through. The downstream node sees one clean event.
-
-## Method 2 — Counter with `delay` reset
-
-If you actually want to *count* button presses but ignore bounces, the [Counter](/docs/microflow-studio/nodes/decide/counter) node has a `delay` setting that ignores increment events that arrive too soon after the previous one. Use this when you want the counting itself to be debounce-aware.
+Now: press the button, the Delay sees several rapid changes from bouncing contacts, each one replaces the last, and only after the delay of stillness does it pass the latest value through. The downstream node sees one clean event.
 
 ## Picking a duration
 
@@ -46,7 +44,7 @@ If you actually want to *count* button presses but ignore bounces, the [Counter]
 | Vibration sensor (taps) | 100–300 ms |
 | PIR motion sensor | already handled internally — usually no debounce needed |
 
-Start short and increase only if you still see double-fires. Long debounce times make a button feel sluggish.
+The settings panel takes 100 ms and up for **delay (ms)**. Start short and increase only if you still see double-fires. Long debounce times make a button feel sluggish.
 
 ## Verify it worked
 

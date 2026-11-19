@@ -22,11 +22,7 @@ export function Calculate(props: Props) {
       <Value />
       <Settings />
 
-      <NodeHandles
-        instance="Calculate"
-        portOverrides={{ value: { handleType: "value" } }}
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

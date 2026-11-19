@@ -1,26 +1,19 @@
 /** @jsxImportSource preact */
 import { IconButton } from "@create-figma-plugin/ui";
-import {
-  type BridgeSnapshotEntry,
-  type BridgeVariable,
-  type ResolvedType,
-  toWireId,
-  topics,
-} from "@microflow/design-bridge";
-import { useAppStore, useCopyToClipboard } from "@microflow/design-bridge/react";
+import type { ResolvedType } from "@microflow/design-bridge";
+import { useBridgeSession, useCopyToClipboard } from "@microflow/design-bridge/react";
+import type { PluginBridgeEntry } from "@microflow/design-bridge/session";
 import { Check, ClipboardList, HelpCircle, Palette, Radio, RadioTower } from "lucide-react";
 import type { ComponentChildren } from "preact";
-import { openLink, showToast } from "../channel";
+import { openLink, session, showToast } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
 import { useWindowSize } from "../hooks/use-window-size";
 
 const HELP_URL =
   "https://docs.microflow.tech/docs/microflow-hardware-bridge/variables/manipulating";
 
-export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
-  const { mqttConfig } = useAppStore();
-  const uid = mqttConfig?.uniqueId || "BRIDGE_ID";
-  const { entries } = props;
+export function Variables() {
+  const { entries } = useBridgeSession(session);
 
   useWindowSize({ width: 420, height: entries.length ? 550 : 300 });
 
@@ -66,17 +59,16 @@ export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
             </div>
           </div>
         )}
-        {entries.map(({ variable }) => (
-          <VariableRow key={variable.id} variable={variable} uid={uid} />
+        {entries.map((entry) => (
+          <VariableRow key={entry.variable.id} entry={entry} />
         ))}
       </PageContent>
     </>
   );
 }
 
-function VariableRow(props: { variable: BridgeVariable; uid: string }) {
-  const { variable, uid } = props;
-  const wireId = toWireId(variable.id);
+function VariableRow(props: { entry: PluginBridgeEntry }) {
+  const { variable, topics } = props.entry;
 
   return (
     <div
@@ -94,12 +86,12 @@ function VariableRow(props: { variable: BridgeVariable; uid: string }) {
       <div style={{ display: "flex", gap: 2, opacity: 0.3 }}>
         <CopyButton
           title="Copy publish topic"
-          text={topics.set(uid, wireId)}
+          text={topics?.set}
           icon={<RadioTower size={12} />}
         />
         <CopyButton
           title="Copy subscribe topic"
-          text={topics.value(uid, "figma", wireId)}
+          text={topics?.value}
           icon={<Radio size={12} />}
         />
       </div>
@@ -112,14 +104,16 @@ function onCopied(ok: boolean) {
   else showToast("Unable to copy to clipboard", { error: true });
 }
 
-function CopyButton(props: { text: string; title: string; icon: ComponentChildren }) {
+/** Without a Bridge ID there is no topic to copy, so the button is disabled. */
+function CopyButton(props: { text: string | undefined; title: string; icon: ComponentChildren }) {
   const [copied, copy] = useCopyToClipboard(onCopied);
-  const isCopied = copied === props.text;
+  const { text } = props;
+  const isCopied = text !== undefined && copied === text;
 
   return (
-    <IconButton onClick={() => copy(props.text)}>
+    <IconButton onClick={() => text && copy(text)} disabled={!text}>
       <span
-        title={props.title}
+        title={text ? props.title : "Set a Bridge ID in the MQTT settings first"}
         style={{
           fontSize: "12px",
           display: "flex",

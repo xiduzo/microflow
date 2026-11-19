@@ -28,24 +28,22 @@
 //! [`Effects`]: microflow_core::runtime::Effects
 
 use crate::hardware::SessionId;
-use crate::runtime::services::MqttPublisher;
+use crate::runtime::cloud_performer::{CloudPerformer, Reconciled};
 use crate::runtime::supervisor::{self, CrashGuard, Fault, RuntimeCrash, RuntimeStatus, Verdict};
 use microflow_core::flow::FlowUpdate;
-use microflow_core::runtime::subscriptions::MidiListener;
 use microflow_core::runtime::{
     CloudRequest, CloudRequestKind, ComponentEvent, ComponentValue, Effects,
-    EffectsSink, FlowRuntime, NodeDiagnostic, SubscriberWiring, Wakeup, WakeupId,
+    EffectsSink, FlowRuntime, NodeDiagnostic, Wakeup, WakeupId,
 };
 use serde::Serialize;
 use std::any::Any;
 use std::collections::HashMap;
 use std::io::{ErrorKind, Read, Write};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::rc::Rc;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -69,11 +67,12 @@ pub enum ActorMsg {
     },
     /// The board link ended the connection: drop the port, keep the flow state.
     Disconnect,
-    /// A flow update (`flow_update` command). Replies with the active subscriber
-    /// wirings so the command can (un)subscribe MQTT.
+    /// A flow update (`flow_update` command). Replies once the flow is applied
+    /// to the runtime, with the [`Reconciled`] of its MQTT subscriptions: the
+    /// command waits on it, so it returns with the flow's topics subscribed.
     FlowUpdate {
         flow: FlowUpdate,
-        reply: oneshot::Sender<Result<Vec<(String, SubscriberWiring)>, String>>,
+        reply: oneshot::Sender<Result<Reconciled, String>>,
     },
     /// An external component call (`component_call` command).
     Call {
@@ -81,8 +80,9 @@ pub enum ActorMsg {
         method: String,
         value: ComponentValue,
     },
-    /// A hotkey press/release (`key_event`), matched against registered hotkey
-    /// listeners. `pressed` distinguishes key-down (`true`) from key-up (`false`).
+    /// A hotkey press/release (`key_event`). The runtime delivers it to the
+    /// nodes listening on `accelerator` (`FlowRuntime::dispatch_key_event`).
+    /// `pressed` distinguishes key-down (`true`) from key-up (`false`).
     Key { accelerator: String, pressed: bool },
     /// An inbound MQTT / Figma broker payload routed to a subscribe component.
     Deliver {
@@ -90,9 +90,9 @@ pub enum ActorMsg {
         topic: String,
         payload: Vec<u8>,
     },
-    /// A raw MIDI message from an open `midir` input. The actor fans it out to
-    /// every `Midi` in-node whose device filter matches `port_name` (via
-    /// `FlowRuntime::deliver_message`, mirroring the browser host).
+    /// A raw MIDI message from the open `midir` input `port_name`. The runtime
+    /// delivers it to the `Midi` in-nodes listening to that port
+    /// (`FlowRuntime::dispatch_midi_message`).
     MidiMessage { port_name: String, bytes: Vec<u8> },
     /// An async cloud-node result re-entering the runtime (the `CloudEmitter`
     /// path) — folded in via `FlowRuntime::inject_event`.
@@ -160,22 +160,11 @@ impl ActorMsg {
 /// supervision) testable without a Tauri app.
 pub trait HostEvents {
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S);
-    /// A respawned runtime wires subscribers as `wirings`: reconcile the live
-    /// MQTT/Figma subscriptions against them, as a `flow_update` would have.
-    fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>);
 }
 
 impl HostEvents for AppHandle {
     fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
         let _ = Emitter::emit(self, event, payload);
-    }
-
-    fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>) {
-        let app = self.clone();
-        tauri::async_runtime::spawn(async move {
-            let state = app.state::<crate::AppState>();
-            crate::runtime::commands::reconcile_subscriptions(&app, &state, &wirings).await;
-        });
     }
 }
 
@@ -192,17 +181,18 @@ pub const HALTED: &str = "the flow runtime is halted after crashing repeatedly; 
 ///
 /// Returns the [`ActorStopped`] the app waits on at exit, after sending
 /// [`ActorMsg::Shutdown`].
+#[must_use]
 pub fn run_actor(
     rx: UnboundedReceiver<ActorMsg>,
     self_tx: UnboundedSender<ActorMsg>,
     session_ended: Sender<SessionId>,
     app: AppHandle,
     rt_handle: Handle,
-    mqtt_publisher: Arc<dyn MqttPublisher>,
+    cloud: Arc<CloudPerformer>,
 ) -> ActorStopped {
     supervisor::install_panic_hook();
     spawn_actor(rx, move || {
-        Actor::new(app, rt_handle, mqtt_publisher, self_tx, session_ended, Box::new(FlowRuntime::new))
+        Actor::new(app, rt_handle, cloud, self_tx, session_ended, Box::new(FlowRuntime::new))
     })
 }
 
@@ -415,9 +405,6 @@ struct Actor<E: HostEvents> {
     pins_json: Option<String>,
     /// Last flow, re-applied on (re)connect for clean board init.
     last_flow: Option<FlowUpdate>,
-    /// The subscriber wirings the last `FlowUpdate` replied with — what the
-    /// `flow_update` command's MQTT subscriptions are reconciled against.
-    wirings: Vec<(String, SubscriberWiring)>,
     /// The crash-loop guard.
     guard: CrashGuard,
     /// The guard tripped: no runtime drives the board until `Restart`.
@@ -434,31 +421,23 @@ struct Actor<E: HostEvents> {
     /// Live host timers keyed by wakeup id, so cancellations + fired timers
     /// can be dropped.
     timers: HashMap<WakeupId, tokio::task::AbortHandle>,
-    /// Performs cloud `Effects` (ADR-0009): holds the MQTT/LLM services and the
-    /// in-flight LLM task table. `EffectsSink::perform_cloud` delegates here.
-    cloud: CloudPerformer,
+    /// Performs cloud `Effects` (ADR-0009) on the broker pool and owns the MQTT
+    /// subscriptions. `EffectsSink::perform_cloud` delegates here.
+    cloud: Arc<CloudPerformer>,
     /// Open `midir` connections; inputs reconciled per flow update, outputs
     /// opened lazily per `MidiSend`. Thread-confined like the runtime.
     midi: crate::runtime::midi::MidiManager,
-    /// The flow's MIDI in-node listeners, cached because inbound MIDI (CC
-    /// sweeps, aftertouch) arrives up to ~1kHz and the list only changes when the
-    /// flow does. Rebuilt from `FlowRuntime::collect_midi_listeners` in exactly
-    /// the one place the flow changes (`ActorMsg::FlowUpdate`), alongside
-    /// `MidiManager::reconcile`. `Rc` so a fan-out can hold it while the turn
-    /// mutates the actor, without copying the list per message.
-    midi_listeners: Rc<[MidiListener]>,
 }
 
 impl<E: HostEvents> Actor<E> {
     fn new(
         events: E,
         rt_handle: Handle,
-        mqtt_publisher: Arc<dyn MqttPublisher>,
+        cloud: Arc<CloudPerformer>,
         self_tx: UnboundedSender<ActorMsg>,
         session_ended: Sender<SessionId>,
         make_runtime: RuntimeFactory,
     ) -> Self {
-        let cloud = CloudPerformer::new(mqtt_publisher, rt_handle.clone());
         // Cloud nodes are sans-IO and auto-registered by core (the `cloud`
         // feature); the actor only supplies the `CloudPerformer` that performs
         // their recorded requests.
@@ -469,7 +448,6 @@ impl<E: HostEvents> Actor<E> {
             session: None,
             pins_json: None,
             last_flow: None,
-            wirings: Vec::new(),
             guard: CrashGuard::default(),
             halted: false,
             halt_crash: None,
@@ -481,7 +459,6 @@ impl<E: HostEvents> Actor<E> {
             timers: HashMap::new(),
             cloud,
             midi: crate::runtime::midi::MidiManager::new(),
-            midi_listeners: Rc::from([] as [MidiListener; 0]),
         }
     }
 
@@ -581,6 +558,11 @@ impl<E: HostEvents> Actor<E> {
                 log::error!("[actor] {} panics within the crash window; runtime halted", self.guard.recent());
                 self.halted = true;
                 self.halt_crash = Some(crash);
+                // No runtime serves the flow's subscribers until the restart:
+                // its MQTT subscriptions go, and the design-tool plugins hear
+                // that Studio left. Nothing is asked of the runtime that
+                // panicked; the restart reconciles the flow's wirings again.
+                let _ = self.cloud.reconcile(Vec::new());
                 return;
             }
             match catch_unwind(AssertUnwindSafe(|| self.respawn())) {
@@ -600,16 +582,15 @@ impl<E: HostEvents> Actor<E> {
         self.halt_crash = None;
         self.rebuild_runtime(true);
         self.apply_last_flow();
-        // Subscriptions. MQTT/Figma live on `AppState` and were reconciled
-        // against the last *successful* `flow_update`; the update that panicked
-        // (or one kept while halted) never got that far, so the respawned
-        // runtime may wire subscribers differently. Reconcile every time: it
-        // is a diff, so an unchanged set touches nothing. MIDI inputs live on
-        // the actor: rebuild the listener cache and reconcile.
-        self.wirings = self.rt.collect_subscriber_wirings();
-        self.events.subscriptions_changed(self.wirings.clone());
-        self.midi_listeners = self.rt.collect_midi_listeners().into();
-        self.midi.reconcile(&self.midi_listeners, &self.self_tx);
+        // MQTT subscriptions. The `CloudPerformer` holds what the last flow
+        // update that got through wired; the update that panicked (or one kept
+        // while halted) never got that far, so the respawned runtime may wire
+        // subscribers differently. Reconcile every time: it is a diff, so an
+        // unchanged set touches nothing. Nobody waits on this one.
+        let _ = self.cloud.reconcile(self.rt.collect_subscriber_wirings());
+        // MIDI inputs live on the actor: reconcile the open ports against the
+        // respawned runtime.
+        self.midi.reconcile(&self.rt, &self.self_tx);
         log::info!("[actor] runtime respawned (epoch {})", self.epoch);
     }
 
@@ -706,12 +687,12 @@ impl<E: HostEvents> Actor<E> {
                 self.set_now();
                 let effects = self.rt.update_flow(flow);
                 self.apply(effects);
-                self.wirings = self.rt.collect_subscriber_wirings();
-                let _ = reply.send(Ok(self.wirings.clone()));
-                // The flow changed: this is the only place the listener cache
-                // can go stale, so it is the only place it is rebuilt.
-                self.midi_listeners = self.rt.collect_midi_listeners().into();
-                self.midi.reconcile(&self.midi_listeners, &self.self_tx);
+                // The reply carries the reconcile it is answered for: what the
+                // command waits on cannot be anything older.
+                let reconciled = self.cloud.reconcile(self.rt.collect_subscriber_wirings());
+                let _ = reply.send(Ok(reconciled));
+                // The flow changed, and with it the MIDI inputs it wants open.
+                self.midi.reconcile(&self.rt, &self.self_tx);
             }
             ActorMsg::Call { id, method, value } => {
                 self.set_now();
@@ -729,18 +710,9 @@ impl<E: HostEvents> Actor<E> {
                 self.apply(effects);
             }
             ActorMsg::MidiMessage { port_name, bytes } => {
-                // Fan out against the cached listener list — every matching
-                // in-node receives the raw message; parsing lives in core's
-                // `Midi::receive_raw_message`. The `Rc` clone keeps the list
-                // readable while the turn mutates the actor.
                 self.set_now();
-                let listeners = Rc::clone(&self.midi_listeners);
-                for listener in listeners.iter() {
-                    if crate::runtime::midi::device_matches(&port_name, &listener.device_name) {
-                        let effects = self.rt.deliver_message(&listener.node_id, &port_name, &bytes);
-                        self.apply(effects);
-                    }
-                }
+                let effects = self.rt.dispatch_midi_message(&port_name, &bytes);
+                self.apply(effects);
             }
             ActorMsg::Inject { source, handle, value } => {
                 self.set_now();
@@ -830,9 +802,9 @@ impl<E: HostEvents> EffectsSink for Actor<E> {
     }
 
     /// Perform a cloud node's outbound call (ADR-0009) by delegating to the
-    /// [`CloudPerformer`], which owns the MQTT/LLM services + the in-flight LLM
-    /// task table. The ordering (cloud before UI events) is fixed by
-    /// `Effects::apply`; this just supplies the primitive.
+    /// [`CloudPerformer`], which holds the broker pool. The ordering (cloud
+    /// before UI events) is fixed by `Effects::apply`; this just supplies the
+    /// primitive.
     fn perform_cloud(&mut self, request: &CloudRequest) {
         // MIDI is host-peripheral I/O on the actor's own `midir` connections,
         // not an async network call — handled here, not by the `CloudPerformer`.
@@ -881,57 +853,6 @@ impl<E: HostEvents> EffectsSink for Actor<E> {
     }
 }
 
-/// Performs cloud `Effects` for the desktop host (ADR-0009): the network I/O that
-/// used to be spawned *inside* the cloud components, relocated behind one small
-/// `perform(&CloudRequest)` interface.
-///
-/// Since ADR-0021 that is MQTT only — LLM generation moved to the webview, where
-/// one `TanStack` AI transport serves both hosts. Unlike the `Actor` it lives on,
-/// it needs no Tauri `AppHandle`, so it is unit-testable directly.
-struct CloudPerformer {
-    mqtt_publisher: Arc<dyn MqttPublisher>,
-    rt_handle: Handle,
-}
-
-impl CloudPerformer {
-    fn new(mqtt_publisher: Arc<dyn MqttPublisher>, rt_handle: Handle) -> Self {
-        Self { mqtt_publisher, rt_handle }
-    }
-
-    /// Perform one cloud request. The `reqwest`/`rumqttc` bodies are the same as
-    /// the old in-component spawns; only their home changed.
-    fn perform(&mut self, request: &CloudRequest) {
-        match &request.kind {
-            CloudRequestKind::MqttPublish { broker_id, topic, payload, retain } => {
-                let publisher = Arc::clone(&self.mqtt_publisher);
-                let source = Arc::clone(&request.source);
-                let broker_id = broker_id.clone();
-                let topic = topic.clone();
-                let payload = payload.clone();
-                let retain = *retain;
-                self.rt_handle.spawn(async move {
-                    if let Err(e) = publisher.publish(&broker_id, &topic, &payload, retain).await {
-                        log::error!(
-                            "[cloud] {source} mqtt publish failed (broker={broker_id} topic={topic}): {e}"
-                        );
-                    }
-                });
-            }
-            // Intercepted by `Actor::perform_cloud`: MIDI on the actor's own
-            // `midir` connections, audio and LLM forwarded to the webview
-            // (ADR-0021). A request reaching here has no performer.
-            CloudRequestKind::MidiSend { .. }
-            | CloudRequestKind::AudioPlay { .. }
-            | CloudRequestKind::AudioStop
-            | CloudRequestKind::LlmGenerate { .. } => {
-                log::warn!(
-                    "[cloud] host-peripheral request reached the CloudPerformer — handled by the actor"
-                );
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 #[path = "hardware_smoke.rs"]
 mod hardware_smoke;
@@ -939,9 +860,8 @@ mod hardware_smoke;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::services::{RecordedPublish, RecordingMqttPublisher};
+    use crate::runtime::services::RecordingMqttBrokers;
     use microflow_core::flow::{FlowEdge, FlowNode, Position};
-    use std::time::Duration;
 
     fn node(id: &str, instance: &str, data: serde_json::Value) -> FlowNode {
         FlowNode {
@@ -949,25 +869,6 @@ mod tests {
             node_type: Some(instance.to_string()),
             data,
             position: Position { x: 0.0, y: 0.0 },
-        }
-    }
-
-    fn req(source: &str, kind: CloudRequestKind) -> CloudRequest {
-        CloudRequest { source: Arc::from(source), kind }
-    }
-
-    async fn wait_for_publishes(
-        recorder: &RecordingMqttPublisher,
-        min: usize,
-        timeout: Duration,
-    ) -> Vec<RecordedPublish> {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            let snap = recorder.recorded();
-            if snap.len() >= min || tokio::time::Instant::now() >= deadline {
-                return snap;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
         }
     }
 
@@ -1090,58 +991,6 @@ mod tests {
         assert!(!board.pin(13).is_high());
     }
 
-    #[tokio::test]
-    async fn perform_cloud_mqtt_publish_reaches_publisher() {
-        // The relocated IO regression net: a `MqttPublish` request drives the
-        // live publisher (the body that used to live in the Mqtt component).
-        let publisher = Arc::new(RecordingMqttPublisher::new());
-        let mut performer =
-            CloudPerformer::new(publisher.clone() as Arc<dyn MqttPublisher>, tokio::runtime::Handle::current());
-
-        performer.perform(&req(
-            "m",
-            CloudRequestKind::MqttPublish {
-                broker_id: "broker-1".into(),
-                topic: "sensors/light".into(),
-                payload: b"42".to_vec(),
-                retain: true,
-            },
-        ));
-
-        let sent = wait_for_publishes(&publisher, 1, Duration::from_secs(1)).await;
-        assert_eq!(sent.len(), 1);
-        assert_eq!(sent[0].broker_id, "broker-1");
-        assert_eq!(sent[0].topic, "sensors/light");
-        assert_eq!(sent[0].payload, b"42");
-        assert!(sent[0].retain);
-    }
-
-    #[tokio::test]
-    async fn perform_cloud_ignores_llm_generate() {
-        // Since ADR-0021 an `LlmGenerate` is intercepted by `Actor::perform_cloud`
-        // and forwarded to the webview, which owns the only LLM transport. If it
-        // ever reaches the `CloudPerformer` it must do nothing rather than fall
-        // through to a publish — the same contract MidiSend and audio hold.
-        let publisher = Arc::new(RecordingMqttPublisher::new());
-        let mut performer = CloudPerformer::new(
-            publisher.clone() as Arc<dyn MqttPublisher>,
-            tokio::runtime::Handle::current(),
-        );
-
-        performer.perform(&req(
-            "llm",
-            CloudRequestKind::LlmGenerate {
-                provider_id: "p".into(),
-                model: "m".into(),
-                system: None,
-                prompt: "hi".into(),
-            },
-        ));
-
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        assert!(publisher.recorded().is_empty(), "LLM must not reach the publisher");
-    }
-
     #[test]
     fn registered_figma_node_emits_cloud_request_on_dispatch() {
         // End-to-end of the registration + sans-IO seam: core auto-registers the
@@ -1199,47 +1048,11 @@ mod tests {
         });
     }
 
-    #[test]
-    fn midi_flow_reports_listener_sends_and_receives() {
-        // End-to-end through the runtime the actor drives: an in-node surfaces
-        // as a listener, an out-node's `send` records a MidiSend, and a
-        // delivered raw message emits on the in-node's handles.
-        let mut rt = FlowRuntime::new();
-        rt.update_flow(FlowUpdate {
-            nodes: vec![
-                node("m-in", "Midi", serde_json::json!({ "direction": "in", "deviceName": "pad" })),
-                node(
-                    "m-out",
-                    "Midi",
-                    serde_json::json!({ "direction": "out", "mode": "cc", "control": 7 }),
-                ),
-            ],
-            edges: Vec::<FlowEdge>::new(),
-        });
-
-        let listeners = rt.collect_midi_listeners();
-        assert_eq!(listeners.len(), 1, "only the in-node listens");
-        assert_eq!(listeners[0].node_id, "m-in");
-        assert_eq!(listeners[0].device_name, "pad");
-
-        let effects = rt.dispatch("m-out", "send", ComponentValue::Number(64.0));
-        assert_eq!(effects.cloud_requests.len(), 1);
-        match &effects.cloud_requests[0].kind {
-            CloudRequestKind::MidiSend { bytes, .. } => assert_eq!(bytes, &vec![0xB0, 7, 64]),
-            other => panic!("expected MidiSend, got {other:?}"),
-        }
-
-        // A note-on for the in-node (default note mode) emits its handles.
-        let effects = rt.deliver_message("m-in", "Launchpad", &[0x90, 60, 100]);
-        let handles: Vec<&str> =
-            effects.component_events.iter().map(|e| e.source_handle.as_ref()).collect();
-        assert_eq!(handles, vec!["note", "velocity", "on"]);
-    }
-
     // --- Supervision: a panicking turn respawns the runtime -----------------
 
     use microflow_core::runtime::{Component, ComponentBase, RuntimeContext, RuntimeError};
     use std::cell::{Cell, RefCell};
+    use std::rc::Rc;
     use std::sync::Mutex;
 
     /// The actor's webview events, recorded as JSON.
@@ -1250,11 +1063,6 @@ mod tests {
         fn emit<S: Serialize + Clone>(&self, event: &str, payload: S) {
             self.0.borrow_mut().push((event.to_string(), serde_json::to_value(payload).unwrap()));
         }
-
-        fn subscriptions_changed(&self, wirings: Vec<(String, SubscriberWiring)>) {
-            let ids: Vec<String> = wirings.into_iter().map(|(id, _)| id).collect();
-            self.emit("<subscriptions>", ids);
-        }
     }
 
     impl RecordingEvents {
@@ -1264,14 +1072,6 @@ mod tests {
 
         fn crashes(&self) -> Vec<serde_json::Value> {
             self.named("runtime-crashed")
-        }
-
-        /// Each subscription reconcile the actor asked for, as subscriber node ids.
-        fn reconciles(&self) -> Vec<Vec<String>> {
-            self.named("<subscriptions>")
-                .iter()
-                .map(|ids| ids.as_array().unwrap().iter().map(|id| id.as_str().unwrap().to_string()).collect())
-                .collect()
         }
     }
 
@@ -1338,7 +1138,12 @@ mod tests {
         events: RecordingEvents,
         written: Arc<Mutex<Vec<u8>>>,
         starts: Rc<Cell<u32>>,
-        _tokio: tokio::runtime::Runtime,
+        /// The actor's real `CloudPerformer`, on a recording broker pool with
+        /// broker `b` connected.
+        cloud: Arc<CloudPerformer>,
+        brokers: Arc<RecordingMqttBrokers>,
+        /// Never running on its own: [`Rig::subscriptions`] drives it.
+        tokio: tokio::runtime::Runtime,
     }
 
     impl Rig {
@@ -1377,16 +1182,17 @@ mod tests {
             let events = RecordingEvents::default();
             let (self_tx, _self_rx) = tokio::sync::mpsc::unbounded_channel();
             let (ended_tx, _ended_rx) = std::sync::mpsc::channel();
+            let (cloud, brokers) = CloudPerformer::on_recording_pool(self_tx.clone(), tokio.handle().clone());
             let mut actor = Actor::new(
                 events.clone(),
                 tokio.handle().clone(),
-                Arc::new(RecordingMqttPublisher::new()),
+                Arc::clone(&cloud),
                 self_tx,
                 ended_tx,
                 make_runtime,
             );
             actor.connect(Box::new(RecordingPort(Arc::clone(&written))), analog_pins_json(), 7);
-            Self { actor, events, written, starts, _tokio: tokio }
+            Self { actor, events, written, starts, cloud, brokers, tokio }
         }
 
         fn flow(&mut self, panic_on_start: bool) -> Result<FlowReply, oneshot::error::TryRecvError> {
@@ -1397,7 +1203,14 @@ mod tests {
         fn send_flow(&mut self, nodes: Vec<FlowNode>) -> Result<FlowReply, oneshot::error::TryRecvError> {
             let (reply, mut rx) = oneshot::channel();
             assert!(self.actor.step(ActorMsg::FlowUpdate { flow: FlowUpdate { nodes, edges: vec![] }, reply }));
-            rx.try_recv()
+            rx.try_recv().map(|reply| reply.map(|_reconciled| ()))
+        }
+
+        /// The topics broker `b` holds for the flow, once the performer has
+        /// applied everything the actor handed it.
+        fn subscriptions(&self) -> Vec<String> {
+            self.tokio.block_on(self.cloud.settled());
+            self.brokers.subscriptions("b")
         }
 
         fn status(&mut self) -> RuntimeStatus {
@@ -1416,7 +1229,8 @@ mod tests {
         }
     }
 
-    type FlowReply = Result<Vec<(String, SubscriberWiring)>, String>;
+    /// A flow update's reply, without the reconcile it carries.
+    type FlowReply = Result<(), String>;
 
     fn sensor_a0() -> FlowNode {
         node(
@@ -1484,7 +1298,6 @@ mod tests {
         let safe = safe_state_for(&analog_pins_json());
         assert!(written.starts_with(&safe), "the safe state goes out first: {written:02X?}");
         assert!(contains(&written[safe.len()..], &REPORT_A0), "then the re-seeded pins are re-inited");
-        assert_eq!(rig.events.reconciles().len(), 1, "the respawn reconciled the subscriptions");
 
         // And it keeps working.
         rig.call("fine");
@@ -1602,21 +1415,102 @@ mod tests {
     fn a_respawn_reconciles_subscriptions_the_panicked_update_never_reached() {
         let mut rig = Rig::connected();
         rig.flow(false).expect("replied").expect("the flow applied");
-        assert!(rig.events.reconciles().is_empty(), "a normal update is reconciled by flow_update itself");
+        assert_eq!(rig.subscriptions(), Vec::<String>::new(), "no subscriber yet");
 
-        // The update adds an MQTT subscriber and panics part-way: `flow_update`
-        // gets no reply, so it never reconciles the subscriptions.
+        // The update adds an MQTT subscriber and panics part-way: the runtime
+        // it was building is thrown away before its wirings reach the
+        // `CloudPerformer`.
         let nodes = vec![
             node("p", "Panicker", serde_json::json!({ "panicOnce": true })),
             node("m", "Mqtt", serde_json::json!({ "direction": "subscribe", "brokerId": "b", "topic": "t" })),
         ];
         assert!(rig.send_flow(nodes).is_err(), "the panicked update dropped its reply");
 
-        // The respawn built the whole flow fine, and asked for the reconcile.
+        // The respawn built the whole flow fine, and its subscriber is
+        // subscribed on the broker.
         assert_eq!(rig.events.crashes().len(), 1);
         assert!(!rig.actor.halted);
-        assert_eq!(rig.events.reconciles(), vec![vec!["m".to_string()]]);
-        assert_eq!(rig.actor.wirings, rig.actor.rt.collect_subscriber_wirings());
+        assert_eq!(rig.subscriptions(), vec!["t".to_string()]);
+    }
+
+    #[test]
+    fn a_halt_lets_go_of_the_flows_subscriptions_and_says_studio_left() {
+        // Nothing runs the flow while the actor is halted: whoever waits on
+        // its topics — the design-tool plugins, told Studio is there — is told
+        // it is not, without asking the runtime that panicked for anything.
+        let mut rig = Rig::connected();
+        let design = node("fig", "Figma", serde_json::json!({ "brokerId": "b", "uniqueId": "u1" }));
+        rig.send_flow(vec![node("p", "Panicker", serde_json::json!({})), design]).expect("replied").expect("applied");
+        assert!(!rig.subscriptions().is_empty(), "the design node's topics are subscribed");
+        let status = |rig: &Rig| {
+            let published = rig.brokers.published();
+            let last = published.iter().rev().find(|publish| publish.topic == "microflow/u1/app/status");
+            last.map(|publish| String::from_utf8_lossy(&publish.payload).to_string())
+        };
+        assert_eq!(status(&rig).as_deref(), Some("connected"));
+
+        // A respawn runs the flow again: Studio never left.
+        rig.call("boom");
+        rig.subscriptions();
+        assert_eq!(status(&rig).as_deref(), Some("connected"));
+        assert!(!rig.brokers.published().iter().any(|publish| publish.payload == b"disconnected"));
+
+        rig.call("boom");
+        rig.call("boom");
+        assert!(rig.actor.halted);
+        assert_eq!(rig.subscriptions(), Vec::<String>::new(), "a halted runtime holds no topic");
+        assert_eq!(status(&rig).as_deref(), Some("disconnected"));
+
+        // The restart runs the flow again, and Studio is back.
+        assert!(rig.actor.step(ActorMsg::Restart));
+        assert!(!rig.subscriptions().is_empty());
+        assert_eq!(status(&rig).as_deref(), Some("connected"));
+    }
+
+    #[test]
+    fn a_flow_update_resolves_with_its_subscriptions_in_place() {
+        // The whole path `flow_update` takes: the command's `apply_flow`, the
+        // actor on its own thread, the `CloudPerformer`'s task on the Tokio
+        // runtime — and a recording broker pool at the end of it, where every
+        // subscribe takes a round trip.
+        let tokio = tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_time().build().unwrap();
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let (cloud, brokers) = CloudPerformer::on_recording_pool(tx.clone(), tokio.handle().clone());
+        let (handle, self_tx) = (tokio.handle().clone(), tx.clone());
+        let stopped = spawn_actor(rx, move || {
+            let (ended_tx, _ended_rx) = std::sync::mpsc::channel();
+            Actor::new(RecordingEvents::default(), handle, cloud, self_tx, ended_tx, Box::new(FlowRuntime::new))
+        });
+
+        let subscriber =
+            node("m", "Mqtt", serde_json::json!({ "direction": "subscribe", "brokerId": "b", "topic": "t" }));
+        let flow = FlowUpdate { nodes: vec![subscriber], edges: vec![] };
+
+        // The broker sits on the subscribe. The actor has applied the flow
+        // and replied by the time the subscribe is on the wire — and the
+        // update is still not through, however long it is given.
+        brokers.hold_subscribes();
+        let actor = tx.clone();
+        let mut update =
+            tokio.spawn(async move { crate::runtime::commands::apply_flow(&actor, flow).await });
+        let resolved_early = tokio.block_on(async {
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+            while brokers.subscribes_held() == 0 {
+                assert!(tokio::time::Instant::now() < deadline, "the subscribe never reached the broker");
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            tokio::time::timeout(Duration::from_millis(200), &mut update).await.is_ok()
+        });
+        assert!(!resolved_early, "the update resolved while its subscribe was still on the wire");
+
+        // Released, it resolves — with the subscription in place, nothing
+        // more to wait for.
+        brokers.release_subscribes();
+        tokio.block_on(update).expect("the update ran").expect("the flow applied");
+        assert_eq!(brokers.subscriptions("b"), vec!["t".to_string()]);
+
+        tx.send(ActorMsg::Shutdown).unwrap();
+        assert!(stopped.wait(SHUTDOWN_GRACE), "the actor stopped within the grace period");
     }
 
     #[test]
@@ -1644,5 +1538,62 @@ mod tests {
 
         rig.actor.step(wake(rig.actor.epoch));
         assert_eq!(rig.events.crashes().len(), 1, "a current one is delivered");
+    }
+
+    // --- Host input: the actor hands it over, core picks the nodes ----------
+
+    #[test]
+    fn a_key_is_one_turn_however_many_nodes_listen_on_it() {
+        let mut rig = Rig::connected();
+        let hotkey = |id: &str| node(id, "Hotkey", serde_json::json!({ "accelerator": "x" }));
+        rig.send_flow(vec![hotkey("hk-b"), hotkey("hk-a")]).expect("replied").expect("the flow applied");
+        let before = rig.events.named("component-events").len();
+
+        assert!(rig.actor.step(ActorMsg::Key { accelerator: "X".into(), pressed: true }));
+
+        let batches = rig.events.named("component-events");
+        assert_eq!(batches.len(), before + 1, "the whole key is one IPC batch");
+        let sources: Vec<&str> = batches[before]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|event| event["source"].as_str().unwrap())
+            .collect();
+        assert_eq!(sources, ["hk-a", "hk-a", "hk-a", "hk-b", "hk-b", "hk-b"]);
+    }
+
+    #[test]
+    fn a_midi_message_is_one_turn_however_many_nodes_listen_to_its_port() {
+        let mut rig = Rig::connected();
+        let midi_in = |id: &str, device: &str| {
+            node(id, "Midi", serde_json::json!({ "direction": "in", "deviceName": device }))
+        };
+        // Applied to the runtime directly, not as an `ActorMsg::FlowUpdate`:
+        // that reconciles the `MidiManager`, which would probe this machine's
+        // MIDI devices. The message handler under test needs only the runtime.
+        rig.actor.rt.update_flow(FlowUpdate {
+            nodes: vec![midi_in("m-pad", "launchpad"), midi_in("m-all", ""), midi_in("m-keys", "keystation")],
+            edges: vec![],
+        });
+        let before = rig.events.named("component-events").len();
+
+        let message = ActorMsg::MidiMessage { port_name: "Launchpad Mini".into(), bytes: vec![0x90, 60, 100] };
+        assert!(rig.actor.step(message));
+
+        let batches = rig.events.named("component-events");
+        assert_eq!(batches.len(), before + 1, "the whole message is one IPC batch");
+        let sources: Vec<&str> = batches[before]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|event| event["source"].as_str().unwrap())
+            .collect();
+        assert_eq!(sources, ["m-all", "m-all", "m-all", "m-pad", "m-pad", "m-pad"]);
+
+        // A port no node listens to is a turn with nothing to send.
+        rig.actor.rt.update_flow(FlowUpdate { nodes: vec![midi_in("m-keys", "keystation")], edges: vec![] });
+        let message = ActorMsg::MidiMessage { port_name: "Launchpad Mini".into(), bytes: vec![0x90, 60, 100] };
+        assert!(rig.actor.step(message));
+        assert_eq!(rig.events.named("component-events").len(), before + 1);
     }
 }

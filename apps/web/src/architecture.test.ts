@@ -34,6 +34,7 @@ const CONFIG: ArchitectureConfig = {
     },
     editor: { public: ["canvas.tsx"] },
     runtime: { public: ["index.ts"] },
+    session: { public: ["index.ts"], mayImport: ["lib", "platform"] },
     platform: { layer: "infra", public: ["ipc.ts"] },
     lib: { layer: "infra", public: ["*"] },
   },
@@ -119,6 +120,53 @@ describe("rule engine", () => {
       });
       expect(violations.map((v) => v.rule)).toEqual(["infra-layer"]);
       expect(violations[0]?.message).toContain('"lib" is infrastructure and may import only platform, lib');
+    });
+  });
+
+  describe("may-import", () => {
+    test("passes for the verticals on the list, for itself, and for anyone importing it", () => {
+      expect(
+        check({
+          "session/index.ts": [imp("lib/uid.ts"), imp("platform/ipc.ts"), imp("session/internal.ts")],
+          "session/internal.ts": [],
+          "nodes/catalog.ts": [imp("session/index.ts")],
+          "editor/canvas.tsx": [imp("session/index.ts")],
+          "lib/uid.ts": [],
+          "platform/ipc.ts": [],
+        }),
+      ).toEqual([]);
+    });
+
+    test("fails for a vertical that is not on the list, even its public surface, even type-only", () => {
+      const violations = check({
+        "session/pruning.ts": [imp("nodes/catalog.ts"), imp("runtime/index.ts", { typeOnly: true })],
+        "nodes/catalog.ts": [],
+        "runtime/index.ts": [],
+      });
+      expect(violations.map((v) => [v.rule, v.target])).toEqual([
+        ["may-import", "nodes/catalog.ts"],
+        ["may-import", "runtime/index.ts"],
+      ]);
+      expect(violations[0]?.message).toContain('"session" may import only lib, platform');
+      expect(violations[0]?.message).toContain('add "nodes" to VERTICALS.session.mayImport');
+      expect(violations[1]?.message).toContain("type-only imports count too");
+    });
+
+    test("a vertical on the list is still imported through its public surface", () => {
+      const violations = check({
+        "session/index.ts": [imp("platform/internal.ts")],
+        "platform/internal.ts": [],
+      });
+      expect(violations.map((v) => v.rule)).toEqual(["public-surface"]);
+    });
+
+    test("does not make the listed vertical's importers special: no layer is implied", () => {
+      // `layer: "infra"` would also have let lib import session. A list does not.
+      const violations = check({
+        "lib/trpc.ts": [imp("session/index.ts")],
+        "session/index.ts": [],
+      });
+      expect(violations.map((v) => v.rule)).toEqual(["infra-layer"]);
     });
   });
 

@@ -13,10 +13,10 @@
 // endpoint reachable from HERE?". They never touch the runtime's own
 // connections.
 
-import mqtt from "mqtt";
+import mqtt, { type MqttClient } from "mqtt";
 import type { ConnectionStatus, MqttBrokerConfig } from "@/cloud/mqtt-broker";
 import type { LlmProviderConfig, ProviderStatus } from "@/ai/llm-provider";
-import { isBrowserReachableBroker } from "@/nodes/_base/browser-support";
+import { isBrowserReachableBroker } from "@/cloud/broker-url";
 import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
@@ -43,13 +43,21 @@ export type LlmProbeOutcome =
 /**
  * Open a throwaway MQTT-over-WSS connection and close it again. Resolves
  * `"connected"` once the broker sends CONNACK, `"error"` on a refused/failed
- * connection, a non-`ws(s)://` URL (unreachable from any browser), or timeout.
+ * connection, a non-`ws(s)://` URL (unreachable from any browser), a URL no
+ * connection can be opened to (`mqtt.connect` throws on a space or an
+ * impossible port), or timeout. It never rejects.
+ *
+ * `connect` is `mqtt.connect`; a test passes its own.
  */
-export async function probeBroker(broker: MqttBrokerConfig): Promise<ConnectionStatus> {
+export async function probeBroker(
+  broker: MqttBrokerConfig,
+  connect: typeof mqtt.connect = mqtt.connect,
+): Promise<ConnectionStatus> {
   if (!isBrowserReachableBroker(broker.url)) return "error";
 
-  return new Promise<ConnectionStatus>((resolve) => {
-    const client = mqtt.connect(broker.url, {
+  let client: MqttClient;
+  try {
+    client = connect(broker.url, {
       clientId: `microflow-probe-${Math.random().toString(16).slice(2, 10)}`,
       username: broker.username || undefined,
       password: broker.password || undefined,
@@ -58,6 +66,11 @@ export async function probeBroker(broker: MqttBrokerConfig): Promise<ConnectionS
       reconnectPeriod: 0,
       connectTimeout: PROBE_TIMEOUT_MS,
     });
+  } catch {
+    return "error";
+  }
+
+  return new Promise<ConnectionStatus>((resolve) => {
     const settle = (status: ConnectionStatus) => {
       clearTimeout(timer);
       client.end(true);

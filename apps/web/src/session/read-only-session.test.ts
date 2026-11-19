@@ -1,11 +1,16 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
 import * as Y from "yjs";
 import { FlowDocument, type FlowNode } from "@microflow/collab";
 
-import { makeSession } from "./flow-session";
+import { makeSession, provideHandleSets } from "./flow-session";
 import { readOnlyDocument } from "./read-only-document";
 import { ReactFlowBridge } from "./react-flow-bridge";
 import type { SyncAdapter } from "./sync-adapter";
+
+// These sessions are not about handle pruning. A writable session without
+// handle sets reports the missing wiring, so give them one that knows no node.
+beforeAll(() => provideHandleSets(() => null));
+afterAll(() => provideHandleSets(null));
 
 const noopSync: SyncAdapter = { kind: "local", destroy() {} };
 

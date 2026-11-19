@@ -12,28 +12,55 @@
 //! The `color` (direct hex/array payload) and `set` (single-pixel) ports carry
 //! string/object payloads with no on-device value model yet; wiring them emits
 //! an explicit note instead of wrong code.
+//!
+//! The Pixel emits the strip's colours on `value` (an `Array` of hex strings
+//! on the wire) each time they change, and on `event` each time a port acts on
+//! it, changed or not. The colours are no number and no text, so the sketch
+//! hands on their version (see `CppType::Opaque`): one byte that moves on when
+//! a preset or a reset leaves a pixel a different colour — the strip's own
+//! buffer holds the colours, read back with `getPixelColor`. `event` is a flag
+//! that is up on the loop iteration a port acted.
 
-use super::config::PixelConfig;
+use super::config::{ColorOrder, PixelConfig};
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::codegen::wire::{extra_sources_note, CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
+
+/// The version of the strip's colours: 1 at the start (all dark), never 0.
+fn version_var(node: &FlowNode) -> String {
+    format!("pixel_{}_version", node.id_token())
+}
+
+/// Up on the loop iteration a port acted on the strip.
+fn event_var(node: &FlowNode) -> String {
+    format!("pixel_{}_event", node.id_token())
+}
+
+/// What the Pixel emits on `handle`: its colours, by version, on `value`
+/// (when they change) and on `event` (each time a port acts).
+#[must_use]
+pub(crate) fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
+    let colours = CppExpr::opaque(version_var(node));
+    match handle {
+        "value" => Some(SourceExpr::level(colours).starting_at("1")),
+        "event" => Some(SourceExpr::event(colours, event_var(node))),
+        _ => None,
+    }
+}
 
 /// The pin this Pixel strip is emitted on — the same resolution `emit` uses,
 /// exposed so validation can never drift from emission.
-#[must_use]
-pub(crate) fn pin(node: &FlowNode) -> u8 {
-    serde_json::from_value::<PixelConfig>(node.data.clone())
-        .unwrap_or_default()
-        .pin
+pub(crate) fn pin(node: &FlowNode) -> Result<u8, UnreadableConfig> {
+    Ok(resolve::<PixelConfig>(&node.data)?.pin)
 }
 
-/// Map the configured colour-order string to the `NeoPixel` type flag.
-fn neo_color_flag(color_order: &str) -> &'static str {
-    match color_order.to_ascii_uppercase().as_str() {
-        "RGB" => "NEO_RGB + NEO_KHZ800",
-        "BRG" => "NEO_BRG + NEO_KHZ800",
-        // GRB is the WS2812 default and the runtime default.
-        _ => "NEO_GRB + NEO_KHZ800",
+/// The `NeoPixel` type flag for the configured colour order.
+fn neo_color_flag(color_order: ColorOrder) -> &'static str {
+    match color_order {
+        ColorOrder::Grb => "NEO_GRB + NEO_KHZ800",
+        ColorOrder::Rgb => "NEO_RGB + NEO_KHZ800",
+        ColorOrder::Brg => "NEO_BRG + NEO_KHZ800",
     }
 }
 
@@ -55,21 +82,26 @@ fn parse_hex_color(hex: &str) -> u32 {
 }
 
 /// Emit C++ for a Pixel Node. Unwired, the strip stays cleared.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let obj = format!("pixel_{token}");
-    let config: PixelConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<PixelConfig>(&node.data)?;
     let pin = config.pin;
     let length = config.length.max(1);
-    let flag = neo_color_flag(&config.color_order);
+    let flag = neo_color_flag(config.color_order);
     let i = format!("pixel_{token}_i");
+    let version = version_var(node);
+    let event = event_var(node);
+    let changed = format!("pixel_{token}_changed");
+    let bump = format!("if ({changed}) {{ {version} = ({version} == 255) ? 1 : {version} + 1; }}");
 
     let mut e = NodeEmission {
         includes: vec!["#include <Adafruit_NeoPixel.h>".to_string()],
-        declarations: vec![format!(
-            "Adafruit_NeoPixel {obj}({length}, {pin}, {flag});"
-        )],
+        declarations: vec![
+            format!("Adafruit_NeoPixel {obj}({length}, {pin}, {flag});"),
+            format!("uint8_t {version} = 1;"),
+            format!("bool {event} = false;"),
+        ],
         setup: vec![
             format!("{obj}.begin();"),
             // Mirror runtime initialize: cleared.
@@ -79,6 +111,11 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         ..NodeEmission::default()
     };
 
+    // `event` is up only on the iteration a port acts.
+    if !inputs.on("value").is_empty() || !inputs.on("reset").is_empty() {
+        e.loop_body.push(format!("{event} = false;"));
+    }
+
     // value: preset index selection over generation-time color tables.
     let value_sources = inputs.on("value");
     if let Some(note) = extra_sources_note("value", value_sources) {
@@ -87,9 +124,12 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     if let Some(source) = value_sources.first() {
         if config.presets.is_empty() {
             e.declarations.push(
-                "// note: 'value' selects a preset, but no presets are configured — edge has no effect"
+                "// note: 'value' selects a preset, but no presets are configured — the strip does not change"
                     .to_string(),
             );
+            // The runtime still emits `event` for it.
+            let binding = e.bind_port(&format!("pixel_{token}_value"), &value_sources[..1]);
+            e.loop_body.push(format!("if ({}) {{ {event} = true; }}", binding.fired[0]));
         } else {
             let presets = format!("pixel_{token}_presets");
             let lengths = format!("pixel_{token}_preset_len");
@@ -137,10 +177,13 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
                 "  uint16_t {idx} = (uint16_t)constrain(round({}), 0.0, {last}.0);",
                 source.value.as_double()
             ));
+            e.loop_body.push(format!("  bool {changed} = false;"));
             e.loop_body.push(format!(
-                "  for (uint16_t {i} = 0; {i} < {lengths}[{idx}]; {i}++) {{ {obj}.setPixelColor({i}, {presets}[{idx}][{i}]); }}"
+                "  for (uint16_t {i} = 0; {i} < {lengths}[{idx}]; {i}++) {{ if ({obj}.getPixelColor({i}) != {presets}[{idx}][{i}]) {{ {changed} = true; }} {obj}.setPixelColor({i}, {presets}[{idx}][{i}]); }}"
             ));
             e.loop_body.push(format!("  {obj}.show();"));
+            e.loop_body.push(format!("  {bump}"));
+            e.loop_body.push(format!("  {event} = true;"));
             e.loop_body.push("}".to_string());
         }
     }
@@ -148,8 +191,15 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // reset: clear the strip.
     let binding = e.bind_port(&format!("pixel_{token}_reset"), inputs.on("reset"));
     if let Some(any) = binding.any_fired() {
-        e.loop_body
-            .push(format!("if ({any}) {{ {obj}.clear(); {obj}.show(); }}"));
+        e.loop_body.push(format!("if ({any}) {{"));
+        e.loop_body.push(format!("  bool {changed} = false;"));
+        e.loop_body.push(format!(
+            "  for (uint16_t {i} = 0; {i} < {obj}.numPixels(); {i}++) {{ if ({obj}.getPixelColor({i}) != 0) {{ {changed} = true; }} }}"
+        ));
+        e.loop_body.push(format!("  {obj}.clear(); {obj}.show();"));
+        e.loop_body.push(format!("  {bump}"));
+        e.loop_body.push(format!("  {event} = true;"));
+        e.loop_body.push("}".to_string());
     }
 
     // color / set: payload shapes (hex strings, per-pixel objects) with no
@@ -161,7 +211,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             ));
         }
     }
-    e
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -188,14 +238,14 @@ mod tests {
 
     #[test]
     fn pixel_includes_library_and_declares_strip() {
-        let e = emit(&pixel("px-1", json!({ "pin": 6, "length": 16 })), &NodeInputs::default());
+        let e = emit(&pixel("px-1", json!({ "pin": 6, "length": 16 })), &NodeInputs::default()).unwrap();
         assert!(e.includes.iter().any(|i| i.contains("Adafruit_NeoPixel.h")));
         assert!(e.declarations.iter().any(|d| d.contains("Adafruit_NeoPixel pixel_px_1(16, 6")));
     }
 
     #[test]
     fn pixel_begins_and_clears_on_setup() {
-        let e = emit(&pixel("px-1", json!({})), &NodeInputs::default());
+        let e = emit(&pixel("px-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains(".begin()")));
         assert!(e.setup.iter().any(|s| s.contains(".clear()")));
     }
@@ -208,7 +258,7 @@ mod tests {
                 json!({ "length": 4, "presets": [["#ff0000", "#00ff00"], ["#0000ff"]] }),
             ),
             &on("value", CppExpr::number("idx_src")),
-        );
+        ).unwrap();
         let decls = e.declarations.join("\n");
         assert!(decls.contains("0xFF0000") && decls.contains("0x00FF00") && decls.contains("0x0000FF"), "{decls}");
         assert!(decls.contains("pixel_px_1_preset_len[2] = {2, 1}"), "per-preset lengths: {decls}");
@@ -228,15 +278,16 @@ mod tests {
 
     #[test]
     fn value_without_presets_is_noted() {
-        let e = emit(&pixel("px-1", json!({})), &on("value", CppExpr::number("v")));
-        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
+        let e = emit(&pixel("px-1", json!({})), &on("value", CppExpr::number("v"))).unwrap();
+        assert!(!e.loop_body.join("\n").contains("setPixelColor"), "{:?}", e.loop_body);
+        assert!(e.loop_body.iter().any(|l| l.contains("pixel_px_1_event = true;")), "the runtime still emits `event`");
         assert!(e.declarations.iter().any(|d| d.contains("no presets are configured")));
     }
 
     #[test]
     fn reset_port_clears_the_strip() {
-        let e = emit(&pixel("px-1", json!({})), &on("reset", CppExpr::boolean("r")));
-        assert!(e.loop_body.iter().any(|l| l.contains(".clear(); pixel_px_1.show();")));
+        let e = emit(&pixel("px-1", json!({})), &on("reset", CppExpr::boolean("r"))).unwrap();
+        assert!(e.loop_body.iter().any(|l| l.contains("pixel_px_1.clear(); pixel_px_1.show();")));
     }
 
     #[test]
@@ -244,7 +295,7 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("color", SourceExpr::level(CppExpr::text("hex")));
         inputs.add("set", SourceExpr::level(CppExpr::number("v")));
-        let e = emit(&pixel("px-1", json!({})), &inputs);
+        let e = emit(&pixel("px-1", json!({})), &inputs).unwrap();
         assert_eq!(
             e.declarations.iter().filter(|d| d.contains("edge ignored")).count(),
             2
@@ -253,14 +304,27 @@ mod tests {
 
     #[test]
     fn pixel_honours_color_order() {
-        let e = emit(&pixel("px-1", json!({ "color_order": "RGB" })), &NodeInputs::default());
+        let e = emit(&pixel("px-1", json!({ "color_order": "RGB" })), &NodeInputs::default()).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("NEO_RGB")));
+    }
+
+    /// The sketch drives a strip that names no colour order as GRB, like the
+    /// live runtime; a strip that names its order keeps it.
+    #[test]
+    fn a_strip_is_grb_unless_it_names_another_order() {
+        let flag = |data| {
+            let e = emit(&pixel("px-1", data), &NodeInputs::default()).unwrap();
+            e.declarations.into_iter().find(|d| d.contains("Adafruit_NeoPixel")).expect("the strip")
+        };
+        assert!(flag(json!({})).contains("NEO_GRB"), "{}", flag(json!({})));
+        assert!(flag(json!({ "color_order": "BRG" })).contains("NEO_BRG"));
+        assert!(flag(json!({ "color_order": "GRB" })).contains("NEO_GRB"));
     }
 
     #[test]
     fn pixel_emits_deterministically() {
         let n = pixel("px-1", json!({ "length": 12, "presets": [["#fff"]] }));
         let inputs = on("value", CppExpr::number("v"));
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

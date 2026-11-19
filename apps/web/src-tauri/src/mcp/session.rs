@@ -53,9 +53,10 @@ const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// A tool as the webview described it, passed straight through to `tools/list`.
 ///
-/// `input_schema` is JSON Schema the page produced from the tool's own zod
-/// schema (`z.toJSONSchema`), so the schema a CLI is given and the schema the
-/// tool validates against cannot drift — they are the same object.
+/// `input_schema` is the JSON Schema the tool arrives with in the page (derived
+/// from the tool's own zod schema by `chat()`). The page checks every call
+/// against this same object (`mcp-bridge.ts`), so the schema a CLI is given and
+/// the schema its call is validated against cannot drift.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolSpec {
     pub name: String,
@@ -144,6 +145,17 @@ impl McpState {
         if guard.as_ref().is_some_and(|s| s.token == token) {
             *guard = None;
             drop(guard);
+            self.fail_pending("the Ask AI turn ended");
+        }
+    }
+
+    /// Close whatever session is open, whoever opened it.
+    ///
+    /// For when the page that opened it is gone (a reload) and will never send
+    /// its token to close it: until its agent CLI process has ended, that
+    /// process still holds the token.
+    pub async fn end(&self) {
+        if self.session.write().await.take().is_some() {
             self.fail_pending("the Ask AI turn ended");
         }
     }
@@ -343,6 +355,25 @@ mod tests {
         assert_eq!(state.tools(Some("second")).await.len(), 1);
         state.close("second").await;
         assert_eq!(state.tools(Some("second")).await, [] as [serde_json::Value; 0]);
+    }
+
+    #[tokio::test]
+    async fn ending_closes_the_open_session_without_its_token() {
+        let state = McpState::default();
+        state.open("secret".into(), vec![spec("get_flow")], 10).await;
+        let (reply, call) = oneshot::channel();
+        state.pending.insert(7, reply);
+
+        // The page that held the token was reloaded.
+        state.end().await;
+
+        // The process that still holds the token sees what an idle app shows,
+        // and the call it was waiting on is answered rather than left hanging.
+        assert_eq!(state.tools(Some("secret")).await, [] as [serde_json::Value; 0]);
+        assert_eq!(call.await.unwrap(), Err("the Ask AI turn ended".to_string()));
+
+        // With nothing open it does nothing.
+        state.end().await;
     }
 
     #[tokio::test]

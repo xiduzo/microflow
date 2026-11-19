@@ -118,6 +118,7 @@ function linked(usb: UsbIdentity = { identified: "uno", guessed: "uno" }) {
           reactor.fed.push(...bytes);
         },
         dispatchToNode() {},
+        keyEvent() {},
         dispose() {
           reactor.disposed = true;
         },

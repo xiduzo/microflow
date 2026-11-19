@@ -1,19 +1,20 @@
 ---
 title: Save, export, and share a flow file
-description: Persist a flow to disk, hand it to someone else, and open one they sent you.
+description: Export a flow to a file, hand it to someone else, and import one they sent you.
 ---
 
-A flow is just a file. You can save it, drop it into a chat, commit it to a repo. This guide covers the three things you will do with that file.
+A flow can leave Studio as a file. You can keep it, drop it into a chat, or commit it to a repo. This guide covers the three things you will do with that file.
 
 ## Save the current flow
 
 Microflow Studio autosaves to its local store while you work, so closing the app does not lose your changes. If the local store does not work (for example when the browser blocks site storage), the top-left corner of the canvas says **Not saving locally**: export the flow before you close the tab. **Saving locally is slow** means the store is slow to answer; keep the tab open until the message goes away.
 
-To produce a *standalone* file you can move around:
+To produce a *standalone* file you can move around, export the flow:
 
-1. Open the flow you want to export.
-2. **File → Save as…** (or `Cmd/Ctrl + Shift + S`).
-3. Pick a location and name. The file extension is `.microflow`.
+- **In the editor:** click the export button in the dock (the drive icon with an arrow pointing up).
+- **On My Flows:** open the `…` menu on the flow's card and choose **Export**.
+
+Studio downloads a file named after the flow, such as `Blink-1763550000000.json`, and shows **Flow exported**.
 
 The file contains the entire flow: every node, every edge, every setting, plus the canvas layout. It does **not** contain runtime state, the connected board's identity, or your MQTT credentials.
 
@@ -21,29 +22,66 @@ The file contains the entire flow: every node, every edge, every setting, plus t
 Use the **Share** button in the top-right corner. See [Collaborate on a flow in real-time](/docs/how-to/collaborate-on-a-flow). File-based sharing is for one-shot handoffs; the Share link is for ongoing collaboration.
 </Callout>
 
-## Open a flow someone sent you
+## Import a flow someone sent you
 
-1. Receive the `.microflow` file (any channel — email, drag-drop, git).
-2. **File → Open…** in Microflow Studio.
-3. Select the file.
+1. Receive the `.json` file (any channel: email, chat, git).
+2. Open **My Flows**, the page Studio starts on.
+3. Click **Import** and select the file.
 
-The flow opens on a fresh canvas. Pin numbers, settings, and MQTT topics travel with it. If the original used a board you do not have plugged in, the hardware nodes do nothing until you connect a matching board.
+Where the flow goes depends on whether you are signed in:
+
+- **Signed in:** Studio creates a new flow in your account and opens it. The flow takes its name from the file, or **Imported flow** when the file has none.
+- **Not signed in:** the file replaces your local flow, and Studio opens it.
+
+<Callout type="warn" title="Importing while signed out replaces the local flow">
+There is one local flow per device. Export it first if you want to keep what is in it.
+</Callout>
+
+Studio shows **Flow imported** when it is done. Pin numbers, settings, and MQTT topics travel with the flow. If the original used a board you do not have plugged in, the hardware nodes do nothing until you connect a matching board.
+
+## What Studio checks in a file
+
+A file can come from an older or a newer version of Microflow, or from a hand edit. Studio reads what it can and tells you about the rest.
+
+### Files Studio refuses
+
+Studio shows **Failed to import flow** with the reason, and nothing changes. It refuses a file when:
+
+- it is not valid JSON, or it has no nodes and edges;
+- a node or an edge has no id, an edge has no source or target node, or two nodes or two edges share an id;
+- it was exported by a newer version of Microflow. Update Microflow, then import it again;
+- it is larger than 64 MB, has more than 5,000 nodes or 20,000 edges, or its content is nested more than 64 levels deep.
+
+### Things Studio keeps and tells you about
+
+Every other file is imported. When something in it is not as Studio expects, a second message lists what to check, for example **3 things to check in the imported flow**. It stays on screen until you close it. It shows the first eight items in full and counts the rest.
+
+| In the file | What Studio does |
+| --- | --- |
+| A node of a type this version does not know | Keeps the node. It does not run. |
+| A node without a usable position | Keeps the node and places it at the canvas origin. |
+| A node with settings missing | Fills in the defaults for the missing settings. |
+| Settings this version does not accept | Keeps the settings exactly as they are in the file. Open the node and check them. |
+| An edge to a node that is not in the file | Leaves the edge out. |
+| An edge at an input or output its node does not have | Keeps the edge. It carries nothing and the canvas does not show it. |
+| Edges at a handle their node hides with its current settings | Keeps the edges. They work when the flow runs, but the canvas does not show them. |
+| A flow name longer than 100 characters | Shortens the name. |
 
 ## Commit a flow to version control
 
-Treat `.microflow` files as text — they diff reasonably in git. The format is structured (Yjs document serialised to a stable form), so you can review changes with a normal `git diff`.
+An exported flow is JSON text, so it diffs in git and you can review changes with a normal `git diff`.
 
 A common layout:
 
 ```
 my-project/
   flows/
-    main.microflow
-    demo.microflow
+    main.json
+    demo.json
   README.md
 ```
 
-For a project with many people editing the *same* flow simultaneously, prefer the [collaboration server](/docs/how-to/collaborate-on-a-flow) over a `git` workflow. Yjs handles concurrent edits; git merges of binary-ish documents do not.
+For a project with many people editing the *same* flow simultaneously, prefer the [collaboration server](/docs/how-to/collaborate-on-a-flow) over a `git` workflow. Live collaboration merges concurrent edits; two edited exports of one flow have to be merged by hand.
 
 ## Related
 

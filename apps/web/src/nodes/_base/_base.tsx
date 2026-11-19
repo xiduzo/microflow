@@ -23,7 +23,6 @@ import { useNodeDiagnosticsStore } from "@/nodes/live/node-diagnostics";
 // Re-exports so existing callers (`from "../_base/_base"`) keep working transparently.
 // Hook implementations live in their own modules to keep the layout file focused.
 export { useNodeControls, type Controls } from "./use-node-controls";
-export { useDeleteHandles } from "./use-delete-handles";
 // The container context now lives in the leaf `./node-context` module, so a
 // consumer that needs only `useNodeId` (the node-data store, on the hot event
 // path) can import it without dragging in this file's UI dependency tree. Both

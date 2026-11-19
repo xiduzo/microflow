@@ -9,11 +9,7 @@ export function Delay(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Delay"
-        portOverrides={{ trigger: { handleType: "command" } }}
-        emitOverrides={{ event: { handleType: "event" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

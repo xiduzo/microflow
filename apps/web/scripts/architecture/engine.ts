@@ -66,6 +66,13 @@ export interface VerticalSpec {
    * `import type` is exempt, because it is erased at compile time.
    */
   restricted?: Readonly<Record<string, RestrictedFile>>;
+  /**
+   * When present, the only other verticals this one may import; everything else is refused,
+   * `import type` included. Pins the direction of a dependency: a vertical that must stay
+   * below another lists what it may use, and is handed the rest as a parameter. The public
+   * surface of an allowed vertical still applies.
+   */
+  mayImport?: readonly string[];
 }
 
 export interface ArchitectureConfig {
@@ -81,6 +88,7 @@ export type RuleId =
   | "unknown-vertical"
   | "routes-are-top"
   | "infra-layer"
+  | "may-import"
   | "restricted-file"
   | "public-surface";
 
@@ -89,6 +97,7 @@ export const RULES: readonly RuleId[] = [
   "unknown-vertical",
   "routes-are-top",
   "infra-layer",
+  "may-import",
   "restricted-file",
   "public-surface",
 ];
@@ -219,6 +228,16 @@ export function checkArchitecture(graph: ImportGraph, config: ArchitectureConfig
           `infra-layer: ${head}`,
           `  resolves to ${target}, in ${describe(to)}. "${from}" is infrastructure and may import only ${infra.join(", ")}.`,
           `  fix: move ${importer} into ${to}/ (or another vertical) if it is domain code; or move what it needs from ${to}/ into ${from}/; or invert the dependency (take it as a parameter).`,
+        ]);
+        continue;
+      }
+
+      const allowed = verticals[from]?.mayImport;
+      if (allowed && !allowed.includes(to)) {
+        report({ ...base, rule: "may-import" }, [
+          `may-import: ${head}${imp.typeOnly ? " (type-only imports count too)" : ""}`,
+          `  resolves to ${target}, in ${describe(to)}. "${from}" may import only ${allowed.join(", ")}.`,
+          `  fix: invert the dependency (have "${from}" take what it needs from ${to}/ as a parameter, handed in by code that may import both); or, if "${from}" should depend on "${to}", add "${to}" to VERTICALS.${from}.mayImport in ${configPath}.`,
         ]);
         continue;
       }

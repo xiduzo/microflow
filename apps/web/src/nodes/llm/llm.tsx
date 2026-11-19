@@ -1,19 +1,9 @@
 import { dataSchema, defaults, type Data, type Value } from "./llm.schema";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Llm">;
-import {
-  NodeContainer,
-  useDeleteHandles,
-  useNodeControls,
-  useNodeData,
-  useNodeId,
-  type BaseNode,
-} from "../_base/_base";
+import { NodeHandles } from "../_base/node-handles";
+import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { useLlmProviderStore } from "@/ai/llm-provider";
 import { ProviderBadge } from "../_base/desktop-only-badge";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useUpdateNodeInternals } from "@xyflow/react";
+import { useEffect, useMemo, useState } from "react";
 import { useNodeValue, useNodeHandleValue } from "@/nodes/live/node-data";
 import { IconWithValue } from "../_base/icon-with-value";
 import { BotIcon, BotMessageSquareIcon } from "lucide-react";
@@ -29,46 +19,8 @@ export function Llm(props: Props) {
     <NodeContainer {...props} error={error} badge={<ProviderBadge provider={provider} surface="node" />}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="trigger" handleType="command" />
-      <Handle type="source" position="right" id="thinking" handleType="state" offset={-1} hint="true while generating" />
-      <Handle type="source" position="right" id="done" handleType="event" offset={0} hint="fires on completion" />
-      <Handle type="source" position="right" id="value" handleType="value" offset={1} />
-      <DynamicHandles />
+      <NodeHandles />
     </NodeContainer>
-  );
-}
-
-function DynamicHandles() {
-  const data = useNodeData<Data>();
-  const id = useNodeId();
-  const previousHandles = useRef<string[]>([]);
-  const deleteHandles = useDeleteHandles();
-
-  const update = useUpdateNodeInternals();
-
-  const handles = useMemo(() => {
-    const matches = data.prompt?.match(/{{(.*?)}}/g) ?? [];
-    return Array.from(
-      new Set(matches.map((match) => match.replace("{{", "").replace("}}", ""))),
-    ).filter(Boolean);
-  }, [data.prompt]);
-
-  useEffect(() => {
-    const difference = handles.filter((handle) => !previousHandles.current.includes(handle));
-    if (previousHandles.current.length) deleteHandles(difference);
-    previousHandles.current = handles;
-    update(id);
-  }, [handles, id, update, deleteHandles]);
-
-  return (
-    <>
-      {handles.slice(0, 7).map((handle, index) => (
-        // Dynamic input handles from runtime template vars — open-port outlier,
-        // not a catalogued **Port**. Use raw `BaseHandle` and cast `id` to escape
-        // the closed-set check.
-        <BaseHandle key={handle} type="target" position="bottom" id={handle as never} handleType="value" offset={index - (handles.length - 1) / 2} />
-      ))}
-    </>
   );
 }
 

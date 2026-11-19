@@ -423,9 +423,10 @@ export class YjsServer {
         break;
       case MESSAGE_QUERY_AWARENESS:
         // Part of the y-websocket protocol: "tell me who else is here".
-        // The provider only sends it over its cross-tab BroadcastChannel
-        // today, but answering it costs nothing and keeps us honest against
-        // the protocol rather than against one client's current behaviour.
+        // `SyncProvider` never sends it (the library asks only over its
+        // cross-tab relay, which is off), but answering it costs nothing and
+        // keeps us honest against the protocol rather than against one
+        // client's current behaviour.
         this.sendAwarenessState(connection.socket, room.awareness);
         break;
     }

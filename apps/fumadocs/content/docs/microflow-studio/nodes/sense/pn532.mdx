@@ -13,7 +13,7 @@ DIP switches to **I2C** mode (not SPI or HSU).
 
 ## Outputs
 
-- **Value** — the card's UID as an uppercase hex string, e.g. `04A2B1C3`. It fires
+- **value** — the card's UID as an uppercase hex string, e.g. `04A2B1C3`. It fires
   **when the UID changes**, so holding a card still won't spam events, and tapping
   the same card again stays quiet. Different cards have different UID lengths
   (4 bytes for Mifare Classic, 7 for NTAG/Ultralight) — the node reports the full
@@ -24,9 +24,9 @@ to react to *any* card, wire the value straight into an action.
 
 ## Settings
 
-- **Address** — the 7-bit I2C address of the module. The default **0x24 (36)** is
+- **address (dec)** — the 7-bit I2C address of the module, as a decimal number. The default **0x24 (36)** is
   correct for a PN532 with its switches set to I2C.
-- **Poll interval (ms)** — how often the reader scans for a card while idle
+- **poll interval (ms)** — how often the reader scans for a card while idle
   (default 300 ms). Lower is more responsive but busier on the bus.
 
 ## How reading works

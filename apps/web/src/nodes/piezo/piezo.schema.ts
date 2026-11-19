@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { baseDataSchema } from "../_base/_base.schema";
-import { DEFAULT_SONG } from "./piezo.constants";
+import { DEFAULT_SONG } from "../song/notes";
 
 export const valueSchema = z.boolean();
 export type Value = z.infer<typeof valueSchema>;

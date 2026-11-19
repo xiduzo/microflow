@@ -1,46 +1,26 @@
 import { dataSchema, defaults, type Data } from "./mqtt.schema";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Mqtt">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RadioIcon, RadioTowerIcon } from "lucide-react";
 import { IconWithValue } from "../_base/icon-with-value";
-import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import { useMemo } from "react";
-import { hostLimitation } from "../_base/browser-support";
+import { useBrokerBinding } from "../_base/broker-binding";
 
 export function Mqtt(props: Props) {
-  const brokers = useMqttBrokerStore((s) => s.brokers);
-  const hasBrokers = brokers.length > 0;
-  const broker = brokers.find((b) => b.id === props.data.brokerId);
-  // A browser can only speak MQTT over a WebSocket; a `mqtt://` broker works on
-  // the desktop and silently never connects here, so say so on the node.
-  const unreachableBroker =
-    broker && hostLimitation({ kind: "broker", name: broker.name, url: broker.url })?.reason;
-  const error = !hasBrokers
-    ? "No MQTT brokers configured"
-    : !broker
-      ? "Select a broker"
-      : unreachableBroker;
+  const { error } = useBrokerBinding(props.data.brokerId);
 
   return (
     <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
-      {props.data.direction === "publish" && (
-        <Handle type="target" position="left" id="trigger" handleType="command" />
-      )}
-      {props.data.direction === "subscribe" && (
-        <Handle type="source" position="right" id="value" handleType="value" />
-      )}
+      <NodeHandles />
     </NodeContainer>
   );
 }
 
 function Value() {
   const data = useNodeData<Data>();
-  const brokers = useMqttBrokerStore((s) => s.brokers);
-  const broker = brokers.find((b) => b.id === data.brokerId);
+  const { broker } = useBrokerBinding(data.brokerId);
 
   const displayValue = useMemo(() => {
     if (!broker) return "No broker";
@@ -58,24 +38,11 @@ function Value() {
 
 function Settings() {
   const data = useNodeData<Data>();
-  const brokers = useMqttBrokerStore((s) => s.brokers);
-
-  const brokerOptions = useMemo(() => {
-    const options: Record<string, string> = { "Select broker...": "" };
-    for (const broker of brokers) {
-      const label = broker.name + (broker.isDefault ? " (default)" : "");
-      options[label] = broker.id;
-    }
-    return options;
-  }, [brokers]);
+  const { control: brokerControl } = useBrokerBinding(data.brokerId);
 
   const { render } = useNodeControls(
     {
-      brokerId: {
-        value: data.brokerId,
-        options: brokerOptions,
-        label: "Broker",
-      },
+      brokerId: brokerControl,
       direction: {
         value: data.direction,
         options: ["publish", "subscribe"],
@@ -92,7 +59,8 @@ function Settings() {
         retain: { value: data.retain },
       }),
     },
-    [brokers, data.direction],
+    // The options change with the broker list, not with the broker picked.
+    [brokerControl.options, data.direction],
   );
 
   return <>{render()}</>;

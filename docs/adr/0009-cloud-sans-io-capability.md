@@ -2,7 +2,7 @@
 
 - **Status:** accepted — **complete** (2026-06-22): Phases 1–3 implemented (cloud
   nodes run in both hosts — LLM + MQTT + Figma in the browser). **Phase 4 (CORS
-  proxy) declined** — direct-only; see the Phase 4 note below.
+  proxy) declined** — direct-only; see the Phase 4 note below. Amended (2026-11-19).
 - **Date:** 2026-06-21
 - **Deciders:** sander
 
@@ -235,3 +235,30 @@ Services" sections rewritten to post-re-host reality — see CONTEXT reconciliat
 - [ADR-0006](0006-rehost-runtime-on-core.md) — sans-IO `Effects` seam this extends to cloud.
 - [ADR-0008](0008-effects-apply-policy.md) — the `EffectsSink` this adds `perform_cloud` to.
 - [ADR-0025](0025-per-capability-service-traits.md) — capability traits (still hold); IO location changes.
+
+---
+
+## Amendment (2026-11-19): where each host's cloud half lives
+
+The decision stands: cloud nodes are sans-IO, a turn records `CloudRequest`s,
+and each host performs them behind `EffectsSink::perform_cloud`. The modules
+that do so are these.
+
+- **Desktop** — `CloudPerformer` in
+  `apps/web/src-tauri/src/runtime/cloud_performer.rs`. It publishes
+  `MqttPublish` requests through the `MqttBrokers` Capability Trait
+  (`runtime/services/mqtt.rs`; `MqttManager` in the app, `RecordingMqttBrokers`
+  in tests) and owns the flow's MQTT subscriptions
+  ([ADR-0035](0035-desktop-cloud-performer-owns-subscriptions.md)). The broker
+  client is `mqtt-endpoint-tokio`. The actor takes the other request kinds
+  before they reach the performer: it forwards `LlmGenerate`
+  ([ADR-0021](0021-one-llm-transport-in-the-webview.md)), `AudioPlay` and
+  `AudioStop` to the webview, and sends `MidiSend` on its own MIDI connections.
+- **Browser** — `CloudPerformer` in `apps/web/src/cloud/cloud-performer.ts`,
+  held by the `FlowReactor`. It publishes over MQTT-over-WebSocket through
+  `BrokerConnections` (`cloud/mqtt-client.ts`), performs `llmGenerate` through
+  the shared `LlmPerformer`, and owns the flow's subscription state
+  ([ADR-0036](0036-browser-host-owns-subscription-state.md)).
+
+Results re-enter the same way on both hosts: an LLM result through
+`inject_event`, an inbound broker message through `deliver_message`.

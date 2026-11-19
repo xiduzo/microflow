@@ -1,5 +1,4 @@
 import type { NodeHostAdapter } from "../_base/host-adapter";
+import { brokerIds } from "../_base/broker-binding.adapter";
 
-export const adapter: NodeHostAdapter = {
-  brokerIds: (node) => (node.data?.brokerId ? [node.data.brokerId as string] : []),
-};
+export const adapter: NodeHostAdapter = { brokerIds };

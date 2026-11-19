@@ -20,7 +20,6 @@
 import type { DesiredSub } from "@/lib/bindings/DesiredSub";
 import type { Effects } from "@/lib/bindings/Effects";
 import type { FlowUpdate } from "@/lib/bindings/FlowUpdate";
-import type { MidiListener } from "@/lib/bindings/MidiListener";
 
 /**
  * The runtime surface the bridge calls, declared structurally so this module
@@ -35,8 +34,12 @@ export interface FlowRuntimeCalls {
   dispatch(id: string, method: string, valueJson: string, nowMs: number): string;
   injectEvent(source: string, handle: string, valueJson: string, nowMs: number): string;
   deliverMessage(id: string, topic: string, payload: Uint8Array, nowMs: number): string;
+  keyEvent(accelerator: string, pressed: boolean, nowMs: number): string;
+  midiMessage(portName: string, bytes: Uint8Array, nowMs: number): string;
   reconcileSubscriptions(): string;
-  midiListeners(): string;
+  listensToMidi(): boolean;
+  wantsMidiInput(portName: string): boolean;
+  midiDeviceMatches(portName: string, deviceName: string): boolean;
 }
 
 /**
@@ -131,7 +134,7 @@ export class RuntimeBridge {
     return this.effectsTurn("wake", nodeId, (rt) => rt.wake(nodeId, method, nowMs));
   }
 
-  /** Deliver one host-originated input (e.g. a hotkey) to a node's port. */
+  /** Deliver one host-originated value to a node's port. */
   dispatch(nodeId: string, port: string, value: unknown, nowMs: number): Effects | undefined {
     return this.effectsTurn("dispatch", nodeId, (rt) =>
       rt.dispatch(nodeId, port, JSON.stringify(value), nowMs),
@@ -150,7 +153,7 @@ export class RuntimeBridge {
     );
   }
 
-  /** Route one inbound broker/MIDI message to its subscribe node. */
+  /** Route one inbound broker message to its subscribe node. */
   deliverMessage(
     nodeId: string,
     topic: string,
@@ -162,6 +165,18 @@ export class RuntimeBridge {
     );
   }
 
+  /** A hotkey was pressed or released. The runtime decides which nodes
+   *  listen on `accelerator`, so the op belongs to no single node. */
+  keyEvent(accelerator: string, pressed: boolean, nowMs: number): Effects | undefined {
+    return this.effectsTurn("keyEvent", null, (rt) => rt.keyEvent(accelerator, pressed, nowMs));
+  }
+
+  /** A raw MIDI message arrived on the input port `portName`. The runtime
+   *  decides which nodes listen to that port. */
+  midiMessage(portName: string, bytes: Uint8Array, nowMs: number): Effects | undefined {
+    return this.effectsTurn("midiMessage", null, (rt) => rt.midiMessage(portName, bytes, nowMs));
+  }
+
   /** The already-reconciled desired subscription set (one winner per topic). */
   reconcileSubscriptions(): DesiredSub[] | undefined {
     const reply = this.call("reconcileSubscriptions", null, (rt) => rt.reconcileSubscriptions());
@@ -169,11 +184,33 @@ export class RuntimeBridge {
     return this.decode<DesiredSub[]>("reconcileSubscriptions", null, reply);
   }
 
-  /** Every MIDI in-node's device interest. */
-  midiListeners(): MidiListener[] | undefined {
-    const reply = this.call("midiListeners", null, (rt) => rt.midiListeners());
-    if (reply === undefined) return undefined;
-    return this.decode<MidiListener[]>("midiListeners", null, reply);
+  /** Whether any node of the flow listens to MIDI input. */
+  listensToMidi(): boolean | undefined {
+    return this.call("listensToMidi", null, (rt) => rt.listensToMidi());
+  }
+
+  /** Whether the flow wants the MIDI input port `portName` listened to. */
+  wantsMidiInput(portName: string): boolean | undefined {
+    return this.call("wantsMidiInput", null, (rt) => rt.wantsMidiInput(portName));
+  }
+
+  /** Whether a `midiSend` addressed to `deviceName` reaches the output port
+   *  `portName` — the runtime's device-name rule. */
+  midiDeviceMatches(portName: string, deviceName: string): boolean | undefined {
+    return this.call("midiDeviceMatches", null, (rt) =>
+      rt.midiDeviceMatches(portName, deviceName),
+    );
+  }
+
+  /**
+   * Run the Figma Announce Policy: `policy` calls the wasm module's
+   * `figmaAnnounceActions`. It is a function of the module, not an op of the
+   * runtime, but the module is the one the runtime lives in, so it crosses
+   * here like every op: once the module trapped, or the bridge was disposed,
+   * `policy` is not called and the answer is `undefined`.
+   */
+  figmaAnnounce<T extends object>(policy: () => T): T | undefined {
+    return this.call("figmaAnnounceActions", null, () => policy());
   }
 
   // --- The core crossing -----------------------------------------------------
@@ -214,18 +251,19 @@ export class RuntimeBridge {
 
   /**
    * Invoke one runtime entry point. Returns what the call returned (the effects
-   * JSON, or `undefined` for a void op such as `setPins`), or `undefined` if it
-   * faulted — in which case the fault has already been classified and routed.
-   * Never throws.
+   * JSON, a query's answer, the announce policy's publishes, or `undefined`
+   * for a void op such as `setPins`), or
+   * `undefined` if it faulted — in which case the fault has already been
+   * classified and routed. Never throws.
    *
    * `node` is the node the call is on behalf of, or `null` for a whole-flow op
    * (`feedBytes`, `updateFlow`, …) that belongs to no single node.
    */
-  private call(
+  private call<T extends string | boolean | object>(
     op: string,
     node: string | null,
-    fn: (runtime: FlowRuntimeCalls) => string | void,
-  ): string | undefined {
+    fn: (runtime: FlowRuntimeCalls) => T | void,
+  ): T | undefined {
     const runtime = this.runtime;
     if (runtime === null) {
       this.closedFault(op, node);

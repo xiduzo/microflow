@@ -11,7 +11,7 @@ use crate::runtime::{
     HardwareComponent, ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-use super::config::ProximityConfig;
+use super::config::{ProximityConfig, MIN_MOVE_CM};
 
 pub(crate) struct Proximity {
     base: ComponentBase,
@@ -28,7 +28,7 @@ pub(crate) struct Proximity {
 impl Proximity {
     #[must_use]
     pub(crate) fn new(id: String, config: ProximityConfig) -> Self {
-        let pin = PinProfile::default().resolve_label(&config.pin, 0);
+        let pin = PinProfile::default().resolve(config.pin).unwrap_or(0);
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
@@ -37,32 +37,11 @@ impl Proximity {
         }
     }
 
-    fn raw_to_cm(&self, raw: u16) -> f64 {
-        match self.config.controller.as_str() {
-            "GP2Y0A21YK" => {
-                let voltage = f64::from(raw) * 5.0 / 1024.0;
-                if voltage > 0.42 {
-                    (27.86 / (voltage - 0.42)).clamp(10.0, 80.0)
-                } else {
-                    80.0
-                }
-            }
-            "GP2Y0A02YK0F" => {
-                let voltage = f64::from(raw) * 5.0 / 1024.0;
-                if voltage > 0.4 {
-                    (60.0 / (voltage - 0.4)).clamp(20.0, 150.0)
-                } else {
-                    150.0
-                }
-            }
-            "HCSR04" => (f64::from(raw) / 58.0).clamp(2.0, 400.0),
-            _ => (f64::from(raw) * 200.0 / 1023.0).clamp(0.0, 200.0),
-        }
-    }
-
+    /// Hand on the distance `raw` stands for, once it has moved more than
+    /// [`MIN_MOVE_CM`] from the last one — the rule the sketch applies too.
     fn process_reading(&mut self, raw: u16) {
-        let cm = self.raw_to_cm(raw);
-        if (cm - self.last_cm).abs() > 1.0 {
+        let cm = self.config.ranging().centimetres(raw);
+        if (cm - self.last_cm).abs() > MIN_MOVE_CM {
             self.last_cm = cm;
             self.base.set_value(ComponentValue::Number(cm));
         }
@@ -71,7 +50,8 @@ impl Proximity {
 
 impl Component for Proximity {
     fn ports() -> &'static [&'static str] {
-        &["read"]
+        // An input: it reports what the board reads and takes no edge.
+        &[]
     }
 
     fn emits() -> &'static [&'static str] {
@@ -106,16 +86,13 @@ impl Component for Proximity {
         _args: ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        match method {
-            "read" => Ok(()),
-            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
-        }
+        Err(RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 }
 
 impl HardwareComponent for Proximity {
     fn bind_pins(&mut self, pins: &PinProfile) {
-        self.pin = pins.resolve_label(&self.config.pin, 0);
+        self.pin = pins.resolve(self.config.pin).unwrap_or(0);
     }
 
     fn initialize(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {

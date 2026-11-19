@@ -10,120 +10,40 @@ import {
   useDesignVariable,
   useDesignVariables,
 } from "@/cloud/design-bridge";
-import { useMqttBrokerStore } from "@/cloud/mqtt-broker";
 import { Switch } from "@/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/ui/tooltip";
 import { CloudOffIcon, VariableIcon } from "lucide-react";
-import { Position, useUpdateNodeInternals } from "@xyflow/react";
 import { button } from "leva";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Figma">;
-import {
-  type BaseNode,
-  NodeContainer,
-  useDeleteHandles,
-  useNodeControls,
-  useNodeData,
-} from "../_base/_base";
+import { NodeHandles } from "../_base/node-handles";
+import { type BaseNode, NodeContainer, useNodeControls, useNodeData } from "../_base/_base";
 import { RgbaColorPicker } from "react-colorful";
 import { useNodeValue } from "@/nodes/live/node-data";
 import { type RGBA } from "../_base/_base.schema";
-import { hostLimitation } from "../_base/browser-support";
+import { useBrokerBinding } from "../_base/broker-binding";
 
 const TOOL_LABEL: Record<DesignTool, string> = { figma: "Figma", penpot: "Penpot" };
 
-const HANDLES = {
-  BOOLEAN: ["true", "toggle", "false"],
-  COLOR: ["red", "green", "blue", "opacity"],
-  FLOAT: ["increment", "set", "decrement", "reset"],
-  STRING: ["set"],
-} as const;
-const ALL_HANDLES = [...new Set(Object.values(HANDLES).flat())];
-
 export function Figma(props: Props) {
   const connected = useDesignToolsConnected();
-  const brokers = useMqttBrokerStore((s) => s.brokers);
-  const broker = brokers.find((b) => b.id === props.data.brokerId);
+  // The node talks to the plugins over MQTT, so what is wrong with its broker
+  // is said before what is wrong with a plugin.
+  const broker = useBrokerBinding(props.data.brokerId);
   const source = props.data.source ?? "figma";
-
-  // The node talks to the plugins over MQTT, so it inherits the browser's
-  // WebSocket-only constraint (see `browser-support.ts`).
-  const unreachableBroker =
-    broker && hostLimitation({ kind: "broker", name: broker.name, url: broker.url })?.reason;
 
   const pluginError = props.data.variableId
     ? !connected[source] && `${TOOL_LABEL[source]} plugin is not connected`
     : !DESIGN_TOOLS.some((tool) => connected[tool]) && "No Figma or Penpot plugin is connected";
 
-  const error = !brokers.length
-    ? "No MQTT brokers configured"
-    : !broker
-      ? "Select a broker"
-      : (unreachableBroker ?? (pluginError || undefined));
+  const error = broker.error ?? (pluginError || undefined);
 
   return (
     <NodeContainer {...props} error={error}>
       <Value />
       <Settings />
-      <FigmaHandles
-        id={props.id}
-        source={source}
-        variableId={props.data.variableId}
-        resolvedType={props.data.resolvedType}
-      />
+      <NodeHandles />
     </NodeContainer>
-  );
-}
-
-function FigmaHandles(props: {
-  id: string;
-  source: DesignTool;
-  variableId?: string;
-  resolvedType?: Data["resolvedType"];
-}) {
-  const updateNodeInternals = useUpdateNodeInternals();
-  const { variable } = useDesignVariable(props.source, props.variableId);
-  // Fall back to the stored type so handles (and their edges) survive while
-  // the plugin is closed, and so a template's edges attach before a variable
-  // is picked.
-  const type = variable?.resolvedType ?? props.resolvedType;
-
-  useEffect(() => {
-    if (!type) return;
-    updateNodeInternals(props.id);
-  }, [props.id, type, updateNodeInternals]);
-
-  return (
-    <>
-      {type === "BOOLEAN" && (
-        <>
-          <Handle type="target" position={Position.Left} id="true" offset={-1} />
-          <Handle type="target" position={Position.Left} id="toggle" />
-          <Handle type="target" position={Position.Left} id="false" offset={1} />
-        </>
-      )}
-      {type === "COLOR" && (
-        <>
-          <Handle type="target" position={Position.Left} id="red" hint="0-255" offset={-1.5} />
-          <Handle type="target" position={Position.Left} id="green" hint="0-255" offset={-0.5} />
-          <Handle type="target" position={Position.Left} id="blue" hint="0-255" offset={0.5} />
-          <Handle type="target" position={Position.Left} id="opacity" hint="0-100" offset={1.5} />
-        </>
-      )}
-      {type === "FLOAT" && (
-        <>
-          <Handle type="target" position={Position.Left} id="increment" offset={-1.5} />
-          <Handle type="target" position={Position.Left} id="set" offset={-0.5} />
-          <Handle type="target" position={Position.Left} id="decrement" offset={0.5} />
-          <Handle type="target" position={Position.Left} id="reset" offset={1.5} />
-        </>
-      )}
-      {type === "STRING" && <Handle type="target" position={Position.Left} id="set" />}
-      <Handle type="source" position={Position.Right} id="change" />
-    </>
   );
 }
 
@@ -150,27 +70,13 @@ function useVariableOptions() {
 
 function Settings() {
   const data = useNodeData<Data>();
-  const deleteHandles = useDeleteHandles();
-  const brokers = useMqttBrokerStore((s) => s.brokers);
+  const { control: brokerControl } = useBrokerBinding(data.brokerId);
   const bridgeId = useBridgeId();
   const { options: variableOptions, byId } = useVariableOptions();
 
-  const brokerOptions = useMemo(() => {
-    const options: Record<string, string> = { "Select broker...": "" };
-    for (const broker of brokers) {
-      const label = broker.name + (broker.isDefault ? " (default)" : "");
-      options[label] = broker.id;
-    }
-    return options;
-  }, [brokers]);
-
   const { render, set } = useNodeControls(
     {
-      brokerId: {
-        value: data.brokerId,
-        options: brokerOptions,
-        label: "Broker",
-      },
+      brokerId: brokerControl,
       variableId: {
         label: "variable",
         value: data.variableId!,
@@ -179,8 +85,7 @@ function Settings() {
         onChange: (id: string) => {
           const selected = byId.get(id);
           if (!selected) return;
-          const keep: readonly string[] = HANDLES[selected.variable.resolvedType];
-          deleteHandles(ALL_HANDLES.filter((handle) => !keep.includes(handle)));
+          // The node's Ports follow `resolvedType` (see `figma.handles.ts`).
           set({ resolvedType: selected.variable.resolvedType, source: selected.tool });
         },
       },
@@ -212,7 +117,7 @@ function Settings() {
         );
       }),
     },
-    [variableOptions, brokers, bridgeId],
+    [variableOptions, brokerControl.options, bridgeId],
   );
 
   return <>{render()}</>;

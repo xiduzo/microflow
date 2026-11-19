@@ -1,7 +1,5 @@
 import { button, folder } from "leva";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Piezo">;
+import { NodeHandles } from "../_base/node-handles";
 import {
   NodeContainer,
   useNodeControls,
@@ -12,7 +10,8 @@ import { useNodeValue } from "@/nodes/live/node-data";
 import { useState } from "react";
 import { MODES } from "@/board/board-store";
 import { pinsToOptions } from "@/board/pin-label";
-import { SongEditor } from "./song-editor";
+import { SongEditor } from "../song/song-editor";
+import { PIEZO_NOTE } from "./piezo.note";
 import { usePins } from "@/board/board-store";
 import {
   type BuzzData,
@@ -27,20 +26,14 @@ import {
   DEFAULT_NOTE,
   DEFAULT_SONG,
   NOTES_AND_FREQUENCIES,
-} from "./piezo.constants";
+} from "../song/notes";
 
 export function Piezo(props: Props) {
   return (
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      {props.data.type === "buzz" && (
-        <Handle type="target" position="left" id="trigger" handleType="command" offset={-0.5} />
-      )}
-      {props.data.type === "song" && (
-        <Handle type="target" position="left" id="trigger" handleType="command" offset={-0.5} title="play" />
-      )}
-      <Handle type="target" position="left" id="stop" handleType="command" offset={0.5} />
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -124,6 +117,7 @@ function Settings() {
       {editorOpened && (
         <SongEditor
           song={(data as SongData).song ?? DEFAULT_SONG}
+          shape={PIEZO_NOTE}
           title={data.label}
           onClose={() => {
             setEditorOpened(false);

@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Relay">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { ZapIcon, ZapOffIcon } from "lucide-react";
 import { type Value, type Data, dataSchema, defaults } from "./relay.schema";
@@ -13,9 +11,7 @@ export function Relay(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="true" handleType="command" offset={-1} />
-      <Handle type="target" position="left" id="toggle" handleType="command" />
-      <Handle type="target" position="left" id="false" handleType="command" offset={1} />
+      <NodeHandles />
     </NodeContainer>
   );
 }

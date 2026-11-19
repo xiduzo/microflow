@@ -1,5 +1,7 @@
 import * as Y from "yjs";
 import { FlowDocument, SyncProvider } from "@microflow/collab";
+import { reportError } from "@/lib/report-error";
+import { startHandlePruning, type HandleSets } from "./handle-pruning";
 import { IndexeddbSyncAdapter } from "./indexeddb-sync-adapter";
 import { readOnlyDocument } from "./read-only-document";
 import {
@@ -8,6 +10,7 @@ import {
   constantSessionStatus,
   initialSessionStatusState,
   localSessionStatus,
+  type FlowSessionStatus,
   type SessionStatusStore,
 } from "./session-status";
 import type { RemoteSyncAdapter, SyncAdapter } from "./sync-adapter";
@@ -115,6 +118,51 @@ export function createCloudSession(options: CreateCloudSessionOptions): FlowSess
 /** The writable document behind a session, for `withLiveAccess`. */
 const writableDocs = new WeakMap<FlowSession, FlowDocument>();
 
+/** What sessions made from here on prune vanished handles with. See {@link provideHandleSets}. */
+let handleSets: HandleSets | null = null;
+
+/**
+ * Tell the session vertical which handles a node offers, so that sessions can
+ * remove the edges of a handle that vanishes (`startHandlePruning`).
+ *
+ * The session knows documents and nothing about nodes, and must not import
+ * them, so the app's entry point hands this in once, before the first session
+ * is made (`main.tsx` passes `nodeHandles`). It is app-wide and not a
+ * parameter of each session because every maker of a session has to agree:
+ * sessions are shared through the registry, and one made without it (to save
+ * a template into the local flow, say) is the same session the editor then
+ * opens.
+ *
+ * A session reads it when it starts pruning. Without it a session repairs
+ * dangling edges only, which is a wiring mistake and is reported as one (see
+ * `reportMissingHandleSets`). Pass `null` to take it away again (tests).
+ */
+export function provideHandleSets(of: HandleSets | null): void {
+  handleSets = of;
+  missingHandleSetsReported = false;
+}
+
+let missingHandleSetsReported = false;
+
+/**
+ * A writable session is starting and nobody has said what a node's handles
+ * are. Nothing else would show it: the session works, and edges at handles a
+ * settings change removes simply stay. So it goes to the app's failure surface
+ * (`reportError`, ADR-0029), once, not once per session.
+ */
+function reportMissingHandleSets(): null {
+  if (!missingHandleSetsReported) {
+    missingHandleSetsReported = true;
+    reportError(
+      new Error(
+        "A writable flow session started before provideHandleSets was called: edges at handles a settings change removes will not be pruned.",
+      ),
+      { source: "action" },
+    );
+  }
+  return null;
+}
+
 export function makeSession(
   mode: FlowMode,
   flowId: string,
@@ -150,8 +198,24 @@ export function makeSession(
 }
 
 /**
- * Keep `doc` free of dangling edges (a node delete racing a peer's new edge,
- * see `FlowDocument.startEdgePruning`) for as long as this client may write.
+ * Whether a change that arrives from outside is a peer editing right now: the
+ * session is in sync with its room. In every other state what arrives is the
+ * document loading or catching up (a local flow has no peers at all). Handle
+ * pruning treats the two differently; see `startHandlePruning`.
+ */
+function peersAreLive(status: FlowSessionStatus): boolean {
+  return status.kind === "connected" || status.kind === "saving" || status.kind === "saved";
+}
+
+/**
+ * Keep `doc` free of edges that attach to nothing, for as long as this client
+ * may write. Two repairs run side by side:
+ *
+ * - dangling edges: a node delete racing a peer's new edge
+ *   (`FlowDocument.startEdgePruning`);
+ * - vanished handles: a settings change that takes a handle off a node
+ *   (`startHandlePruning`), with the handle sets the app provided
+ *   (`provideHandleSets`).
  *
  * Pruning belongs to the session, not the canvas: an Editor's document must
  * repair itself whether or not a canvas is mounted. It follows the live
@@ -164,7 +228,17 @@ function pruneWhileWritable(doc: FlowDocument, status: SessionStatusStore): () =
   const follow = () => {
     const writable = !status.getSnapshot().readOnly;
     if (writable && stop === null) {
-      stop = doc.startEdgePruning();
+      const stopEdges = doc.startEdgePruning();
+      const stopHandles = handleSets
+        ? startHandlePruning(doc, handleSets, {
+            isLive: () => peersAreLive(status.getSnapshot()),
+            subscribe: (listener) => status.subscribe(listener),
+          })
+        : reportMissingHandleSets();
+      stop = () => {
+        stopEdges();
+        stopHandles?.();
+      };
     } else if (!writable && stop !== null) {
       stop();
       stop = null;

@@ -18,10 +18,9 @@ use crate::runtime::{
 
 use super::config::SwitchConfig;
 
-/// Quiet window a line must hold before a deferred level is accepted. Must
-/// exceed one 50Hz mains period (20ms) — see [`crate::nodes::button::runtime`] for the full
-/// rationale (a window at the mains period razor-edges on a floating pin).
-const DEBOUNCE_MS: f64 = 50.0;
+/// Quiet window a line must hold before a deferred level is accepted — the
+/// one the emitted sketch settles by too ([`crate::config::DEBOUNCE_MS`]).
+const DEBOUNCE_MS: f64 = crate::config::DEBOUNCE_MS as f64;
 
 pub(crate) struct Switch {
     base: ComponentBase,
@@ -94,7 +93,8 @@ impl Switch {
 
 impl Component for Switch {
     fn ports() -> &'static [&'static str] {
-        &["read"]
+        // An input: it reports what the board reads and takes no edge.
+        &[]
     }
 
     fn emits() -> &'static [&'static str] {
@@ -125,10 +125,7 @@ impl Component for Switch {
         _args: ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        match method {
-            "read" => Ok(()),
-            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
-        }
+        Err(RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 
     fn dispatch_internal(

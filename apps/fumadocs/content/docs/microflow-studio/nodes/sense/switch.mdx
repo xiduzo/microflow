@@ -10,6 +10,21 @@ A switch is similar to a [`Button`](/docs/microflow-studio/nodes/sense/button), 
 
 Switches are useful when you want something to stay on or off until you manually change it, rather than requiring constant pressure like a button.
 
+## Outputs
+
+- **event** — fires every time the switch changes, with `true` for closed and `false` for open
+- **true** — fires when the switch closes
+- **false** — fires when the switch opens
+
+The node ignores contact bounce shorter than 50 ms, in Studio and in an exported sketch.
+
+## Settings
+
+Open the settings panel to configure:
+
+- **pin** — which digital pin on your Arduino the switch is connected to
+- **type** — **normally closed (NC)** (the default) or **normally open (NO)**. See the table below
+
 ## Types of switches
 
 Switches come in many shapes and sizes. Below are a few examples and how to wire them up.

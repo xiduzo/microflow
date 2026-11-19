@@ -15,6 +15,7 @@ node-components.json              ← single source of truth (UI ↔ runtime map
         ├── frontend (React + Zod schema)        — apps/web/src/nodes/<name>/
         │     ├── <name>.tsx              UI component
         │     ├── <name>.schema.ts        Zod schema for data + value, and the defaults
+        │     ├── <name>.handles.ts       the node's handles, as a function of its settings
         │     └── <name>.adapter.ts       optional host adapter (no React)
         │
         └── runtime (Rust)                       — crates/microflow-core/src/nodes/<name>/
@@ -26,7 +27,9 @@ node-components.json              ← single source of truth (UI ↔ runtime map
 
 The two sides never call each other directly — they communicate through the Yjs document and the runtime event channel.
 
-You never register a node in TypeScript by hand. `bun run codegen` reads `node-components.json` and writes the node type list, the node catalog and the React node map into `apps/web/src/nodes/*.generated.ts` (Step 5).
+The settings a node carries are its `data`. The frontend schema writes it, and the Rust config reads it. The shape the frontend writes is the contract: when the two sides disagree, you change the Rust config.
+
+The only place you name a node in TypeScript by hand is one line in the handle rule table (Step 4). `bun run codegen` reads `node-components.json` and writes the rest: the node type list, the node catalog and the React node map in `apps/web/src/nodes/*.generated.ts`, and the node defaults in `apps/web/node-defaults.generated.json` (Step 5).
 
 For this walkthrough, we will add a hypothetical `Sparkle` node that emits a random number between two bounds whenever it receives an input.
 
@@ -77,7 +80,15 @@ impl Default for SparkleConfig {
 }
 ```
 
-The runtime deserializes the node's `data` into this struct. Keep `rename_all = "camelCase"`: the frontend sends `windowSize`, not `window_size`, and without the attribute a multi-word field never matches and silently keeps its default. `default` fills in the fields that `data` does not have, so keep these defaults equal to the Zod defaults of Step 3.
+The runtime and the Arduino emitter both read the node's `data` into this struct, through one function: `config::resolve` (`crates/microflow-core/src/config/mod.rs`). You do not call it in the runtime. The registry does that before it builds your node.
+
+- Keep `rename_all = "camelCase"`: the frontend sends `windowSize`, not `window_size`. Without the attribute, a multi-word field never matches and silently keeps its default.
+- `default` fills in the fields that `data` does not have. Keep these defaults equal to the Zod defaults of Step 3.
+- A field that is present but does not fit makes the settings unreadable. The node then shows "Not running: its settings could not be read" with the name of the setting, and the Arduino export refuses the flow. No default is used in its place.
+- Give every whole-number field (`u8`, `u16`, `u32`, `u64`, `usize`) the attribute `#[serde(deserialize_with = "serde_utils::deserialize_whole")]`. The editor's number inputs can store `25.2`. This helper rounds it to 25, and refuses a number that the field cannot hold.
+- Give every pin field `serde_utils::deserialize_pin_u8`. It reads `13`, `13.0` and `"13"` as pin 13 and refuses `13.4`. An analog input pin uses `serde_utils::deserialize_analog_pin`, which also reads `"A0"`.
+
+The helpers are in `crates/microflow-core/src/config/serde_utils.rs`. `nodes/smooth/config.rs` (a whole number) and `nodes/led/config.rs` (a pin) show them in use. The catalog check of Step 5 fails when a field breaks one of these rules.
 
 ### The component
 
@@ -154,7 +165,7 @@ impl ComponentBuilder for Sparkle {
 }
 ```
 
-- `ports()` lists the input handles and `emits()` the output handles. They are the only place you declare them: Step 5 copies them to the frontend, where they become the node's handles.
+- `ports()` lists the input handles and `emits()` the output handles that the runtime accepts. Step 5 copies them to the frontend as types, and the node's handle rule (Step 4) can only name handles from these lists.
 - The runtime calls `dispatch` once for each value that arrives on a port, with the port name as `method`.
 - `self.base.set_value(…)` stores the value and, when it changed, emits it on the `value` handle (`ComponentBase::VALUE_HANDLE`). To emit on another handle, call `self.base.emit_with_value(…)` and list the handle in `emits()`. `nodes/range_map/runtime.rs` does this for its `to` handle.
 - A node has no thread, clock or timer of its own. `ctx` gives it the host clock (`ctx.now_ms()`) and timers: `ctx.schedule_wakeup(…)` calls the node back through `dispatch_internal`, as `nodes/delay/runtime.rs` does.
@@ -162,7 +173,7 @@ impl ComponentBuilder for Sparkle {
 
 ### Register it
 
-Node registration is explicit. Make three one-line edits in `crates/microflow-core/src/`:
+Node registration is explicit. Make these edits in `crates/microflow-core/src/`:
 
 1. In `nodes/mod.rs`, add `pub(crate) mod sparkle;`.
 2. In `runtime/registry.rs`, add the node to `register_all`. The string is the node's name in `node-components.json` (Step 5). A `cloud` node goes in the `#[cfg(feature = "cloud")]` block.
@@ -177,14 +188,20 @@ Node registration is explicit. Make three one-line edits in `crates/microflow-co
    "Sparkle" => Exempt("no Arduino emitter yet — falls through to the placeholder comment"),
    ```
 
+4. Also in `codegen/parity.rs`, add the node to `exports_without_reading_settings`, next to the other nodes that have no emitter. The test `settings_the_runtime_cannot_read_refuse_the_sketch_too` expects every other node to refuse the Arduino export when its settings cannot be read. A node without an emitter reads no settings there, so it must be on this list:
+
+   ```rust
+   "Note" | "Pn532" | "Music" | "Sparkle" => Some("no Arduino emitter — exported as a placeholder comment"),
+   ```
+
 ### Arduino export (optional)
 
 Studio can export a flow as an Arduino sketch. A node takes part only if it has a `codegen.rs`. Without one, the sketch has a `// unsupported Node …` comment in its place. To add an emitter:
 
-1. Create `nodes/sparkle/codegen.rs` and add `pub(crate) mod codegen;` (no feature gate) to `nodes/sparkle/mod.rs`. Read the settings through `super::config::SparkleConfig`, so the sketch uses the same fields and defaults as the runtime. `nodes/smooth/codegen.rs` shows the shape: an `emit` function and a `value_var` that names the C++ variable with the node's output.
+1. Create `nodes/sparkle/codegen.rs` and add `pub(crate) mod codegen;` (no feature gate) to `nodes/sparkle/mod.rs`. Read the settings with `resolve::<SparkleConfig>(&node.data)?` (`crate::config::resolve`), and return `Result<NodeEmission, UnreadableConfig>`. The sketch then uses the same fields and defaults as the runtime, and settings that cannot be read stop the export; they are never replaced by defaults. Name the config type in the call: the `nodes/boundaries.rs` guard reads it and fails when the emitter and the runtime use different configs. `nodes/smooth/codegen.rs` shows the shape: an `emit` function and a `value_var` that names the C++ variable with the node's output.
 2. In `codegen/mod.rs`, add an arm to `emit_node` (the node's C++) and one to `output_expression` (the C++ expression that each emit handle stands for).
-3. In `codegen/parity.rs`, replace the `Exempt` arm with a `Case`: a test that feeds inputs to the emitter and checks that the C++ does what `runtime.rs` does.
-4. If the node owns a pin, add it to the pin checks in `codegen/validate.rs`.
+3. In `codegen/parity.rs`, replace the `Exempt` arm with a `Case`: a test that feeds inputs to the emitter and checks that the C++ does what `runtime.rs` does. Remove the node from `exports_without_reading_settings`.
+4. If the node owns a pin, add it to the pin table (`readable_pin_demands`) in `codegen/validate.rs`.
 
 ## Step 3 — Define the frontend schema
 
@@ -220,7 +237,43 @@ export const defaults = {
 
 The schema file must export `dataSchema` and `defaults` under exactly those names. `defaults` is the data a new Sparkle starts with, plus what the Add Node panel shows: `group` picks the section, `icon` is the name of a [lucide](https://lucide.dev/icons) icon as `lucide-react` exports it (`SparklesIcon`), and `tags` and `description` feed the search.
 
-## Step 4 — Build the React node
+The Rust config of Step 2 must read everything this schema can write. The catalog check of Step 5 feeds the defaults, and every option of every `z.enum` field, through `config::resolve`. It fails when the Rust side cannot read one of them, reads a default as a different value, or spells a field differently.
+
+## Step 4 — Declare the handles and build the React node
+
+### The handle rule
+
+A node's handles are a function of its settings, written once in `<name>.handles.ts`. The canvas draws them from this file. The connection check, Ask AI and the templates read the same file, so they always agree with the canvas.
+
+Create `apps/web/src/nodes/sparkle/sparkle.handles.ts`:
+
+```ts
+import { defineHandles } from "../_base/handle-rule";
+
+export const handles = defineHandles<"Sparkle">(() => ({
+  ports: [{ id: "trigger", kind: "command" }],
+  emits: [{ id: "value", kind: "value" }],
+}));
+```
+
+- Each `id` must be a port or emit that the Rust component declares (Step 2). The types come from codegen, so this file compiles only after Step 5. A handle that Rust does not have is then a type error.
+- `kind` picks the glyph: `value`, `event`, `command` or `state`. `offset`, `title`, `hint` and `side` change where and how a handle is drawn. `apps/web/src/nodes/led/led.handles.ts` uses them.
+- If the settings change which handles the node has, read them from the function's argument and list each combination in `variants`. `apps/web/src/nodes/mqtt/mqtt.handles.ts` does this: a publishing node has one port, a subscribing node has one emit. The argument is whatever the flow document holds, so check a field before you use it, and never throw.
+
+Then add the node to the table in `apps/web/src/nodes/handle-rules.ts`: one import, and one line in `HANDLE_RULES`.
+
+```ts
+import { handles as sparkle } from "./sparkle/sparkle.handles";
+
+const HANDLE_RULES = {
+  // ... existing lines ...
+  Sparkle: sparkle,
+};
+```
+
+The table must have a line for every entry in `node-components.json`. After Step 5, `bun run check-types` fails until the line is there.
+
+### The component
 
 Create `apps/web/src/nodes/sparkle/sparkle.tsx`:
 
@@ -235,7 +288,7 @@ export function Sparkle(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles instance="Sparkle" />
+      <NodeHandles />
     </NodeContainer>
   );
 }
@@ -260,7 +313,7 @@ Sparkle.defaultProps = { data: defaults };
 
 Export the component under the node's name (`Sparkle`, not `SparkleNode`): the generated React node map imports it by that name.
 
-`NodeHandles` draws one handle per port and emit that the Rust component declares, so the handles always match the runtime. `useNodeValue(fallback)` returns the node's live value from the runtime, or `fallback` until the first one arrives.
+`NodeHandles` takes no props here. It reads the node's type and settings from the `NodeContainer` around it and draws the handles that the handle rule gives for them. Do not render a `Handle` yourself: a handle that is not in the rule does not exist for the rest of the app. `useNodeValue(fallback)` returns the node's live value from the runtime, or `fallback` until the first one arrives.
 
 Match an existing nearby node (e.g. `apps/web/src/nodes/calculate/`) for the exact import paths and hook signatures — they evolve.
 
@@ -299,15 +352,23 @@ Then, from `apps/web`, run:
 bun run catalog:sync
 ```
 
-This does two things:
+This runs three steps, and stops at the first one that fails:
 
-1. It reads the ports and emits the Rust component declares and writes them to `apps/web/wire-interface.generated.json`. On the way, it checks that `register_all` and `entries[]` list the same names: a name in only one of them fails the command.
-2. It runs `bun run codegen`, which writes three files in `apps/web/src/nodes/`:
+1. **Read the handles from Rust.** It writes the ports and emits that the Rust component declares to `apps/web/wire-interface.generated.json`. On the way, it checks that `register_all` and `entries[]` list the same names: a name in only one of them fails the command.
+2. **Run `bun run codegen`.** This writes three files in `apps/web/src/nodes/` and one in `apps/web`:
    - `component-types.generated.ts`: the list of node types, with their ports and emits.
    - `catalog.generated.ts`: the schema, defaults and host adapter of every node, without React.
    - `node-types.generated.ts`: the React component of every node, for the canvas.
+   - `node-defaults.generated.json`: what the editor can write into each node's `data`, read from its schema. This is the defaults of a new node, the defaults of each variant of a schema that is a union, and every option of every enum field.
+3. **Run the catalog check** (`apps/web/src-tauri/tests/catalog_parity.rs`). It feeds everything in `node-defaults.generated.json` through the Rust config of Step 2 and fails when:
+   - the runtime cannot build the node from it, or the Arduino export refuses it;
+   - a default in the schema is a different value from the default in the Rust config;
+   - a config field is spelled differently from what the editor writes;
+   - a whole-number field does not round `24.6` to 25, or a field accepts a number it cannot hold.
 
-Do not edit the generated files by hand. When you change only the frontend or the JSON, and not the Rust ports or emits, `bun run codegen` is enough.
+Each failure names the node and the field. Fix the Rust config: flows that people saved already have the shape the schema writes. If a default differs on purpose, add it to `DELIBERATE_DIFFERENCES` in `catalog_parity.rs`, with the reason.
+
+Do not edit the generated files by hand. Commit them with your change. When you change only the frontend or the JSON, and not the Rust ports or emits, `bun run codegen` is enough to regenerate. This includes every edit to a `.schema.ts` file: `bun test` fails when `node-defaults.generated.json` is out of date.
 
 ## Step 6 — Add a host adapter (optional)
 
@@ -335,7 +396,7 @@ cargo test --manifest-path apps/web/src-tauri/Cargo.toml
 cargo clippy --workspace --all-targets -- -D warnings -W clippy::pedantic
 ```
 
-The first command runs the runtime tests and the parity test from Step 2. `runtime` and `cloud` are not default features of `microflow-core`: without `--features cloud`, it builds no runtime code and runs none of its tests. The second runs the catalog check from Step 5. CI runs the same Clippy command.
+The first command runs the runtime tests, the parity tests from Step 2 and the `nodes/boundaries.rs` guard. `runtime` and `cloud` are not default features of `microflow-core`: without `--features cloud`, it builds no runtime code and runs none of its tests. The second runs the catalog check from Step 5. CI runs the same Clippy command.
 
 Then, from `apps/web`, run the TypeScript checks:
 
@@ -344,13 +405,15 @@ bun run check-types
 bun test
 ```
 
+`check-types` fails when the handle rule table has no line for the node, or when the rule names a handle that Rust does not declare. `bun test` runs the handle checks in `src/nodes/handles.test.ts` and fails when `node-defaults.generated.json` is out of date.
+
 Then start Studio:
 
 ```sh
 bun run dev:web
 ```
 
-Open Studio. Open the Add Node panel. Drag a Sparkle node onto the canvas. Connect a [Trigger](/docs/microflow-studio/nodes/generate/trigger) to its input and a [Monitor](/docs/microflow-studio/nodes/internal/monitor) to its output. Press the trigger — the Monitor should show a fresh random value each time.
+Open Studio. Open the Add Node panel. Drag a Sparkle node onto the canvas. Connect the `event` output of a Hotkey node to its input and a [Monitor](/docs/microflow-studio/nodes/internal/monitor) to its output. Press the Hotkey's key (`x` by default) — the Monitor should show a fresh random value each time.
 
 ## Step 8 — Check it works in the browser too
 
@@ -398,7 +461,9 @@ Add `"sparkle"` to `apps/fumadocs/content/docs/microflow-studio/nodes/shape/meta
 
 ## Common pitfalls
 
-- **Zod schema mismatch with the Rust config.** If the frontend sends `min` and `SparkleConfig` calls the field `lower`, `lower` silently keeps its default (without `default`, the runtime refuses to build the node instead). Match field names exactly, and keep `rename_all = "camelCase"` on the config so multi-word fields match too.
+- **Zod schema mismatch with the Rust config.** If the frontend sends `min` and `SparkleConfig` calls the field `lower`, `lower` silently keeps its default (without `default`, the runtime refuses to build the node instead). Match field names exactly, and keep `rename_all = "camelCase"` on the config so multi-word fields match too. The catalog check finds a field that differs only in its spelling (`window_size` for `windowSize`), a different default and an enum option that Rust does not know. It cannot find a field with a different name.
+- **Changing a schema without running codegen.** `node-defaults.generated.json` is read from the schemas. After any edit to a `.schema.ts` file, run `bun run codegen`, or `bun run catalog:sync` to also run the catalog check.
+- **A port or emit that the node does not offer.** `src/nodes/handles.test.ts` lists every handle that a Rust component declares and no handle rule offers. If you declare a port in Rust and leave it out of the handle rule on purpose, add it to that list. Otherwise add it to the rule.
 - **Forgetting `node-components.json`.** Without it the node will not appear in the Add Node panel even if everything else is correct, and `bun run catalog:sync` fails because `register_all` names a node that the catalog does not have.
 - **Reaching for `rand`, threads or `sleep` in a node.** `microflow-core` also builds for WebAssembly. Use `ctx.now_ms()` for time and `ctx.schedule_wakeup(…)` for timers (Step 2).
 - **Names that do not match.** For every entry, codegen imports the component `Sparkle` from `sparkle/sparkle.tsx`, and `dataSchema` and `defaults` from `sparkle/sparkle.schema.ts`. A different folder, file or export name shows up as a type error in a `*.generated.ts` file. Fix the node, not the generated file.

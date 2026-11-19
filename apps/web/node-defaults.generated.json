@@ -1,0 +1,1140 @@
+{
+  "Button": {
+    "defaults": {
+      "instance": "Button",
+      "pin": 6,
+      "isPullup": false,
+      "isPulldown": false,
+      "holdtime": 500
+    },
+    "variants": [],
+    "options": []
+  },
+  "Calculate": {
+    "defaults": {
+      "instance": "Calculate",
+      "function": "add"
+    },
+    "variants": [],
+    "options": [
+      {
+        "function": "add"
+      },
+      {
+        "function": "subtract"
+      },
+      {
+        "function": "multiply"
+      },
+      {
+        "function": "divide"
+      },
+      {
+        "function": "modulo"
+      },
+      {
+        "function": "max"
+      },
+      {
+        "function": "min"
+      },
+      {
+        "function": "pow"
+      },
+      {
+        "function": "ceil"
+      },
+      {
+        "function": "floor"
+      },
+      {
+        "function": "round"
+      }
+    ]
+  },
+  "Compare": {
+    "defaults": {
+      "instance": "Compare",
+      "validator": "boolean",
+      "subValidator": "true"
+    },
+    "variants": [
+      {
+        "select": {
+          "validator": "boolean"
+        },
+        "defaults": {
+          "instance": "Compare",
+          "validator": "boolean",
+          "subValidator": "true"
+        }
+      },
+      {
+        "select": {
+          "validator": "text"
+        },
+        "defaults": {
+          "instance": "Compare",
+          "validator": "text",
+          "subValidator": "equal to",
+          "text": ""
+        }
+      },
+      {
+        "select": {
+          "validator": "oddEven"
+        },
+        "defaults": {
+          "instance": "Compare",
+          "validator": "oddEven",
+          "subValidator": "even"
+        }
+      },
+      {
+        "select": {
+          "validator": "number"
+        },
+        "defaults": {
+          "instance": "Compare",
+          "validator": "number",
+          "subValidator": "equal to",
+          "number": 0
+        }
+      },
+      {
+        "select": {
+          "validator": "range"
+        },
+        "defaults": {
+          "instance": "Compare",
+          "validator": "range",
+          "subValidator": "between",
+          "range": {
+            "min": 0,
+            "max": 100
+          }
+        }
+      }
+    ],
+    "options": [
+      {
+        "validator": "boolean"
+      },
+      {
+        "validator": "boolean",
+        "subValidator": "true"
+      },
+      {
+        "validator": "text"
+      },
+      {
+        "validator": "text",
+        "subValidator": "equal to"
+      },
+      {
+        "validator": "text",
+        "subValidator": "including"
+      },
+      {
+        "validator": "text",
+        "subValidator": "starting with"
+      },
+      {
+        "validator": "text",
+        "subValidator": "ending with"
+      },
+      {
+        "validator": "oddEven"
+      },
+      {
+        "validator": "oddEven",
+        "subValidator": "even"
+      },
+      {
+        "validator": "oddEven",
+        "subValidator": "odd"
+      },
+      {
+        "validator": "number"
+      },
+      {
+        "validator": "number",
+        "subValidator": "equal to"
+      },
+      {
+        "validator": "number",
+        "subValidator": "greater than"
+      },
+      {
+        "validator": "number",
+        "subValidator": "less than"
+      },
+      {
+        "validator": "range"
+      },
+      {
+        "validator": "range",
+        "subValidator": "between"
+      },
+      {
+        "validator": "range",
+        "subValidator": "outside"
+      }
+    ]
+  },
+  "Constant": {
+    "defaults": {
+      "instance": "Constant",
+      "value": 1337
+    },
+    "variants": [],
+    "options": []
+  },
+  "Counter": {
+    "defaults": {
+      "instance": "Counter"
+    },
+    "variants": [],
+    "options": []
+  },
+  "Delay": {
+    "defaults": {
+      "instance": "Delay",
+      "delay": 1000,
+      "forgetPrevious": false
+    },
+    "variants": [],
+    "options": []
+  },
+  "Figma": {
+    "defaults": {
+      "instance": "Figma",
+      "source": "figma",
+      "brokerId": "",
+      "uniqueId": "",
+      "variableId": "",
+      "resolvedType": "STRING",
+      "initialValue": ""
+    },
+    "variants": [],
+    "options": [
+      {
+        "source": "figma"
+      },
+      {
+        "source": "penpot"
+      },
+      {
+        "resolvedType": "BOOLEAN"
+      },
+      {
+        "resolvedType": "FLOAT"
+      },
+      {
+        "resolvedType": "STRING"
+      },
+      {
+        "resolvedType": "COLOR"
+      }
+    ]
+  },
+  "Force": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 1,
+      "subType": "force"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Function": {
+    "defaults": {
+      "instance": "Function",
+      "code": "// Transform the input value and return the result\n// Use {{varName}} to reference connected handle values\nconst value = input;\nreturn value;"
+    },
+    "variants": [],
+    "options": []
+  },
+  "Gate": {
+    "defaults": {
+      "instance": "Gate",
+      "gate": "and"
+    },
+    "variants": [],
+    "options": [
+      {
+        "gate": "or"
+      },
+      {
+        "gate": "and"
+      },
+      {
+        "gate": "xor"
+      },
+      {
+        "gate": "nor"
+      },
+      {
+        "gate": "nand"
+      },
+      {
+        "gate": "xnor"
+      }
+    ]
+  },
+  "HallEffect": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 1,
+      "subType": "hall-effect"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Hotkey": {
+    "defaults": {
+      "instance": "Hotkey",
+      "accelerator": "x"
+    },
+    "variants": [],
+    "options": []
+  },
+  "I2cDevice": {
+    "defaults": {
+      "instance": "I2cDevice",
+      "address": 72,
+      "register": 0,
+      "readLength": 2,
+      "freq": 100,
+      "device": "custom",
+      "output": "unsigned_int",
+      "autoread": true,
+      "beta": true
+    },
+    "variants": [],
+    "options": [
+      {
+        "output": "raw"
+      },
+      {
+        "output": "unsigned_int"
+      },
+      {
+        "output": "signed_int"
+      }
+    ]
+  },
+  "Interval": {
+    "defaults": {
+      "instance": "Interval",
+      "interval": 1000,
+      "autoStart": true
+    },
+    "variants": [],
+    "options": []
+  },
+  "Ldr": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 1,
+      "subType": "ldr"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Led": {
+    "defaults": {
+      "instance": "Led",
+      "pin": 13
+    },
+    "variants": [],
+    "options": []
+  },
+  "Llm": {
+    "defaults": {
+      "instance": "Llm",
+      "providerId": "",
+      "provider": "ollama",
+      "model": "",
+      "prompt": "",
+      "system": ""
+    },
+    "variants": [],
+    "options": []
+  },
+  "Matrix": {
+    "defaults": {
+      "instance": "Matrix",
+      "shapes": [
+        [
+          "01100110",
+          "10011001",
+          "10000001",
+          "10000001",
+          "01000010",
+          "00100100",
+          "00011000",
+          "00000000"
+        ]
+      ],
+      "dims": "8x8",
+      "devices": 1,
+      "pins": {
+        "data": 2,
+        "clock": 3,
+        "cs": 4
+      }
+    },
+    "variants": [],
+    "options": []
+  },
+  "Midi": {
+    "defaults": {
+      "instance": "Midi",
+      "direction": "in",
+      "deviceName": "",
+      "channel": 0,
+      "mode": "note",
+      "control": 1,
+      "note": 60,
+      "velocity": 127,
+      "song": [
+        [
+          "A4",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "D5",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "F#5",
+          0.5,
+          100
+        ],
+        [
+          "F#5",
+          0.5,
+          100
+        ],
+        [
+          "E5",
+          1,
+          100
+        ],
+        [
+          "A4",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "D5",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "E5",
+          0.5,
+          100
+        ],
+        [
+          "E5",
+          0.5,
+          100
+        ],
+        [
+          "D5",
+          0.5,
+          100
+        ],
+        [
+          "C#5",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "A4",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "D5",
+          0.25,
+          100
+        ],
+        [
+          "B4",
+          0.25,
+          100
+        ],
+        [
+          "D5",
+          0.5,
+          100
+        ],
+        [
+          "E5",
+          0.5,
+          100
+        ],
+        [
+          "C#5",
+          0.5,
+          100
+        ],
+        [
+          "A4",
+          0.25,
+          100
+        ],
+        [
+          "A4",
+          0.25,
+          100
+        ],
+        [
+          "E5",
+          0.5,
+          100
+        ],
+        [
+          "D5",
+          1,
+          100
+        ]
+      ],
+      "tempo": 113
+    },
+    "variants": [],
+    "options": [
+      {
+        "direction": "in"
+      },
+      {
+        "direction": "out"
+      },
+      {
+        "mode": "note"
+      },
+      {
+        "mode": "cc"
+      },
+      {
+        "mode": "song"
+      }
+    ]
+  },
+  "Monitor": {
+    "defaults": {
+      "instance": "Monitor",
+      "type": "graph"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "graph"
+      },
+      {
+        "type": "raw"
+      }
+    ]
+  },
+  "Motion": {
+    "defaults": {
+      "instance": "Motion",
+      "controller": "HCSR501",
+      "pin": "8"
+    },
+    "variants": [],
+    "options": [
+      {
+        "controller": "HCSR501"
+      },
+      {
+        "controller": "GP2Y0D810Z0F"
+      },
+      {
+        "controller": "GP2Y0D815Z0F"
+      }
+    ]
+  },
+  "Mqtt": {
+    "defaults": {
+      "instance": "Mqtt",
+      "direction": "subscribe",
+      "brokerId": "",
+      "topic": "",
+      "qos": "1",
+      "retain": false
+    },
+    "variants": [],
+    "options": [
+      {
+        "direction": "publish"
+      },
+      {
+        "direction": "subscribe"
+      },
+      {
+        "qos": "0"
+      },
+      {
+        "qos": "1"
+      },
+      {
+        "qos": "2"
+      }
+    ]
+  },
+  "Music": {
+    "defaults": {
+      "instance": "Music",
+      "tracks": [],
+      "track": 0,
+      "volume": 0.8,
+      "loop": false
+    },
+    "variants": [],
+    "options": []
+  },
+  "Note": {
+    "defaults": {
+      "instance": "Note",
+      "note": "New note",
+      "extraInfo": ""
+    },
+    "variants": [],
+    "options": []
+  },
+  "Oscillator": {
+    "defaults": {
+      "instance": "Oscillator",
+      "waveform": "sinus",
+      "period": 1000,
+      "amplitude": 1,
+      "phase": 0,
+      "shift": 0,
+      "autoStart": true
+    },
+    "variants": [],
+    "options": [
+      {
+        "waveform": "sinus"
+      },
+      {
+        "waveform": "square"
+      },
+      {
+        "waveform": "sawtooth"
+      },
+      {
+        "waveform": "triangle"
+      },
+      {
+        "waveform": "random"
+      },
+      {
+        "waveform": "randomwalk"
+      },
+      {
+        "waveform": "perlin"
+      }
+    ]
+  },
+  "Piezo": {
+    "defaults": {
+      "instance": "Piezo",
+      "type": "buzz",
+      "duration": 500,
+      "frequency": 440,
+      "pin": 11
+    },
+    "variants": [
+      {
+        "select": {
+          "type": "buzz"
+        },
+        "defaults": {
+          "instance": "Piezo",
+          "type": "buzz",
+          "duration": 500,
+          "frequency": 440,
+          "pin": 11
+        }
+      },
+      {
+        "select": {
+          "type": "song"
+        },
+        "defaults": {
+          "instance": "Piezo",
+          "type": "song",
+          "song": [
+            [
+              "A4",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "D5",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "F#5",
+              0.5
+            ],
+            [
+              "F#5",
+              0.5
+            ],
+            [
+              "E5",
+              1
+            ],
+            [
+              "A4",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "D5",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "E5",
+              0.5
+            ],
+            [
+              "E5",
+              0.5
+            ],
+            [
+              "D5",
+              0.5
+            ],
+            [
+              "C#5",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "A4",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "D5",
+              0.25
+            ],
+            [
+              "B4",
+              0.25
+            ],
+            [
+              "D5",
+              0.5
+            ],
+            [
+              "E5",
+              0.5
+            ],
+            [
+              "C#5",
+              0.5
+            ],
+            [
+              "A4",
+              0.25
+            ],
+            [
+              "A4",
+              0.25
+            ],
+            [
+              "E5",
+              0.5
+            ],
+            [
+              "D5",
+              1
+            ]
+          ],
+          "tempo": 113,
+          "pin": 11
+        }
+      }
+    ],
+    "options": [
+      {
+        "type": "buzz"
+      },
+      {
+        "type": "song"
+      }
+    ]
+  },
+  "Pixel": {
+    "defaults": {
+      "instance": "Pixel",
+      "pin": 11,
+      "length": 32,
+      "controller": "FIRMATA",
+      "skip_firmware_check": true,
+      "gamma": 2.8,
+      "color_order": "GRB",
+      "presets": [
+        []
+      ]
+    },
+    "variants": [],
+    "options": [
+      {
+        "controller": "FIRMATA"
+      },
+      {
+        "color_order": "GRB"
+      },
+      {
+        "color_order": "RGB"
+      },
+      {
+        "color_order": "BRG"
+      }
+    ]
+  },
+  "Pn532": {
+    "defaults": {
+      "instance": "Pn532",
+      "address": 36,
+      "pollIntervalMs": 300,
+      "beta": true
+    },
+    "variants": [],
+    "options": []
+  },
+  "Potentiometer": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 1,
+      "subType": "potentiometer"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Proximity": {
+    "defaults": {
+      "instance": "Proximity",
+      "pin": "A0",
+      "controller": "GP2Y0A21YK",
+      "freq": 25
+    },
+    "variants": [],
+    "options": [
+      {
+        "controller": "GP2Y0A21YK"
+      },
+      {
+        "controller": "GP2Y0A710K0F"
+      }
+    ]
+  },
+  "RangeMap": {
+    "defaults": {
+      "instance": "RangeMap",
+      "from": {
+        "min": 0,
+        "max": 1023
+      },
+      "to": {
+        "min": 0,
+        "max": 1023
+      }
+    },
+    "variants": [],
+    "options": []
+  },
+  "Relay": {
+    "defaults": {
+      "instance": "Relay",
+      "pin": 10,
+      "type": "NO"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "NO"
+      },
+      {
+        "type": "NC"
+      }
+    ]
+  },
+  "Rgb": {
+    "defaults": {
+      "instance": "Rgb",
+      "pins": {
+        "red": 9,
+        "green": 10,
+        "blue": 11
+      },
+      "isAnode": false
+    },
+    "variants": [],
+    "options": []
+  },
+  "Sensor": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 1
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Servo": {
+    "defaults": {
+      "instance": "Servo",
+      "pin": 3,
+      "range": {
+        "min": 0,
+        "max": 180
+      },
+      "type": "standard"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "standard"
+      },
+      {
+        "type": "continuous"
+      }
+    ]
+  },
+  "Smooth": {
+    "defaults": {
+      "instance": "Smooth",
+      "type": "smooth",
+      "attenuation": 0.995
+    },
+    "variants": [
+      {
+        "select": {
+          "type": "smooth"
+        },
+        "defaults": {
+          "instance": "Smooth",
+          "type": "smooth",
+          "attenuation": 0.995
+        }
+      },
+      {
+        "select": {
+          "type": "movingAverage"
+        },
+        "defaults": {
+          "instance": "MovingAverage",
+          "type": "movingAverage",
+          "windowSize": 25
+        }
+      }
+    ],
+    "options": [
+      {
+        "type": "smooth"
+      },
+      {
+        "type": "movingAverage"
+      }
+    ]
+  },
+  "Stepper": {
+    "defaults": {
+      "instance": "Stepper",
+      "interface": "driver",
+      "stepPin": 2,
+      "dirPin": 3,
+      "motorPin1": 4,
+      "motorPin2": 5,
+      "motorPin3": 6,
+      "motorPin4": 7,
+      "stepsPerRev": 200,
+      "speed": 200,
+      "acceleration": 100,
+      "deviceNum": 0,
+      "beta": true
+    },
+    "variants": [],
+    "options": [
+      {
+        "interface": "driver"
+      },
+      {
+        "interface": "four_wire"
+      }
+    ]
+  },
+  "Switch": {
+    "defaults": {
+      "instance": "Switch",
+      "pin": 2,
+      "type": "NC"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "NC"
+      },
+      {
+        "type": "NO"
+      }
+    ]
+  },
+  "Tilt": {
+    "defaults": {
+      "instance": "Sensor",
+      "pin": "A0",
+      "type": "analog",
+      "freq": 25,
+      "threshold": 10,
+      "subType": "tilt"
+    },
+    "variants": [],
+    "options": [
+      {
+        "type": "analog"
+      },
+      {
+        "type": "digital"
+      }
+    ]
+  },
+  "Trigger": {
+    "defaults": {
+      "instance": "Trigger",
+      "relative": false,
+      "behaviour": "decreasing",
+      "threshold": 5,
+      "within": 250
+    },
+    "variants": [],
+    "options": [
+      {
+        "behaviour": "increasing"
+      },
+      {
+        "behaviour": "decreasing"
+      }
+    ]
+  },
+  "Vibration": {
+    "defaults": {
+      "instance": "Led",
+      "pin": 13,
+      "subType": "vibration"
+    },
+    "variants": [],
+    "options": []
+  }
+}

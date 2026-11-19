@@ -8,13 +8,19 @@
 //! (e.g. `Force`/`Ldr`/`Potentiometer` → `Sensor`, `Vibration` → `Led`) each
 //! get their own `register` line.
 
+use crate::config;
 use crate::runtime::{Component, ComponentBuilder, RuntimeError};
-use serde::Deserialize;
 use std::collections::HashMap;
 
-/// Builds a component from its id + node `data`. Deserialization failure surfaces
-/// as [`RuntimeError::ConfigDeserialize`] — no silent `Default` fallback.
+/// Builds a component from its id + node `data`. A `data` the Node's config
+/// cannot be read from ([`config::resolve`]) surfaces as
+/// [`RuntimeError::ConfigDeserialize`] — no silent `Default` fallback.
 pub type Factory = Box<dyn Fn(String, &serde_json::Value) -> Result<Box<dyn Component>, RuntimeError>>;
+
+/// Resolves a node `data` into the Node's config and gives it back as JSON,
+/// under the config's own wire names (see [`ComponentRegistry::resolved_config`]).
+#[cfg(any(test, feature = "test-nodes"))]
+type ConfigReader = fn(&'static str, &serde_json::Value) -> Result<serde_json::Value, RuntimeError>;
 
 /// Maps catalog instance names to component factories.
 ///
@@ -32,12 +38,21 @@ pub struct ComponentRegistry {
     /// `node-components.json` without re-listing every type. Populated by
     /// [`register`](Self::register) for every node, cloud included.
     declared: HashMap<String, (&'static [&'static str], &'static [&'static str])>,
+    /// The config reader per registration name, for
+    /// [`resolved_config`](Self::resolved_config).
+    #[cfg(any(test, feature = "test-nodes"))]
+    configs: HashMap<&'static str, ConfigReader>,
 }
 
 impl ComponentRegistry {
     #[must_use]
     pub fn new() -> Self {
-        let mut registry = Self { entries: HashMap::new(), declared: HashMap::new() };
+        let mut registry = Self {
+            entries: HashMap::new(),
+            declared: HashMap::new(),
+            #[cfg(any(test, feature = "test-nodes"))]
+            configs: HashMap::new(),
+        };
         registry.register_all();
         registry
     }
@@ -72,6 +87,34 @@ impl ComponentRegistry {
     fn register<B: ComponentBuilder>(&mut self, name: &'static str) {
         self.entries.insert(name.to_string(), make_factory::<B>(name));
         self.declared.insert(name.to_string(), (B::ports(), B::emits()));
+        #[cfg(any(test, feature = "test-nodes"))]
+        self.configs.insert(name, read_config::<B>);
+    }
+
+    /// The config a Node of catalog instance `instance` resolves `data` to,
+    /// re-serialized under the config's wire names: every field the runtime
+    /// reads, with the value it reads for it (a field `data` lacks carries the
+    /// config's default). Two `data` that resolve to equal JSON mean the same
+    /// thing to the runtime. Consumed by the Catalog Parity Guard, which holds
+    /// each entry's editor defaults against the config's own; compiled for
+    /// tests only (`test-nodes`), so shipped builds carry no config
+    /// serialization.
+    ///
+    /// # Errors
+    ///
+    /// [`RuntimeError::ComponentNotFound`] for an unregistered `instance`;
+    /// [`RuntimeError::ConfigDeserialize`] when `data` cannot be read.
+    #[cfg(any(test, feature = "test-nodes"))]
+    pub fn resolved_config(
+        &self,
+        instance: &str,
+        data: &serde_json::Value,
+    ) -> Result<serde_json::Value, RuntimeError> {
+        let (name, read) = self
+            .configs
+            .get_key_value(instance)
+            .ok_or_else(|| RuntimeError::ComponentNotFound(format!("Unknown component type: {instance}")))?;
+        read(name, data)
     }
 
     /// Declared `(ports, emits)` per registration name (incl. alias entry names),
@@ -157,11 +200,25 @@ impl Default for ComponentRegistry {
 
 fn make_factory<B: ComponentBuilder>(name: &'static str) -> Factory {
     Box::new(move |id, data| {
-        let config = B::Config::deserialize(data).map_err(|e| RuntimeError::ConfigDeserialize {
-            component: name.to_string(),
-            source: e,
-        })?;
-        let component = B::build(id, config)?;
+        let component = B::build(id, resolve_config::<B>(name, data)?)?;
         Ok(Box::new(component) as Box<dyn Component>)
     })
+}
+
+/// The interpret half of node-config resolution: [`config::resolve`] into the
+/// Node's own config, an unreadable `data` named after the Node.
+fn resolve_config<B: ComponentBuilder>(
+    name: &'static str,
+    data: &serde_json::Value,
+) -> Result<B::Config, RuntimeError> {
+    config::resolve(data)
+        .map_err(|source| RuntimeError::ConfigDeserialize { component: name.to_string(), source })
+}
+
+#[cfg(any(test, feature = "test-nodes"))]
+fn read_config<B: ComponentBuilder>(
+    name: &'static str,
+    data: &serde_json::Value,
+) -> Result<serde_json::Value, RuntimeError> {
+    Ok(serde_json::to_value(resolve_config::<B>(name, data)?)?)
 }

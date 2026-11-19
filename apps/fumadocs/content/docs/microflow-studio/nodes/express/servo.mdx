@@ -8,21 +8,39 @@ A servo motor moves to a position or spins at a speed when you send it a value. 
 Servos are commonly used for robot arms, mechanical linkages, automated valves, and any project that needs controlled movement.
 
 <Callout title="Two types of servo">
-**Positional (standard)** — rotates to a specific angle between 0° and 180° and holds there. Send a number between 0 and 180 to set the angle. If the packaging does not mention "360", it is almost certainly positional.
+**Standard (positional)** — rotates to a specific angle between 0° and 180° and holds there. If the packaging does not mention "360", it is almost certainly positional.
 
-**Continuous (360)** — spins continuously at a controlled speed and direction. Send a number between 0 and 180, where 90 = stopped, below 90 = one direction, above 90 = the other. Packaging or markings will usually say "360".
+**Continuous (360)** — spins continuously at a controlled speed and direction. Packaging or markings will usually say "360".
 </Callout>
 
 ## Inputs
 
-- **Value** — for a positional servo: the target angle in degrees (0–180). For a continuous servo: the speed and direction (0–180, where 90 = stopped)
+The inputs follow the **type** setting.
+
+**standard:**
+
+- **min** — moves to the minimum of the range
+- **value** — moves to an angle in degrees. Angles outside the range are clamped to it
+- **max** — moves to the maximum of the range
+
+**continuous:**
+
+- **value** — the speed and direction, from -1 to 1. 0 stops the servo; -1 and 1 are full speed in either direction
+- **stop** — stops the servo
+
+## Outputs
+
+- **value** — the angle (standard) or the speed (continuous) the servo was last set to
+
+A standard servo starts in the middle of its range.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Pin** — which PWM-capable pin on your Arduino the servo signal wire is connected to. Servos require a PWM pin
-- **Type** — positional or continuous
+- **pin** — which PWM-capable pin on your Arduino the servo signal wire is connected to. The default is pin 3
+- **type** — **standard** (the default) or **continuous**
+- **range** *(standard)* — the lowest and highest angle the servo may move to, within 0–180. The default is 0 to 180
 
 ## Wiring
 

@@ -1,9 +1,9 @@
 //! LED Component — Output. Template port for the workflow node fan-out.
 
-use crate::firmata::PinProfile;
+use crate::firmata::{analog_write_lights_from, PinProfile};
 use crate::runtime::{
     analog_write_like_arduino, pin_mode, Component, ComponentBase, ComponentBuilder,
-    ComponentValue, HardwareComponent, RuntimeContext, RuntimeError, ANALOG_WRITE_ON_THRESHOLD,
+    ComponentValue, HardwareComponent, RuntimeContext, RuntimeError,
 };
 
 use super::config::LedConfig;
@@ -75,7 +75,6 @@ impl Led {
             // No PWM on this pin: stay a digital OUTPUT and round like
             // Arduino's `analogWrite` (the pin never entered PWM mode).
             analog_write_like_arduino(ctx.board(), self.config.pin, value, self.has_pwm)?;
-            self.is_on = value >= ANALOG_WRITE_ON_THRESHOLD;
         } else {
             // Enter PWM once: `StandardFirmata` answers every PWM `SET_PIN_MODE`
             // with `analogWrite(pin, 0)`, so re-sending it per value flickers off.
@@ -84,8 +83,9 @@ impl Led {
                 self.pwm = true;
             }
             analog_write_like_arduino(ctx.board(), self.config.pin, value, self.has_pwm)?;
-            self.is_on = value > 0;
         }
+        // Lit as the pin is — the rule the sketch judges "on" by too.
+        self.is_on = value >= analog_write_lights_from(self.has_pwm);
         self.brightness_value = value;
         self.base.set_value(ComponentValue::Number(f64::from(value) / 255.0));
         Ok(())

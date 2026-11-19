@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Rgb">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { RgbaColorPicker } from "react-colorful";
 import { MODES, usePins } from "@/board/board-store";
@@ -14,11 +12,7 @@ export function Rgb(props: Props) {
     <NodeContainer {...props} className="min-w-sm">
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="red" handleType="value" hint="0-255" offset={-1.5} />
-      <Handle type="target" position="left" id="green" handleType="value" hint="0-255" offset={-0.5} />
-      <Handle type="target" position="left" id="blue" handleType="value" hint="0-255" offset={0.5} />
-      <Handle type="target" position="left" id="alpha" handleType="value" hint="0-100" offset={1.5} />
-      <Handle type="source" position="right" id="value" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

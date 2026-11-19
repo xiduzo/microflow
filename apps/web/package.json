@@ -21,7 +21,7 @@
     "desktop:dev": "tauri dev",
     "desktop:build": "sh -c 'set -a && . ./.env && set +a && tauri build'",
     "codegen": "bun run scripts/codegen-node-registry.ts",
-    "catalog:sync": "BLESS_WIRE_INTERFACE=1 cargo test --manifest-path src-tauri/Cargo.toml --test catalog_parity && bun run codegen",
+    "catalog:sync": "BLESS_WIRE_INTERFACE=1 cargo test --manifest-path src-tauri/Cargo.toml --test catalog_parity -- wire_interface_sidecar_matches_rust every_catalog_entry_is_buildable && bun run codegen && cargo test --manifest-path src-tauri/Cargo.toml --test catalog_parity",
     "bench": "bun src/session/react-flow-bridge.bench.ts && bun src/runtime/flow-update-dispatcher.bench.ts"
   },
   "dependencies": {

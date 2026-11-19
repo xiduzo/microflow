@@ -10,16 +10,7 @@ export function Counter(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Counter"
-        portOverrides={{
-          increment: { title: "+", handleType: "command", offset: -1.5 },
-          set: { handleType: "command", offset: -0.5 },
-          decrement: { title: "-", handleType: "command", offset: 0.5 },
-          reset: { handleType: "command", offset: 1.5 },
-        }}
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

@@ -1,26 +1,28 @@
 // The browser MIDI performer: Web MIDI I/O for the flow host — the browser twin
 // of the desktop `MidiManager` (src-tauri/src/runtime/midi.rs).
 //
-// Like the CloudPerformer it is host-free: it never touches the wasm runtime;
-// inbound messages re-enter through the injected {@link MidiDeliver} callback
-// (the runtime's `deliverMessage`, `topic` = the port name, payload = the raw
-// `[status, data1, data2]`). ALL parsing/filtering lives in core's
-// `Midi::receive_raw_message` — this module only moves bytes.
+// It only moves bytes. Which inputs to listen to, which nodes hear a message
+// and which outputs a send reaches are the runtime's answers (core's
+// `runtime::host_input`, the same for both hosts); they arrive through the
+// injected {@link MidiRuntime}, so like the CloudPerformer this module never
+// touches the wasm runtime itself.
 //
 // Web MIDI is Chromium-only (and needs a user permission grant); on browsers
 // without it, reconcile/send log once and do nothing — mirroring how cloud
 // nodes degrade without a configured broker.
 
-import type { MidiListener } from "@/runtime/wasm";
-
-/** Route one raw inbound MIDI message to an in-node (`deliverMessage`). */
-export type MidiDeliver = (nodeId: string, portName: string, bytes: Uint8Array) => void;
-
-/** Case-insensitive substring match; an empty filter matches every port.
- *  Mirrors the desktop `device_matches` — the two hosts must agree. */
-export function deviceMatches(portName: string, filter: string): boolean {
-  return filter === "" || portName.toLowerCase().includes(filter.toLowerCase());
-}
+/** What the performer asks of the flow runtime. */
+export type MidiRuntime = {
+  /** Does any node of the flow listen to MIDI input? Access is only asked for
+   *  (the browser permission prompt) when one does. */
+  listens(): boolean;
+  /** Does the flow want the input port `portName` listened to? */
+  wantsInput(portName: string): boolean;
+  /** Does a send addressed to `deviceName` reach the output port `portName`? */
+  deviceMatches(portName: string, deviceName: string): boolean;
+  /** Hand over one raw inbound message and the port it arrived on. */
+  message(portName: string, bytes: Uint8Array): void;
+};
 
 /** The slice of `MIDIAccess` the performer uses — stubbed in tests. The port
  *  maps are the DOM maplikes' read surface, so a real `MIDIAccess` satisfies it
@@ -43,22 +45,20 @@ function defaultAccessFactory(): Promise<MidiAccessLike> {
 }
 
 export class MidiPerformer {
-  private listeners: MidiListener[] = [];
   private access: MidiAccessLike | null = null;
   private accessPromise: Promise<MidiAccessLike> | null = null;
   private disposed = false;
 
   constructor(
-    private readonly deliver: MidiDeliver,
+    private readonly runtime: MidiRuntime,
     private readonly factory: MidiAccessFactory = defaultAccessFactory,
   ) {}
 
-  /** Reconcile the flow's MIDI listeners: attach a message handler to every
-   *  input some listener's filter matches, detach the rest. Access is requested
-   *  on the first reconcile with listeners (the browser permission prompt). */
-  reconcile(listeners: MidiListener[]): void {
-    this.listeners = listeners;
-    if (listeners.length === 0) {
+  /** Reconcile the inputs against the flow the runtime now runs: attach a
+   *  message handler to every input it wants, detach the rest. Access is
+   *  requested on the first reconcile of a flow that listens to MIDI. */
+  reconcile(): void {
+    if (!this.runtime.listens()) {
       this.detach();
       return;
     }
@@ -67,14 +67,14 @@ export class MidiPerformer {
       .catch(() => {});
   }
 
-  /** Write one raw message to every output whose port name matches
-   *  `deviceName` ("" = all). */
+  /** Write one raw message to every output port `deviceName` addresses
+   *  ("" = all). */
   send(deviceName: string, bytes: number[]): void {
     this.ensureAccess()
       .then((access) => {
         if (this.disposed) return;
         for (const output of access.outputs.values()) {
-          if (deviceMatches(output.name ?? "", deviceName)) {
+          if (this.runtime.deviceMatches(output.name ?? "", deviceName)) {
             output.send(bytes);
           }
         }
@@ -92,7 +92,7 @@ export class MidiPerformer {
       this.accessPromise = this.factory().then((access) => {
         this.access = access;
         // Hotplug: a device (dis)appearing re-runs handler attachment against
-        // the current listener set.
+        // what the runtime wants now.
         access.onstatechange = () => this.attach();
         return access;
       });
@@ -107,20 +107,15 @@ export class MidiPerformer {
     if (!this.access || this.disposed) return;
     for (const input of this.access.inputs.values()) {
       const name = input.name ?? "";
-      const wanted = this.listeners.some((l) => deviceMatches(name, l.deviceName));
-      input.onmidimessage = wanted ? (event) => this.onMessage(name, event) : null;
+      input.onmidimessage = this.runtime.wantsInput(name)
+        ? (event) => this.onMessage(name, event)
+        : null;
     }
   }
 
-  /** Fan one inbound message out to every matching listener — several nodes
-   *  listening to one device ALL receive it (no per-topic owner, unlike MQTT). */
   private onMessage(portName: string, event: MIDIMessageEvent): void {
     if (this.disposed || !event.data) return;
-    for (const listener of this.listeners) {
-      if (deviceMatches(portName, listener.deviceName)) {
-        this.deliver(listener.nodeId, portName, event.data);
-      }
-    }
+    this.runtime.message(portName, event.data);
   }
 
   private detach(): void {

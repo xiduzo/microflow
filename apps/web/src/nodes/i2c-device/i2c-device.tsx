@@ -69,18 +69,7 @@ export function I2cDevice(props: Props) {
     <NodeContainer {...props} error={error} warning={warning}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="I2cDevice"
-        portOverrides={{
-          write: { handleType: "value", hint: "write bytes", offset: -0.5 },
-          trigger: {
-            handleType: "command",
-            hint: "one-shot read",
-            offset: 0.5,
-          },
-        }}
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

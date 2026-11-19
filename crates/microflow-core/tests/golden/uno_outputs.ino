@@ -12,16 +12,32 @@
 // node btn-1 (Button)
 const uint8_t button_btn_1_pin = 12;
 bool button_btn_1_state = false;
+bool button_btn_1_changed = false;
+bool button_btn_1_hold = false;
+bool button_btn_1_hold_said = false;
+unsigned long button_btn_1_pressed_at = 0;
+bool button_btn_1_line = false;
+bool button_btn_1_seen = false;
+bool button_btn_1_pending = false;
+unsigned long button_btn_1_edge_at = 0;
 // node matrix-1 (Matrix)
 LedControl matrix_matrix_1(4, 5, 7, 1);
-// note: 'value' selects a shape, but no shapes are configured — edge has no effect
+const uint8_t matrix_matrix_1_shapes[2][8] = {
+  {0x81, 0x42, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+  {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+};
+uint8_t matrix_matrix_1_shape = 0;
+uint8_t matrix_matrix_1_version = 0;
 // node osc-1 (Oscillator)
 unsigned long oscillator_osc_1_start = 0;
+unsigned long oscillator_osc_1_tick_at = 0;
 double oscillator_osc_1_value = 0.0;
 bool oscillator_osc_1_running = true;
+bool oscillator_osc_1_sampled = false;
 // node piezo-1 (Piezo)
 const uint8_t piezo_piezo_1_pin = 8;
-bool piezo_piezo_1_trigger_prev0 = false;
+bool piezo_piezo_1_playing = false;
+unsigned long piezo_piezo_1_started = 0;
 // node rgb-1 (Rgb)
 const uint8_t rgb_rgb_1_red_pin = 9;
 uint8_t rgb_rgb_1_red = 0;
@@ -30,19 +46,27 @@ uint8_t rgb_rgb_1_green = 0;
 const uint8_t rgb_rgb_1_blue_pin = 6;
 uint8_t rgb_rgb_1_blue = 0;
 double rgb_rgb_1_a = 1.0;
+uint8_t rgb_rgb_1_version = 1;
 // node stepper-1 (Stepper)
 AccelStepper stepper_stepper_1(AccelStepper::DRIVER, 2, 3);
-double stepper_stepper_1_value_prev0 = 0.0;
+double stepper_stepper_1_enable_prev0 = 0.0;
 
 void setup() {
   // --- Setup ---
   pinMode(button_btn_1_pin, INPUT);
   for (int matrix_matrix_1_i = 0; matrix_matrix_1_i < 1; matrix_matrix_1_i++) {
     matrix_matrix_1.shutdown(matrix_matrix_1_i, false);
-    matrix_matrix_1.setIntensity(matrix_matrix_1_i, 8);
+    matrix_matrix_1.setIntensity(matrix_matrix_1_i, 3);
     matrix_matrix_1.clearDisplay(matrix_matrix_1_i);
   }
+  for (int matrix_matrix_1_i = 0; matrix_matrix_1_i < 1; matrix_matrix_1_i++) {
+    for (int matrix_matrix_1_row = 0; matrix_matrix_1_row < 8; matrix_matrix_1_row++) {
+      matrix_matrix_1.setRow(matrix_matrix_1_i, matrix_matrix_1_row, matrix_matrix_1_shapes[matrix_matrix_1_shape][matrix_matrix_1_i * 8 + matrix_matrix_1_row]);
+    }
+  }
+  matrix_matrix_1_version = 1;
   oscillator_osc_1_start = millis();
+  oscillator_osc_1_tick_at = oscillator_osc_1_start;
   pinMode(piezo_piezo_1_pin, OUTPUT);
   noTone(piezo_piezo_1_pin);
   pinMode(rgb_rgb_1_red_pin, OUTPUT);
@@ -62,28 +86,73 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    button_btn_1_state = (digitalRead(button_btn_1_pin) == HIGH);
-    if (oscillator_osc_1_running) {
+    button_btn_1_changed = false;
+    bool button_btn_1_now = (digitalRead(button_btn_1_pin) == HIGH);
+    bool button_btn_1_settle = false;
+    if (!button_btn_1_seen || button_btn_1_now != button_btn_1_line) {
+      button_btn_1_settle = !button_btn_1_seen || millis() - button_btn_1_edge_at >= 50UL;
+      button_btn_1_pending = !button_btn_1_settle;
+      button_btn_1_line = button_btn_1_now; button_btn_1_seen = true; button_btn_1_edge_at = millis();
+    } else if (button_btn_1_pending && millis() - button_btn_1_edge_at >= 50UL) {
+      button_btn_1_pending = false; button_btn_1_settle = true;
+    }
+    if (button_btn_1_settle && button_btn_1_line != button_btn_1_state) {
+      button_btn_1_state = button_btn_1_line;
+      button_btn_1_changed = true;
+      if (button_btn_1_state) { button_btn_1_pressed_at = millis(); button_btn_1_hold_said = false; }
+    }
+    button_btn_1_hold = button_btn_1_state && !button_btn_1_hold_said && millis() - button_btn_1_pressed_at >= 500UL;
+    if (button_btn_1_hold) { button_btn_1_hold_said = true; }
+    oscillator_osc_1_sampled = oscillator_osc_1_running && millis() - oscillator_osc_1_tick_at >= 16UL;
+    if (oscillator_osc_1_sampled) {
+      oscillator_osc_1_tick_at = millis();
       double oscillator_osc_1_t = (double)(millis() - oscillator_osc_1_start) + 0.0;
       oscillator_osc_1_t = fmod(oscillator_osc_1_t, 1000.0);
       if (oscillator_osc_1_t < 0.0) { oscillator_osc_1_t += 1000.0; }
       oscillator_osc_1_value = 1.0 * (-1.0 + oscillator_osc_1_t * (2.0 / 1000.0)) + 0.0;
     }
-    bool piezo_piezo_1_trigger_now0 = (button_btn_1_state);
-    bool piezo_piezo_1_trigger_fired0 = piezo_piezo_1_trigger_now0 && !piezo_piezo_1_trigger_prev0;
-    piezo_piezo_1_trigger_prev0 = piezo_piezo_1_trigger_now0;
-    if ((piezo_piezo_1_trigger_fired0)) { tone(piezo_piezo_1_pin, 440, 500); }
-    rgb_rgb_1_a = constrain(((double)(oscillator_osc_1_value)) / 100.0, 0.0, 1.0);
+    if (oscillator_osc_1_sampled) {
+      const uint8_t matrix_matrix_1_next = (uint8_t)constrain(round(((double)(oscillator_osc_1_value))), 0.0, 1.0);
+      if (matrix_matrix_1_version == 0 || matrix_matrix_1_next != matrix_matrix_1_shape) { matrix_matrix_1_version = (matrix_matrix_1_version == 255) ? 1 : matrix_matrix_1_version + 1; }
+      matrix_matrix_1_shape = matrix_matrix_1_next;
+      for (int matrix_matrix_1_i = 0; matrix_matrix_1_i < 1; matrix_matrix_1_i++) {
+        for (int matrix_matrix_1_row = 0; matrix_matrix_1_row < 8; matrix_matrix_1_row++) {
+          matrix_matrix_1.setRow(matrix_matrix_1_i, matrix_matrix_1_row, matrix_matrix_1_shapes[matrix_matrix_1_shape][matrix_matrix_1_i * 8 + matrix_matrix_1_row]);
+        }
+      }
+    }
+    if (((button_btn_1_changed && button_btn_1_state))) {
+      for (int matrix_matrix_1_i = 0; matrix_matrix_1_i < 1; matrix_matrix_1_i++) {
+        matrix_matrix_1.shutdown(matrix_matrix_1_i, false);
+        matrix_matrix_1.setIntensity(matrix_matrix_1_i, 3);
+        matrix_matrix_1.clearDisplay(matrix_matrix_1_i);
+      }
+      for (int matrix_matrix_1_i = 0; matrix_matrix_1_i < 1; matrix_matrix_1_i++) {
+        for (int matrix_matrix_1_row = 0; matrix_matrix_1_row < 8; matrix_matrix_1_row++) {
+          matrix_matrix_1.setRow(matrix_matrix_1_i, matrix_matrix_1_row, matrix_matrix_1_shapes[matrix_matrix_1_shape][matrix_matrix_1_i * 8 + matrix_matrix_1_row]);
+        }
+      }
+    }
+    if (piezo_piezo_1_playing && millis() - piezo_piezo_1_started >= 500UL) { piezo_piezo_1_playing = false; }
+    if (((button_btn_1_changed && button_btn_1_state))) { tone(piezo_piezo_1_pin, 440, 500); piezo_piezo_1_playing = true; piezo_piezo_1_started = millis(); }
+    const uint8_t rgb_rgb_1_red_was = rgb_rgb_1_red;
+    const uint8_t rgb_rgb_1_green_was = rgb_rgb_1_green;
+    const uint8_t rgb_rgb_1_blue_was = rgb_rgb_1_blue;
+    const double rgb_rgb_1_a_was = rgb_rgb_1_a;
+    if (oscillator_osc_1_sampled) { rgb_rgb_1_a = constrain(((double)(oscillator_osc_1_value)) / 100.0, 0.0, 1.0); }
+    if (((button_btn_1_changed && !button_btn_1_state))) { rgb_rgb_1_red = 0; rgb_rgb_1_green = 0; rgb_rgb_1_blue = 0; rgb_rgb_1_a = 1.0; }
+    if (rgb_rgb_1_red != rgb_rgb_1_red_was || rgb_rgb_1_green != rgb_rgb_1_green_was || rgb_rgb_1_blue != rgb_rgb_1_blue_was || rgb_rgb_1_a != rgb_rgb_1_a_was) { rgb_rgb_1_version = (rgb_rgb_1_version == 255) ? 1 : rgb_rgb_1_version + 1; }
     analogWrite(rgb_rgb_1_red_pin, (uint8_t)((double)rgb_rgb_1_red * rgb_rgb_1_a));
     analogWrite(rgb_rgb_1_green_pin, (uint8_t)((double)rgb_rgb_1_green * rgb_rgb_1_a));
     analogWrite(rgb_rgb_1_blue_pin, (uint8_t)((double)rgb_rgb_1_blue * rgb_rgb_1_a));
-    double stepper_stepper_1_value_now0 = ((double)(oscillator_osc_1_value));
-    bool stepper_stepper_1_value_fired0 = (stepper_stepper_1_value_now0 != stepper_stepper_1_value_prev0);
-    stepper_stepper_1_value_prev0 = stepper_stepper_1_value_now0;
-    if (stepper_stepper_1_value_fired0) {
+    if (oscillator_osc_1_sampled) {
       long stepper_stepper_1_steps = (long)(((double)(oscillator_osc_1_value)));
       if (stepper_stepper_1_steps != 0) { stepper_stepper_1.move(stepper_stepper_1_steps); }
     }
+    double stepper_stepper_1_enable_now0 = ((button_btn_1_state) ? 1.0 : 0.0);
+    bool stepper_stepper_1_enable_fired0 = (stepper_stepper_1_enable_now0 != stepper_stepper_1_enable_prev0);
+    stepper_stepper_1_enable_prev0 = stepper_stepper_1_enable_now0;
+    if (stepper_stepper_1_enable_fired0) { if ((button_btn_1_state)) { stepper_stepper_1.enableOutputs(); } else { stepper_stepper_1.disableOutputs(); } }
     stepper_stepper_1.run();
   }
 }

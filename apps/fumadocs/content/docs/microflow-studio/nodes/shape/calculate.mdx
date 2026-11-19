@@ -3,22 +3,32 @@ title: Calculate
 description: Perform mathematical operations like addition, subtraction, multiplication, and division.
 ---
 
-The Calculate node performs arithmetic on numbers passing through your flow. Connect a value, choose the operation, and it outputs the result.
+The Calculate node performs arithmetic on numbers passing through your flow. Connect one or more values, choose the operation, and it outputs the result.
 
 **Examples:**
 - Add two sensor readings together to combine them
-- Multiply a sensor reading by 2 to double it
+- Multiply a sensor reading by a [Constant](/docs/microflow-studio/nodes/generate/constant) of 2 to double it
 - Divide a large number by 4 to scale it down
-- Subtract a fixed offset to zero-calibrate a sensor
+- Round a smoothed reading to a whole number
 
 ## Inputs
 
-- **Value** — the number to perform the operation on. Connect a sensor or another node here
-- **Operand** *(optional)* — the second number in the calculation. You can wire it from another node, or set it as a fixed value in the settings panel
+- **value** — connect every number to use in the calculation to this one input. Each time a value arrives, the node calculates with the latest value of every connected edge
+
+## Outputs
+
+- **value** — the result
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Operation** — the math to apply: Add (+), Subtract (−), Multiply (×), Divide (÷)
-- **Value** — the fixed number to use as the operand, if you are not connecting the Operand input to another node
+- **function** — the math to apply:
+  - **addition** (the default) — adds all values
+  - **subtraction** — the first value minus the others
+  - **multiplication** — multiplies all values
+  - **division** — the first value divided by the others. Dividing by 0 is skipped
+  - **modulo** — the remainder of the first value divided by the others. Dividing by 0 is skipped
+  - **maximum** — the largest value
+  - **minimum** — the smallest value
+  - **round up**, **round down**, **round closest** — round the first value to a whole number

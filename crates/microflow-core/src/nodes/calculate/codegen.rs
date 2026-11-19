@@ -13,11 +13,14 @@
 //! product, `max`/`min` nest `fmax`/`fmin`, `pow` raises the first input to the
 //! second, and `ceil`/`floor`/`round` apply their unary math to the first
 //! input. With no numeric input wired the value stays at its `0.0` initial
-//! state (the runtime returns early on an empty input set).
+//! state (the runtime returns early on an empty input set). Like the live
+//! Node it computes only when a value reaches it, so it hands on nothing
+//! before the first.
 
 use super::config::{CalculateConfig, CalculateFunction};
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::{CppType, NodeInputs};
+use crate::codegen::wire::NodeInputs;
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Calculate Node's latest result.
@@ -66,30 +69,29 @@ fn nest(f: &str, inputs: &[String]) -> String {
 }
 
 /// Emit C++ for a Calculate Node over everything wired into its `value` port.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+/// It computes on each tick one of its sources fires, and on no other
+/// ([`NodeEmission::transform`]), over every numeric source's current value.
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let var = value_var(node);
-    let config: CalculateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<CalculateConfig>(&node.data)?;
 
     let mut e = NodeEmission {
         declarations: vec![format!("double {var} = 0.0;")],
         ..NodeEmission::default()
     };
 
-    // String sources carry no number and are dropped, like the runtime's
-    // `filter_map(as_number)`.
-    let numeric: Vec<String> = inputs
-        .on("value")
-        .iter()
-        .filter(|s| s.value.ty != CppType::Str)
-        .map(|s| s.value.as_double())
-        .collect();
+    // Text, colour and list sources carry no number and are dropped, like the
+    // runtime's `filter_map(as_number)` — but each one firing still makes the
+    // live Node compute over the rest.
+    let sources = inputs.on("value");
+    let numeric: Vec<String> =
+        sources.iter().filter(|s| s.value.has_number()).map(|s| s.value.as_double()).collect();
 
     if !numeric.is_empty() {
         let computed = fold_expr(config.function, &numeric);
-        e.loop_body.push(format!("{var} = {computed};"));
+        e.transform(&format!("calculate_{}", node.id_token()), sources, vec![format!("{var} = {computed};")]);
     }
-    e
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -118,7 +120,7 @@ mod tests {
 
     #[test]
     fn declares_output_variable() {
-        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default());
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default()).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("calculate_c_1_value")));
     }
 
@@ -127,7 +129,7 @@ mod tests {
         let e = emit(
             &calc("c-1", json!({ "function": "add" })),
             &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("((double)(a)) + ((double)(b))"), "got: {body}");
     }
@@ -137,7 +139,7 @@ mod tests {
         let e = emit(
             &calc("c-1", json!({ "function": "subtract" })),
             &wired(&[CppExpr::number("a"), CppExpr::number("b"), CppExpr::number("c")]),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("- ((double)(b))") && body.contains("- ((double)(c))"), "got: {body}");
     }
@@ -147,7 +149,7 @@ mod tests {
         let e = emit(
             &calc("c-1", json!({ "function": "divide" })),
             &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("== 0.0) ?"), "zero divisor keeps the accumulator: {body}");
         assert!(body.contains("/ ((double)(b))"), "got: {body}");
@@ -158,16 +160,16 @@ mod tests {
         let e = emit(
             &calc("c-1", json!({ "function": "modulo" })),
             &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("fmod")));
     }
 
     #[test]
     fn max_min_nest_fmax_fmin() {
         let inputs = wired(&[CppExpr::number("a"), CppExpr::number("b"), CppExpr::number("c")]);
-        let max = emit(&calc("c-1", json!({ "function": "max" })), &inputs);
+        let max = emit(&calc("c-1", json!({ "function": "max" })), &inputs).unwrap();
         assert!(max.loop_body.iter().any(|l| l.contains("fmax(fmax(")));
-        let min = emit(&calc("c-1", json!({ "function": "min" })), &inputs);
+        let min = emit(&calc("c-1", json!({ "function": "min" })), &inputs).unwrap();
         assert!(min.loop_body.iter().any(|l| l.contains("fmin(fmin(")));
     }
 
@@ -176,9 +178,9 @@ mod tests {
         let two = emit(
             &calc("c-1", json!({ "function": "pow" })),
             &wired(&[CppExpr::number("a"), CppExpr::number("b")]),
-        );
+        ).unwrap();
         assert!(two.loop_body.iter().any(|l| l.contains("pow(")));
-        let one = emit(&calc("c-1", json!({ "function": "pow" })), &wired(&[CppExpr::number("a")]));
+        let one = emit(&calc("c-1", json!({ "function": "pow" })), &wired(&[CppExpr::number("a")])).unwrap();
         assert!(!one.loop_body.iter().any(|l| l.contains("pow(")), "single input passes through");
     }
 
@@ -188,10 +190,11 @@ mod tests {
             let e = emit(
                 &calc("c-1", json!({ "function": func })),
                 &wired(&[CppExpr::number("x"), CppExpr::number("y")]),
-            );
-            let body = e.loop_body.join("\n");
-            assert!(body.contains(func), "expected {func} call");
-            assert!(!body.contains("(y)"), "unary math ignores extra inputs: {body}");
+            ).unwrap();
+            // Each input firing computes again; the result reads the first.
+            let assignment = e.loop_body.iter().find(|l| l.contains("calculate_c_1_value = ")).expect("an assignment");
+            assert!(assignment.contains(func), "expected {func} call");
+            assert!(!assignment.contains("(y)"), "unary math ignores extra inputs: {assignment}");
         }
     }
 
@@ -199,7 +202,7 @@ mod tests {
     fn string_sources_are_filtered_out_like_the_runtime() {
         let mut inputs = NodeInputs::default();
         inputs.add("value", SourceExpr::level(CppExpr::text("msg")));
-        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs);
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs).unwrap();
         assert!(e.loop_body.is_empty(), "a string-only input set never computes");
     }
 
@@ -207,13 +210,13 @@ mod tests {
     fn bool_sources_coerce_to_numbers() {
         let mut inputs = NodeInputs::default();
         inputs.add("value", SourceExpr::level(CppExpr::boolean("flag")));
-        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs);
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &inputs).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("(flag) ? 1.0 : 0.0")));
     }
 
     #[test]
     fn no_input_emits_no_loop_body() {
-        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default());
+        let e = emit(&calc("c-1", json!({ "function": "add" })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
@@ -221,6 +224,6 @@ mod tests {
     fn emits_deterministically() {
         let n = calc("c-1", json!({ "function": "multiply" }));
         let inputs = wired(&[CppExpr::number("x"), CppExpr::number("y")]);
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

@@ -1,36 +1,27 @@
+// The browser side of export and import: a download, a file picker, toasts.
+// What a flow file is lives in `flow-file.ts`, what an import decides in
+// `import-flow.ts`, and where an imported flow lands in `open-flow.ts`.
+
 import { useCallback } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useFlowSession } from "@/session";
-import { track } from "@/lib/analytics";
 import type { FlowData, FlowMeta } from "@microflow/collab";
 
-export type FlowExportData = {
-  meta: FlowMeta;
-  data: FlowData;
-  version: number;
-  exportedAt: string;
-};
+import { useFlowSession } from "@/session";
+import { track } from "@/lib/analytics";
+import { reportError } from "@/lib/report-error";
+import { trpc } from "@/lib/trpc";
+import { randomFlowColor } from "./flow-colors";
+import { encodeFlowFile } from "./flow-file";
+import { importFlowFile } from "./import-flow";
+import { useOpenFlow } from "./use-open-flow";
 
-const EXPORT_VERSION = 1;
-
-/** Export flow data to a JSON file (works without an active flow document) */
+/** Download a flow as a flow file (works without an active flow document). */
 export function exportFlowData(
   meta: Pick<FlowMeta, "name"> & Partial<FlowMeta>,
   data: FlowData
 ): void {
-  const exportData: FlowExportData = {
-    meta: {
-      name: meta.name ?? "flow",
-      description: meta.description,
-      version: meta.version ?? EXPORT_VERSION,
-      updatedAt: meta.updatedAt ?? Date.now(),
-    },
-    data,
-    version: meta.version ?? EXPORT_VERSION,
-    exportedAt: new Date().toISOString(),
-  };
-
-  const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+  const blob = new Blob([encodeFlowFile(meta, data)], {
     type: "application/json",
   });
   const url = URL.createObjectURL(blob);
@@ -43,6 +34,7 @@ export function exportFlowData(
   URL.revokeObjectURL(url);
 }
 
+/** Export the flow of the current session, from inside the editor. */
 export function useFlowImportExport() {
   const { doc } = useFlowSession();
 
@@ -61,107 +53,85 @@ export function useFlowImportExport() {
     }
   }, [doc]);
 
-  const importFlow = useCallback(() => {
-    try {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json";
-
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-
-        try {
-          const text = await file.text();
-          const importData = JSON.parse(text) as FlowExportData;
-
-          if (!importData.data || !importData.data.nodes || !importData.data.edges) {
-            throw new Error("Invalid flow file format");
-          }
-
-          doc.setFlowData(importData.data.nodes, importData.data.edges);
-
-          if (importData.meta) {
-            doc.setMeta({
-              name: importData.meta.name,
-              description: importData.meta.description,
-            });
-          }
-
-          track("flow_imported", {
-            via: "editor",
-            nodes: importData.data.nodes.length,
-            edges: importData.data.edges.length,
-          });
-          toast.success(`Flow imported`, {
-            description: `${importData.data.nodes.length} nodes, ${importData.data.edges.length} edges`,
-          });
-        } catch (error) {
-          console.error("[FLOW-IMPORT] Error:", error);
-          toast.error("Failed to import flow", {
-            description: error instanceof Error ? error.message : "Something went wrong",
-          });
-        }
-      };
-
-      input.click();
-    } catch (error) {
-      console.error("[FLOW-IMPORT] Error:", error);
-      toast.error("Failed to import flow");
-    }
-  }, [doc]);
-
-  return {
-    exportFlow,
-    importFlow,
-    canExport: true,
-    canImport: true,
-  };
+  return { exportFlow };
 }
 
-export const LOCAL_FLOW_STORAGE_KEY = "microflow-local-flow";
-
-/** Returns a function that opens a file picker and calls the given handler with parsed FlowExportData. For use on My Flows overview. */
-export function useOverviewImport() {
-  return useCallback(
-    (onParsed: (data: FlowExportData) => void | Promise<void>) => {
-      const input = document.createElement("input");
-      input.type = "file";
-      input.accept = ".json";
-
-      input.onchange = async (e: Event) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-
-        try {
-          const text = await file.text();
-          const importData = JSON.parse(text) as FlowExportData;
-
-          if (
-            !importData.data ||
-            !importData.data.nodes ||
-            !importData.data.edges
-          ) {
-            throw new Error("Invalid flow file format");
-          }
-
-          await onParsed(importData);
-          track("flow_imported", {
-            via: "overview",
-            nodes: importData.data.nodes.length,
-            edges: importData.data.edges.length,
-          });
-        } catch (error) {
-          console.error("[FLOW-IMPORT] Error:", error);
-          toast.error("Failed to import flow", {
-            description:
-              error instanceof Error ? error.message : "Something went wrong",
-          });
-        }
-      };
-
-      input.click();
-    },
-    []
+/**
+ * Import a flow file from the My Flows overview. The returned function opens a
+ * file picker and imports the chosen file (`importFlowFile`): the flow opens in
+ * the account when signed in, otherwise it replaces the local flow, and the
+ * user is told how it went.
+ *
+ * `route` is the calling route's id, for error reports.
+ */
+export function useImportFlow(route: string): () => void {
+  const openFlow = useOpenFlow();
+  const queryClient = useQueryClient();
+  const { mutateAsync: createFromImport } = useMutation(
+    trpc.flow.createFromImport.mutationOptions()
   );
+
+  return useCallback(() => {
+    pickFile(".json", async (file) => {
+      const report = await importFlowFile(file, {
+        open: openFlow,
+        createInAccount: (flow) =>
+          createFromImport({ ...flow, color: randomFlowColor() }),
+      });
+
+      if (report.failure !== undefined) {
+        reportError(report.failure, { source: "action", route });
+      }
+      for (const { level, title, description } of report.messages) {
+        // Everything from the file is shown as text. What the import found in
+        // it stays up until it is closed.
+        toast[level](title, {
+          description,
+          ...(level === "warning" ? NOTICES_TOAST : {}),
+        });
+      }
+      if (report.imported) {
+        if (report.imported.where === "account") {
+          queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
+        }
+        track("flow_imported", {
+          via: "overview",
+          nodes: report.imported.nodes,
+          edges: report.imported.edges,
+        });
+      }
+    }).catch((error) => {
+      reportError(error, { source: "action", route });
+      toast.error("Failed to import flow", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    });
+  }, [openFlow, createFromImport, queryClient, route]);
+}
+
+const NOTICES_TOAST = {
+  descriptionClassName: "whitespace-pre-line max-h-60 overflow-y-auto",
+  duration: Infinity,
+  closeButton: true,
+};
+
+/**
+ * Open a file picker and hand the chosen file to `onFile`. Resolves when
+ * `onFile` has; never when the picker is dismissed.
+ */
+function pickFile(
+  accept: string,
+  onFile: (file: File) => Promise<void>
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = accept;
+    input.onchange = () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      onFile(file).then(resolve, reject);
+    };
+    input.click();
+  });
 }

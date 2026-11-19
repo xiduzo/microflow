@@ -9,18 +9,24 @@ A button is a simple input device that you can press to interact with your proje
 
 ## Outputs
 
-The Button node has two output handles:
+The Button node has four output handles:
 
-- **Down** — fires when the button is pressed
-- **Up** — fires when the button is released
+- **event** — fires on every press and every release, with `true` for pressed and `false` for released
+- **true** — fires when the button is pressed
+- **false** — fires when the button is released
+- **hold** — fires once when the button stays pressed for the hold time
 
-Connect whichever output (or both) you need to other nodes in your flow.
+Connect whichever outputs you need to other nodes in your flow.
+
+The node ignores contact bounce: a change that comes within 50 ms of the last one waits until the pin has been steady for 50 ms. Studio and the exported Arduino sketch both do this, and both fire **hold** once per press.
 
 ## Settings
 
 Open the settings panel (the icon in the top right corner of the node) to configure:
 
-- **Pin** — which numbered pin on your Arduino the button is connected to
+- **pin** — which numbered pin on your Arduino the button is connected to
+- **type** *(advanced)* — **default**, **pull up** (use the board's built-in pull-up resistor; the button connects the pin to GND), or **pull down**
+- **hold time (ms)** *(advanced)* — how long the button must stay pressed before **hold** fires. The default is 500 ms
 
 <Callout title="Which pin should I use?">
 Pins are the numbered connection points on your Arduino board. They are the physical holes or legs you plug wires into. Connect your button to any available digital pin and set that same number in the node's settings. Pin 13 is special — it has a built-in LED on the board, which is handy for testing.

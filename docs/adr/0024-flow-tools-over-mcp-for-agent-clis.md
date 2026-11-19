@@ -1,6 +1,6 @@
 # ADR-0024 — Ask AI's flow tools are published over MCP, so an agent CLI can drive them
 
-- **Status:** accepted — implemented (2026-09-01)
+- **Status:** accepted — implemented (2026-09-01); amended (2026-11-19, twice)
 - **Date:** 2026-09-01
 - **Deciders:** sander
 - **Extends:** [ADR-0021](0021-one-llm-transport-in-the-webview.md) (the Ask AI
@@ -87,10 +87,10 @@ no longer bounds anything for these providers. Four bounds replace it, in
 | **Session close fails everything in flight** | an aborted turn leaving a CLI blocked on a tool with nowhere to run. |
 | **One live session, newest wins** | Tauri broadcasts events by name, so two live listeners would both run one `add_node` and the flow would gain two nodes. |
 
-**Stop is the session, not the process.** Aborting a turn closes the session
+**Stop is the session and the process.** Aborting a turn closes the session
 immediately, so the CLI cannot touch the flow again whatever it goes on to
-decide. The subprocess itself runs to completion in the background; killing it
-needs a child-handle table in `cli_llm.rs` and is not worth one yet.
+decide, and the host ends the CLI's process tree
+([ADR-0047](0047-the-desktop-host-owns-agent-cli-process-trees.md)).
 
 ### Consequences worth stating plainly
 
@@ -103,9 +103,10 @@ needs a child-handle table in `cli_llm.rs` and is not worth one yet.
   come from the bridge as calls arrive, so the panel shows tools running while
   the process is still going. It is a report, not a request — nothing waits on a
   result, because the CLI already has it.
-- **The tool schema cannot drift from the tool.** `tools/list` is `z.toJSONSchema`
-  of the tool's own zod schema, so what the CLI is shown is what its call is
-  validated against.
+- **The tool schema cannot drift from the tool.** `tools/list` is the JSON
+  Schema the tool arrives with, which `chat()` derives from the tool's own zod
+  schema, and the bridge checks every call against that same object. What the
+  CLI is shown is what its call is validated against (see the amendment below).
 - **Claude Desktop and any other MCP client can connect too** — and get nothing,
   until a turn is open and they present its token. That is a deliberate
   non-feature: a standing "edit my flow" grant to every process on the machine
@@ -138,3 +139,44 @@ needs a child-handle table in `cli_llm.rs` and is not worth one yet.
 - **Reimplementing the flow tools in Rust to avoid the webview hop.** Two
   definitions of `add_node`, and a parity guard to keep them honest, to save a
   sub-millisecond round trip.
+
+---
+
+## Amendment (2026-11-19): the host sits behind a port, stop is `request.signal`, and the published schema is the gate
+
+The webview reaches the host through `AgentCliPort`
+(`apps/web/src/ai/agent-cli-port.ts`, [ADR-0039](0039-agent-cli-port.md)). `withFlowToolServer(port,
+options, run)` takes the port as its first argument, and `cli-adapter.ts` is
+built with a resolver for it. The desktop adapter (`tauri-agent-cli.ts`) is the
+only module in `ai/` that sends `mcp_session_start`, `mcp_tool_result`,
+`mcp_session_end`, `llm_cli_generate` or `llm_cli_stop`, or listens for
+`mcp-request`. The
+bounds and the session rules above are unchanged; they are tested against a
+scripted process (`scripted-agent-cli.ts`) instead of a replaced Tauri module.
+
+**Stop.** `chat()` hands an adapter the turn's abort signal as
+`request.signal`. `CliTextAdapter` passes it to the bridge, which closes the
+session when it aborts, and to `AgentCliPort.run`, whose adapter asks the host
+to end the run's process. A turn stopped before its CLI has started never starts
+it: the adapter checks the signal before every run, and the bridge checks it
+before it opens a session and again before it starts the run. A session opened
+for a turn that aborted meanwhile is closed without a process ever holding its
+token.
+
+**The gate.** Each tool is published with the JSON Schema it arrives with, and
+the bridge builds its argument check from that same object
+(`z.fromJSONSchema`). A call whose arguments the schema does not accept runs
+nothing and answers with a tool error that names each problem under its field,
+which a model can correct. The tool receives the arguments as the CLI sent
+them. A tool whose schema cannot be checked (`not`, `if`/`then`/`else`, or not
+JSON Schema at all) fails the publish, so the turn fails before a session
+opens. The host refuses a call for a name outside the session's roster before
+it reaches the webview, and that refusal spends no budget.
+
+## Amendment (2026-11-19): a stop ends the process
+
+The host owns every agent CLI process and ends its whole tree when the turn is
+stopped, when the page that asked for it is gone, and when the app quits
+([ADR-0047](0047-the-desktop-host-owns-agent-cli-process-trees.md)). The
+session closes at the stop, as above.
+

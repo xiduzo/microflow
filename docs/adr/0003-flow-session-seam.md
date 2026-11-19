@@ -163,7 +163,7 @@ Six sub-decisions:
   `connectCalls`, `disconnectCalls`; scripts `injectRemoteUpdate`,
   `injectAwareness`, `injectState`, `injectError`. Mirrors
   [ADR-0025 D5](0025-per-capability-service-traits.md) and the
-  `RecordingLlmProvider` / `RecordingMqttPublisher` discipline.
+  `RecordingMqttBrokers` discipline.
   The second adapter is what makes `RemoteSyncAdapter` a *real* seam,
   per [`LANGUAGE.md`](../../.claude/skills/improve-codebase-architecture/LANGUAGE.md).
 
@@ -335,8 +335,7 @@ New terms recorded in [`CONTEXT.md`](../../CONTEXT.md):
 - [ADR-0001](0001-component-trait-flow-separation.md) — establishes
   the seam discipline on the Rust component side.
 - [ADR-0025 — per-capability service traits](0025-per-capability-service-traits.md)
-  — `RecordingSyncAdapter` mirrors `RecordingLlmProvider` /
-  `RecordingMqttPublisher` discipline.
+  — `RecordingSyncAdapter` mirrors the `RecordingMqttBrokers` discipline.
 - [ADR-0002 — `FlowRouter`](0002-flow-router-seam.md) — establishes
   the "two adapters per trait from day one" rule this ADR follows.
 - `CONTEXT.md` § FlowSession, SyncAdapter, RemoteSyncAdapter,

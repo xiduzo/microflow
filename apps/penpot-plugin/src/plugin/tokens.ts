@@ -7,6 +7,7 @@ import {
   type BridgeSnapshotEntry,
   type BridgeValue,
   type ResolvedType,
+  type SandboxAdapter,
   colorToHex,
   toColor,
   toFloat,
@@ -37,28 +38,53 @@ const BRIDGE_TYPES: Record<Token["type"], ResolvedType | null> = {
   typography: null,
 };
 
-let createdSet = false;
+/** What the adapter uses of a token set and of the file's token catalog. Tests pass stand-ins. */
+type BridgeSet = Pick<TokenSet, "name" | "tokens" | "getTokenById">;
+export type PenpotTokens = {
+  readonly sets: BridgeSet[];
+  addSet(set: { name: string; active?: boolean }): BridgeSet;
+};
 
-/** The "MHB" set, created (active) the first time it is missing. */
-export function bridgeSet(): TokenSet | undefined {
-  const catalog = penpot.library.local.tokens;
-  const set = catalog.sets.find(({ name }) => name === SET_NAME);
-  if (set || createdSet) return set;
-  // `addSet` reaches the catalog asynchronously; creating it once avoids duplicates.
-  createdSet = true;
-  return catalog.addSet({ name: SET_NAME, active: true });
-}
+/** `catalog` gives the open file's tokens: `penpot.library.local.tokens` in the plugin. */
+export function createPenpotAdapter(catalog: () => PenpotTokens): SandboxAdapter {
+  let createdSet = false;
 
-export function snapshot(): BridgeSnapshotEntry[] {
-  const entries: BridgeSnapshotEntry[] = [];
-  for (const token of bridgeSet()?.tokens ?? []) {
-    const entry = readToken(token);
-    if (entry) entries.push(entry);
+  /** The "MHB" set, created (active) the first time it is missing. */
+  function bridgeSet(): BridgeSet | undefined {
+    const tokens = catalog();
+    const set = tokens.sets.find(({ name }) => name === SET_NAME);
+    if (set || createdSet) return set;
+    // `addSet` reaches the catalog asynchronously; creating it once avoids duplicates.
+    createdSet = true;
+    return tokens.addSet({ name: SET_NAME, active: true });
   }
-  return entries;
+
+  return {
+    readSnapshot() {
+      const entries: BridgeSnapshotEntry[] = [];
+      for (const token of bridgeSet()?.tokens ?? []) {
+        const entry = readToken(token);
+        if (entry) entries.push(entry);
+      }
+      return entries;
+    },
+
+    writeValue(id, value) {
+      const token = bridgeSet()?.getTokenById(id);
+      if (!token) return { message: "That token no longer exists" };
+      const stored = tokenValue(token, value);
+      if (stored === null) return { message: `${token.name} cannot hold that value` };
+      try {
+        token.value = stored;
+        return null;
+      } catch (cause) {
+        return { message: `Could not update ${token.name}`, cause };
+      }
+    },
+  };
 }
 
-export function readToken(token: Token): BridgeSnapshotEntry | null {
+function readToken(token: Token): BridgeSnapshotEntry | null {
   const resolvedType = BRIDGE_TYPES[token.type];
   if (!resolvedType) return null;
   const value = readValue(token, resolvedType);
@@ -103,7 +129,7 @@ function joinFontFamilies(resolved: unknown): string | null {
 }
 
 /** The token value to store for a bridge value, or `null` when it does not fit the token. */
-export function tokenValue(token: Token, value: BridgeValue): string | null {
+function tokenValue(token: Token, value: BridgeValue): string | null {
   switch (BRIDGE_TYPES[token.type]) {
     case "COLOR": {
       const color = toColor(value);

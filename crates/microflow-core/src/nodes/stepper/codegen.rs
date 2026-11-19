@@ -15,15 +15,18 @@
 use super::config::{StepperConfig, StepperInterface};
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
 use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The pins this Stepper is emitted on as `(label, pin)`, following the
 /// configured interface (driver = step/dir, two-wire = motor pins 1–2,
 /// four-wire = motor pins 1–4) plus the optional enable pin — the same
 /// resolution `emit` uses, exposed so validation can never drift from emission.
-#[must_use]
-pub(crate) fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
-    let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+pub(crate) fn pins(node: &FlowNode) -> Result<Vec<(&'static str, u8)>, UnreadableConfig> {
+    Ok(interface_pins(&resolve::<StepperConfig>(&node.data)?))
+}
+
+fn interface_pins(config: &StepperConfig) -> Vec<(&'static str, u8)> {
     let mut pins: Vec<(&'static str, u8)> = match config.interface {
         StepperInterface::Driver => {
             vec![("step", config.step_pin), ("dir", config.dir_pin)]
@@ -45,11 +48,10 @@ pub(crate) fn pins(node: &FlowNode) -> Vec<(&'static str, u8)> {
 }
 
 /// Emit C++ for a Stepper Node. Unwired, the motor parks at zero.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let obj = format!("stepper_{token}");
-    let config: StepperConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<StepperConfig>(&node.data)?;
     // Runtime stores speed/acceleration as floats; widen to the f64 the C++
     // literal formatter expects.
     let speed = cpp_double(f64::from(config.speed));
@@ -107,14 +109,19 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         e.loop_body.push("}".to_string());
     }
 
-    // to: an absolute target; a level write is idempotent, like repeated CMD_TO.
+    // to: an absolute target, set when its source fires — as the runtime
+    // sends one CMD_TO per value, so a `stop` or `zero` holds until the next.
     let to_sources = inputs.on("to");
     if let Some(note) = extra_sources_note("to", to_sources) {
         e.declarations.push(note);
     }
     if let Some(source) = to_sources.first() {
-        e.loop_body
-            .push(format!("{obj}.moveTo((long)({}));", source.value.as_double()));
+        let binding = e.bind_port(&format!("stepper_{token}_to"), &to_sources[..1]);
+        e.loop_body.push(format!(
+            "if ({}) {{ {obj}.moveTo((long)({})); }}",
+            binding.fired[0],
+            source.value.as_double()
+        ));
     }
 
     // stop / zero: pulses.
@@ -128,7 +135,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             .push(format!("if ({any}) {{ {obj}.setCurrentPosition(0); }}"));
     }
 
-    // enable: energize per new sample's truthiness (runtime: n > 0).
+    // enable: hold or release per new sample's truthiness, as the runtime does.
     let enable_sources = inputs.on("enable");
     if let Some(note) = extra_sources_note("enable", enable_sources) {
         e.declarations.push(note);
@@ -145,7 +152,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     // The motor must keep stepping toward its target every loop, even when
     // unconnected (no-op until a target is set), so always emit run().
     e.loop_body.push(format!("{obj}.run();"));
-    e
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -172,7 +179,7 @@ mod tests {
 
     #[test]
     fn stepper_includes_library_and_declares_motor() {
-        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default());
+        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.includes.iter().any(|i| i.contains("AccelStepper.h")));
         assert!(e.declarations.iter().any(|d| d.contains("AccelStepper stepper_st_1(AccelStepper::DRIVER, 2, 3)")));
     }
@@ -182,7 +189,7 @@ mod tests {
         let e = emit(
             &stepper("st-1", json!({ "interface": "two_wire", "motorPin1": 4, "motorPin2": 5 })),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         assert!(e
             .declarations
             .iter()
@@ -197,7 +204,7 @@ mod tests {
                 json!({ "interface": "four_wire", "motorPin1": 4, "motorPin2": 5, "motorPin3": 6, "motorPin4": 7 }),
             ),
             &NodeInputs::default(),
-        );
+        ).unwrap();
         assert!(e
             .declarations
             .iter()
@@ -206,22 +213,22 @@ mod tests {
 
     #[test]
     fn configured_enable_pin_is_set_in_setup() {
-        let e = emit(&stepper("st-1", json!({ "enablePin": 8 })), &NodeInputs::default());
+        let e = emit(&stepper("st-1", json!({ "enablePin": 8 })), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains(".setEnablePin(8)")));
-        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default());
+        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(!e.setup.iter().any(|s| s.contains("setEnablePin")), "no enable pin by default");
     }
 
     #[test]
     fn stepper_sets_speed_and_acceleration() {
-        let e = emit(&stepper("st-1", json!({ "speed": 800, "acceleration": 200 })), &NodeInputs::default());
+        let e = emit(&stepper("st-1", json!({ "speed": 800, "acceleration": 200 })), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains("setMaxSpeed(800")));
         assert!(e.setup.iter().any(|s| s.contains("setAcceleration(200")));
     }
 
     #[test]
     fn value_port_issues_relative_moves_per_sample() {
-        let e = emit(&stepper("st-1", json!({})), &on("value", CppExpr::number("steps_src")));
+        let e = emit(&stepper("st-1", json!({})), &on("value", CppExpr::number("steps_src"))).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains(".move(stepper_st_1_steps)"), "relative move: {body}");
         assert!(body.contains("!= 0"), "zero-step samples skipped: {body}");
@@ -230,8 +237,17 @@ mod tests {
 
     #[test]
     fn to_port_targets_absolute_position() {
-        let e = emit(&stepper("st-1", json!({})), &on("to", CppExpr::number("target")));
+        let e = emit(&stepper("st-1", json!({})), &on("to", CppExpr::number("target"))).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains(".moveTo((long)(((double)(target))))")));
+    }
+
+    /// The target is set when its source fires, not every tick: a `stop`
+    /// holds until the next value, as it does live.
+    #[test]
+    fn to_port_sets_the_target_once_per_value() {
+        let e = emit(&stepper("st-1", json!({})), &on("to", CppExpr::number("target"))).unwrap();
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("if (stepper_st_1_to_fired0) { stepper_st_1.moveTo("), "{body}");
     }
 
     #[test]
@@ -240,7 +256,7 @@ mod tests {
         inputs.add("stop", SourceExpr::level(CppExpr::boolean("halt")));
         inputs.add("zero", SourceExpr::level(CppExpr::boolean("z")));
         inputs.add("enable", SourceExpr::level(CppExpr::boolean("en")));
-        let e = emit(&stepper("st-1", json!({})), &inputs);
+        let e = emit(&stepper("st-1", json!({})), &inputs).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains(".stop()"), "{body}");
         assert!(body.contains(".setCurrentPosition(0)"), "{body}");
@@ -249,7 +265,7 @@ mod tests {
 
     #[test]
     fn stepper_runs_non_blocking_even_when_unconnected() {
-        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default());
+        let e = emit(&stepper("st-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains(".run()")));
         assert!(!e.loop_body.iter().any(|l| l.contains("delay(")), "stepper must not block");
     }
@@ -258,6 +274,6 @@ mod tests {
     fn stepper_emits_deterministically() {
         let n = stepper("st-1", json!({ "speed": 1000 }));
         let inputs = on("value", CppExpr::number("v"));
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

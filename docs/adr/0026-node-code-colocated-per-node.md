@@ -1,6 +1,6 @@
 # ADR-0026 — A node's Rust code lives in one directory; dispatch stays central
 
-- **Status:** accepted (2026-09-25)
+- **Status:** accepted (2026-09-25); amended (2026-11-19)
 - **Date:** 2026-09-25
 - **Deciders:** sander
 - **Resolves:** the category-taxonomy debt noted in
@@ -79,14 +79,15 @@ crates/microflow-core/src/nodes/
 │   ├── runtime.rs         # Led: Component — behind `runtime`
 │   └── codegen.rs         # emit / pin — ungated
 ├── mqtt/                  # runtime.rs behind `cloud`
-├── function/              # runtime.rs behind `js`; no config.rs
+├── function/              # runtime.rs behind `js`
 ├── note/                  # runtime.rs only
 └── …
 ```
 
 A node has only the files it needs. `Note` has only a runtime. `Pn532` and
-`Music` have no emitter. `Sensor`, `Counter`, `Matrix`, `Monitor` and `Function`
-have no shared config. `nodes/<node>/mod.rs` is the one place that says which
+`Music` have no emitter. `Counter`, `Monitor` and `Note` have no `config.rs`:
+their emitter reads no settings, so the config sits in `runtime.rs` with its
+only reader. `nodes/<node>/mod.rs` is the one place that says which
 layers exist and which feature gates each one. Inside the vertical, the layers
 reach each other through `super::config`. Shared infrastructure is always
 reached through `crate::runtime::…` / `crate::codegen::…`.
@@ -108,8 +109,11 @@ The files that stay are those that are shared by more than one node:
   generator;
 - `codegen/cloud/transport.rs`: the WiFi + MQTT bring-up that the `Figma` and
   `Monitor` emitters both use;
-- `config/serde_utils.rs`: the pin string-or-number serde helpers used by the
-  configs.
+- `config/mod.rs`: node config resolution (`resolve`), the one step that reads
+  a node's `data` into its config for both the runtime and the emitter
+  ([ADR-0033](0033-one-node-config-resolution.md));
+- `config/serde_utils.rs`: how the configs read a number — a whole-number
+  setting, a pin, an analog pin.
 
 The prose that used to be in the category `mod.rs` files (the codegen
 non-blocking-timer invariant, the consumer-and-producer rule for transformation
@@ -262,3 +266,24 @@ tree, so it cannot say "visible to `runtime/registry.rs` but not to
 - [ADR-0012](0012-component-trait-plumbing-stays-explicit.md): why the dispatch
   lines stay hand-written.
 - `docs/plans/vertical-structure.md` § F7: the finding this resolves.
+
+---
+
+## Amendment (2026-11-19): a node's emitter and runtime read one config
+
+D1 puts a node's config next to its two readers. The boundary guard also holds
+the readers to it. `nodes/boundaries.rs` has a fourth rule: it fails when a
+node's `codegen.rs` resolves a config that the node's `config.rs` does not
+declare, or another config than the `type Config` its `runtime.rs` is built
+from. An emitter names the type in the call, `resolve::<LedConfig>(&node.data)`,
+so the guard can read it; a `resolve(` with the type left to inference fails
+too.
+
+A node therefore has a `config.rs` whenever its emitter has settings to read.
+`Sensor`, `Matrix` and `Function` each have one. `Counter`, `Monitor` and `Note`
+do not: their emitters read no settings, and the config their runtime is built
+from stays in `runtime.rs`.
+
+How `data` becomes that config, and what happens when it cannot, is
+[ADR-0033](0033-one-node-config-resolution.md): both halves call `config::resolve`, and an unreadable config stops
+the node live and refuses the sketch.

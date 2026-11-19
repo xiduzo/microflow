@@ -132,10 +132,13 @@ pub trait Component {
         false
     }
 
-    /// Called when a raw MQTT message arrives for this component (topic-aware).
+    /// Called when a raw message arrives for this component: a broker payload
+    /// on `topic` (MQTT, topic-aware), or a MIDI message from the host port
+    /// named `topic`.
     fn receive_raw_message(&mut self, _topic: &str, _payload: &[u8]) {}
 
-    /// Static wiring this component needs once constructed: pin/I2C/key listeners.
+    /// Static wiring this component needs once constructed: pin/I2C/key/MIDI
+    /// listeners.
     fn listener_wiring(&self) -> Vec<ListenerWiring> {
         Vec::new()
     }
@@ -143,17 +146,6 @@ pub trait Component {
     /// Async subscriptions this component requests against an MQTT broker.
     fn subscriber_wiring(&self) -> Vec<SubscriberWiring> {
         Vec::new()
-    }
-
-    /// The MIDI-input interest this component declares: `Some(device filter)`
-    /// (a case-insensitive substring of the host port name, "" = every device)
-    /// for a MIDI listener, `None` for everything else. Unlike
-    /// [`subscriber_wiring`](Component::subscriber_wiring) there is no
-    /// one-owner-per-topic reconcile — every listener whose filter matches a
-    /// device receives every message from it (via
-    /// [`receive_raw_message`](Component::receive_raw_message)).
-    fn midi_wiring(&self) -> Option<String> {
-        None
     }
 
     /// Board-wide reconcile votes this component contributes — the desired
@@ -318,7 +310,9 @@ impl ComponentBase {
 /// handles.
 pub trait ComponentBuilder: Component + Sized + 'static {
     /// The deserialized configuration shape declared by this component.
-    type Config: serde::de::DeserializeOwned;
+    /// `Serialize` so the Catalog Parity Guard can read back what a `data`
+    /// resolved to (`ComponentRegistry::resolved_config`).
+    type Config: serde::de::DeserializeOwned + serde::Serialize;
 
     /// Construct the component from its config.
     fn build(id: String, config: Self::Config) -> Result<Self, RuntimeError>;

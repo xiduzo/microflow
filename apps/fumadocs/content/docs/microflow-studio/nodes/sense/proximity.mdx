@@ -10,21 +10,23 @@ A proximity sensor measures how far away an object is. It outputs a distance val
 - Display the distance to the nearest obstacle
 - Create an alarm that activates when something enters a zone
 
-The node outputs a distance in **centimetres**.
+## Outputs
+
+- **value** — the distance in **centimetres**. The node sends a new value when the distance changes by more than 1 cm
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Pin** — which pin your sensor is connected to. Infrared sensors use analog pins (A0, A1, etc.)
-- **Sensor type** — select the model of your sensor from the list
+- **pin** — which analog pin your sensor is connected to (A0, A1, etc.)
+- **controller** — the model of your sensor: GP2Y0A21YK (the default) or GP2Y0A710K0F
 
 ## Supported sensors
 
-Proximity sensors send distance readings to your Arduino in different ways. The table below shows which models have been tested and confirmed to work with Microflow.
+Proximity sensors send distance readings to your Arduino in different ways. The table below shows the models you can pick in the **controller** setting.
 
 <Callout title="Not sure which type you have?">
-Most hobbyist distance sensors sold as "IR distance sensors" are **infrared** sensors. If your sensor has a part number starting with **GP2Y**, it is an infrared sensor — use one of the models in the table below.
+Most hobbyist distance sensors sold as "IR distance sensors" are **infrared** sensors. If your sensor has a part number starting with **GP2Y**, it is an infrared sensor — use one of the models in the table below if it matches.
 
 Sensors labelled **I2C**, **PWM**, or **ultrasonic** (like the common HC-SR04) use different communication methods and have not been tested with Microflow yet.
 </Callout>
@@ -33,13 +35,12 @@ Sensors labelled **I2C**, **PWM**, or **ultrasonic** (like the common HC-SR04) u
 
 Infrared sensors measure distance by emitting an invisible light pulse and detecting how much bounces back. The closer an object, the stronger the reflection and the lower the reported distance.
 
-| Sensor | Short range | Long range | Resolution |
-| --- | --- | --- | --- |
-| GP2Y0A21YK | 0–10 cm | 10–80 cm | 1 cm |
-| GP2D120XJ00F | 0–4 cm | 4–30 cm | 1 cm |
-| GP2Y0A02YK0F | 0–15 cm | 15–150 cm | 1 cm |
-| GP2Y0A41SK0F | 0–4 cm | 4–30 cm | 1 cm |
-| GP2Y0A710K0F | 0–50 cm | 50–500 cm | 1 cm |
+Each controller turns the sensor's reading into centimetres its own way. Studio and the exported Arduino sketch use the same conversion.
+
+| Sensor | Reported distance | How the reading is converted |
+| --- | --- | --- |
+| GP2Y0A21YK | 10–80 cm | The sensor's own curve. Nearer than 10 cm reads 10 cm; nothing in range reads 80 cm. |
+| GP2Y0A710K0F | 0–200 cm | A straight scale: the lowest reading is 0 cm, the highest 200 cm. This sensor has no curve of its own in Microflow. |
 
 ### Other sensor types
 

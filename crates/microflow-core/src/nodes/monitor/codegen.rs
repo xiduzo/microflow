@@ -28,21 +28,59 @@
 //!
 //! Like every emitter this is a pure function of the [`FlowNode`]: identical
 //! input yields byte-identical output (determinism invariant).
+//!
+//! ## What the Monitor emits
+//!
+//! Live, a Monitor emits on `value` what it shows: the last value that reached
+//! it, whatever its type, each time that changes; before anything arrives it
+//! holds the number 0, so the first `false` or text it is sent is a change.
+//! On-device it keeps a copy of what it shows, in the type of the source it
+//! shows (`shown`: the first
+//! source wired into `value` that has an on-device value, resolved by codegen
+//! against the whole Flow so a Monitor fed by a Monitor knows its type). The
+//! copy is taken when that source fires, and the Monitor emits on the ticks
+//! the copy changes — or, for a source that carries no number, on the first
+//! copy. With no such source the Monitor shows 0 for good. It publishes what
+//! it shows once it has shown something, each time that reads differently.
 
 use crate::codegen::cloud::transport::{Transport, DEFAULT_PORT};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
-use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::codegen::wire::{bind_pulses, extra_sources_note, CppExpr, CppType, NodeInputs, SourceExpr};
 use crate::flow::FlowNode;
+
+/// The copy of what the Monitor shows.
+fn shown_var(node: &FlowNode) -> String {
+    format!("monitor_{}_shown", node.id_token())
+}
+
+/// True on the ticks what the Monitor shows changes: the ticks it emits.
+fn moved_var(node: &FlowNode) -> String {
+    format!("monitor_{}_moved", node.id_token())
+}
+
+/// What the Monitor emits on `value`, given the source it shows: its copy of
+/// that source, in the source's type, each time that changes — or the number
+/// 0 it holds for good when it shows nothing.
+#[must_use]
+pub(crate) fn output(node: &FlowNode, shown: Option<&SourceExpr>) -> SourceExpr {
+    shown.map_or_else(
+        || SourceExpr::level(CppExpr::number("0.0")),
+        |source| SourceExpr::event(CppExpr { code: shown_var(node), ty: source.value.ty }, moved_var(node)),
+    )
+}
 
 /// Emit C++ for a Monitor Cloud Node on a networked target.
 ///
-/// The first source wired into the `value` port is the displayed value; each
-/// time it changes the Sketch publishes it on the monitor topic. An unwired
-/// Monitor has nothing to display, so it only maintains its connection.
+/// `shown` is the source the Monitor displays (see the module docs): the
+/// Sketch keeps a copy of it and publishes the copy on the monitor topic each
+/// time it reads differently. A Monitor that shows nothing has nothing to
+/// display, so it only maintains its connection.
 #[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs, shown: Option<&SourceExpr>) -> NodeEmission {
     let sources = inputs.on("value");
-    let driver = sources.first().map(|s| s.value.as_string());
+    // A Monitor whose shown source could not be resolved (one on a ring of
+    // Monitors) still displays the first source wired into it.
+    let shown = shown.or_else(|| sources.first());
     let token = node.id_token();
     let prefix = format!("monitor_{token}");
 
@@ -57,7 +95,6 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     let credentials_missing = wifi_ssid.is_empty() || broker.is_empty();
 
     let topic_var = format!("{prefix}_topic");
-    let last_var = driver.as_ref().map(|_| format!("{prefix}_last_published"));
 
     // Monitor is publish-only — it never subscribes.
     let transport = Transport {
@@ -76,20 +113,48 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     if let Some(note) = extra_sources_note("value", sources) {
         extra_decls.push(note);
     }
-    if let Some(last) = &last_var {
-        extra_decls.push(format!("String {last};"));
-    }
-
-    // loop() tail: publish each received value on change (mirrors the live sink
-    // surfacing the latest value; de-dupe on change since there is no host loop).
     let mut loop_tail = Vec::new();
-    if let (Some(expr), Some(last)) = (&driver, &last_var) {
+    // Keep the copy of what the Monitor shows, taken when its source fires,
+    // and publish it each time it reads differently (mirrors the live sink
+    // surfacing the latest value; de-dupe on change since there is no host
+    // loop).
+    if let Some(source) = shown {
+        let (copy, moved, seen, last, next) = (
+            shown_var(node),
+            moved_var(node),
+            format!("{prefix}_seen"),
+            format!("{prefix}_last_published"),
+            format!("{prefix}_next"),
+        );
+        let ty = source.value.storage_type();
+        extra_decls.push(format!("{ty} {copy} = {};", source.value.storage_zero()));
+        extra_decls.push(format!("bool {moved} = false;"));
+        extra_decls.push(format!("bool {seen} = false;"));
+        extra_decls.push(format!("String {last};"));
+        let binding = bind_pulses(&format!("{prefix}_shown"), std::slice::from_ref(source));
+        extra_decls.extend(binding.declarations);
+        loop_tail.extend(binding.loop_lines);
+        // The live Monitor starts at the number 0: a number (or the version
+        // of a colour or list, whose 0 is that number 0) moves it when it
+        // differs; a `bool` or a text is a new value the first time.
+        let differs = if matches!(source.value.ty, CppType::Double | CppType::Opaque) {
+            format!("{next} != {copy}")
+        } else {
+            format!("!{seen} || {next} != {copy}")
+        };
+        loop_tail.push(format!("{moved} = false;"));
+        loop_tail.push(format!("if ({}) {{", binding.fired[0]));
+        loop_tail.push(format!("  {ty} {next} = {};", source.value.stored()));
+        loop_tail.push(format!("  {moved} = {differs};"));
+        loop_tail.push(format!("  {copy} = {next}; {seen} = true;"));
+        loop_tail.push("}".to_string());
+        let copy_text = CppExpr { code: copy, ty: source.value.ty }.as_string();
         let mqtt_client = transport.mqtt_client();
-        loop_tail.push(format!("if ({mqtt_client}.connected()) {{"));
-        loop_tail.push(format!("  String {prefix}_next = {expr};"));
-        loop_tail.push(format!("  if ({prefix}_next != {last}) {{"));
-        loop_tail.push(format!("    {mqtt_client}.publish({topic_var}, {prefix}_next.c_str());"));
-        loop_tail.push(format!("    {last} = {prefix}_next;"));
+        loop_tail.push(format!("if ({seen} && {mqtt_client}.connected()) {{"));
+        loop_tail.push(format!("  String {prefix}_text = {copy_text};"));
+        loop_tail.push(format!("  if ({prefix}_text != {last}) {{"));
+        loop_tail.push(format!("    {mqtt_client}.publish({topic_var}, {prefix}_text.c_str());"));
+        loop_tail.push(format!("    {last} = {prefix}_text;"));
         loop_tail.push("  }".to_string());
         loop_tail.push("}".to_string());
     } else {
@@ -120,9 +185,48 @@ mod tests {
         lines.join("\n")
     }
 
+    /// Test-local default: a Monitor showing the first source wired into its
+    /// `value` port (shadows the glob-imported `emit`).
+    fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+        super::emit(node, inputs, inputs.first("value"))
+    }
+
+    /// The Monitor keeps a copy of what it shows, in the shown source's type,
+    /// taken when that source fires; it emits that copy each time it changes,
+    /// and a first `bool` is a change from the number 0 it started at.
+    #[test]
+    fn a_monitor_hands_on_a_copy_of_what_it_shows() {
+        let n = monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" }));
+        let shown = SourceExpr::level(CppExpr::boolean("relay_r_open"));
+        let e = super::emit(&n, &NodeInputs::default(), Some(&shown));
+        assert!(e.declarations.iter().any(|d| d == "bool monitor_mon_1_shown = false;"), "{:?}", e.declarations);
+        let body = joined(&e.loop_body);
+        assert!(
+            body.contains(
+                "if (monitor_mon_1_shown_fired0) {\n  bool monitor_mon_1_next = (relay_r_open);\n  \
+                 monitor_mon_1_moved = !monitor_mon_1_seen || monitor_mon_1_next != monitor_mon_1_shown;"
+            ),
+            "{body}"
+        );
+        let out = output(&n, Some(&shown));
+        assert_eq!((out.value.code.as_str(), out.value.ty), ("monitor_mon_1_shown", CppType::Bool));
+        assert_eq!(out.fired.as_deref(), Some("monitor_mon_1_moved"));
+        // Showing nothing, it holds the number 0.
+        assert_eq!(output(&n, None).value, CppExpr::number("0.0"));
+    }
+
+    /// A number moves the Monitor only when it differs from what it shows:
+    /// a first 0 is no change from the 0 it started at.
+    #[test]
+    fn a_number_moves_a_monitor_when_it_differs() {
+        let n = monitor("mon-1", json!({ "broker": "b", "uniqueId": "u", "wifiSsid": "net" }));
+        let shown = SourceExpr::level(CppExpr::number("sensor_s_value"));
+        let body = joined(&super::emit(&n, &NodeInputs::default(), Some(&shown)).loop_body);
+        assert!(body.contains("monitor_mon_1_moved = monitor_mon_1_next != monitor_mon_1_shown;"), "{body}");
+    }
+
     /// A single numeric source wired into the `value` port.
     fn value_input(expr: &str) -> NodeInputs {
-        use crate::codegen::wire::{CppExpr, SourceExpr};
         let mut inputs = NodeInputs::default();
         inputs.add("value", SourceExpr::level(CppExpr::number(expr)));
         inputs

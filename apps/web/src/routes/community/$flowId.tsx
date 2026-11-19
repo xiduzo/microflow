@@ -1,16 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { ReactFlowProvider } from "@xyflow/react";
 import { formatDistanceToNow } from "date-fns";
 import { GitForkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { trpc } from "@/lib/trpc";
-import { authClient } from "@/account/auth-client";
 import { track } from "@/lib/analytics";
 import { reportError } from "@/lib/report-error";
-import { saveLocalFlow } from "@/session";
-import { useActiveFlowStore } from "@/flows/active-flow";
+import { useOpenFlow } from "@/flows/use-open-flow";
 import { FlowThumbnail } from "@/flows/flow-thumbnail";
 import {
   AuthorLink,
@@ -26,51 +24,46 @@ export const Route = createFileRoute("/community/$flowId")({
 
 function CommunityFlowPage() {
   const { flowId } = Route.useParams();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const setActiveFlowId = useActiveFlowStore((s) => s.setActiveFlowId);
-  const { data: session } = authClient.useSession();
-  const isSignedIn = !!session?.user;
+  const openFlow = useOpenFlow();
 
   const { data, isLoading, error } = useQuery(
     trpc.community.get.queryOptions({ id: flowId })
   );
   const flow = data as CommunityFlow | undefined;
 
-  const forkMutation = useMutation(
-    trpc.community.fork.mutationOptions({
-      onSuccess: (result) => {
-        toast.success("Copied to your flows", { description: result.name });
-        track("community_flow_forked", { flow: flowId });
-        queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
-        queryClient.invalidateQueries({ queryKey: trpc.community.pathKey() });
-        setActiveFlowId(result.id);
-        navigate({ to: "/flow/$flowId/graph", params: { flowId: result.id } });
-      },
-      onError: (err) => toast.error("Failed to copy flow", { description: err.message }),
-    })
-  );
+  const forkMutation = useMutation(trpc.community.fork.mutationOptions());
 
   const handleFork = async () => {
-    if (isSignedIn) {
-      forkMutation.mutate({ id: flowId });
-      return;
-    }
-    // Signed-out: same path templates take — into the device-local flow.
     if (!flow) return;
-    try {
-      await saveLocalFlow(flow.nodes, flow.edges);
-    } catch (error) {
-      reportError(error, { source: "action", route: Route.id });
-      toast.error("Couldn't copy to your local flow", {
-        description: error instanceof Error ? error.message : undefined,
-      });
+    // Signed in, the server copies the published flow into the account. Signed
+    // out, its content replaces the local flow, as a template does.
+    const opened = await openFlow(
+      { nodes: flow.nodes, edges: flow.edges },
+      { account: () => forkMutation.mutateAsync({ id: flowId }) },
+    );
+
+    if (!opened.ok) {
+      const description =
+        opened.error instanceof Error ? opened.error.message : undefined;
+      if (opened.where === "account") {
+        toast.error("Failed to copy flow", { description });
+      } else {
+        reportError(opened.error, { source: "action", route: Route.id });
+        toast.error("Couldn't copy to your local flow", { description });
+      }
       return;
     }
-    track("community_flow_forked", { flow: flowId, local: true });
-    toast.success("Copied to your local flow");
-    setActiveFlowId("local");
-    navigate({ to: "/flow/$flowId/graph", params: { flowId: "local" } });
+
+    if (opened.where === "account") {
+      toast.success("Copied to your flows", { description: opened.name });
+      track("community_flow_forked", { flow: flowId });
+      queryClient.invalidateQueries({ queryKey: trpc.flow.list.queryKey() });
+      queryClient.invalidateQueries({ queryKey: trpc.community.pathKey() });
+    } else {
+      track("community_flow_forked", { flow: flowId, local: true });
+      toast.success("Copied to your local flow");
+    }
   };
 
   if (error) {

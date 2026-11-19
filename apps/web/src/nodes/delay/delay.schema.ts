@@ -7,6 +7,9 @@ export type Value = z.infer<typeof valueSchema>;
 export const dataSchema = baseDataSchema.extend({
   instance: z.literal("Delay").default("Delay"),
   delay: z.number().default(1000),
+  // Off: every signal is passed on, each `delay` ms after it arrived (up to 16
+  // waiting at once). On: a new signal replaces the waiting one, so only the
+  // last is passed on (debounce). The same live and in the exported sketch.
   forgetPrevious: z.boolean().default(false),
 });
 
@@ -17,6 +20,6 @@ export const defaults = {
   group: "decide",
   tags: ["trigger", "time-based", "stateful"],
   label: "Delay",
-  description: "Hold a signal for a set duration before passing it forward — also supports debounce",
+  description: "Pass every signal on after a set time — or, with debounce, only the last one",
   icon: "SnailIcon",
 };

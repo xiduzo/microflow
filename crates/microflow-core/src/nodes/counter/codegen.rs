@@ -3,10 +3,10 @@
 //! The live Counter starts at `0.0` and exposes four ports: `increment` and
 //! `decrement` step the count by one per received signal, `reset` returns it to
 //! zero, and `set` overwrites it with the incoming value. The generated C++
-//! binds each port to the edges actually wired into it: pulse ports fire on a
-//! source's emission tick (event sources) or on a rising edge of its level
-//! (state sources), and `set` fires whenever a wired source's value changes —
-//! one dispatch per new sample. Within one tick the ports apply in the fixed
+//! binds each port to the edges actually wired into it: every port acts on a
+//! source's emission tick (an event source) or on a change of its value (a
+//! level source) — one dispatch per emission, `set` taking the value it
+//! carries. Within one tick the ports apply in the fixed
 //! order `increment`, `decrement`, `reset`, `set`, keeping simultaneous firings
 //! deterministic. The count is a module-level `double` so it persists across
 //! `loop()` iterations exactly as the runtime's value persists across signals.
@@ -99,15 +99,13 @@ mod tests {
     }
 
     #[test]
-    fn rising_edge_sources_increment_only_on_entry() {
-        // A `true`-handle source (rising detector) counts presses only.
+    fn event_sources_increment_on_each_emission() {
+        // A `true`-handle source is an event: the count follows its fired
+        // flag, one per emission, with no detector of its own.
         let mut inputs = NodeInputs::default();
-        inputs.add("increment", SourceExpr::rising(CppExpr::boolean("btn")));
+        inputs.add("increment", SourceExpr::event(CppExpr::boolean("btn"), "(btn_changed && btn)"));
         let e = emit(&counter("ct-1"), &inputs);
-        assert!(
-            e.loop_body.iter().any(|l| l.contains("&& !counter_ct_1_increment_prev0")),
-            "rising sources keep their edge shape"
-        );
+        assert_eq!(e.loop_body, ["if ((btn_changed && btn)) { counter_ct_1_count += 1.0; }"]);
     }
 
     #[test]
@@ -124,7 +122,7 @@ mod tests {
     }
 
     #[test]
-    fn set_fires_on_value_change_not_rising_edge() {
+    fn set_fires_on_each_value_change() {
         let e = emit(&counter("ct-1"), &on("set", CppExpr::number("s")));
         let body = e.loop_body.join("\n");
         assert!(body.contains("!="), "set uses change detection: {body}");

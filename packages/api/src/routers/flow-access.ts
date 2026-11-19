@@ -10,8 +10,8 @@ const RANK: Record<FlowRole, number> = { viewer: 0, editor: 1, owner: 2 };
 
 /**
  * Resolve the role a user has on a flow. The single source of truth for
- * "who counts as what" — every procedure routes through this, whether it
- * fetched the flow itself (get) or via requireFlowAccess.
+ * "who counts as what" — every procedure reaches it through
+ * requireFlowAccess.
  */
 export function resolveFlowRole(
   flowRecord: { ownerId: string },

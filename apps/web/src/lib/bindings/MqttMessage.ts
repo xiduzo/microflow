@@ -7,7 +7,7 @@
 export type MqttMessage = { broker_id: string, topic: string, payload: string, 
 /**
  * Set when the message reached a subscribed component (Plain/TopicAware
- * flows in `runtime::commands`); `null` for direct broker subscriptions.
+ * flows in `runtime::cloud_performer`); `null` for direct broker subscriptions.
  * Always serialized so the ts-rs binding mirrors the struct verbatim.
  */
 component_id: string | null, };

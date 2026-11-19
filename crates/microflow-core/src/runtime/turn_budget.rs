@@ -27,7 +27,11 @@ use std::sync::Arc;
 /// Events one turn may drain before it is stopped.
 ///
 /// A turn is one stimulus (a serial chunk, a timer tick, an input, a flow
-/// update) and the cascade it causes. In a flow without a runaway loop each
+/// update) and the cascade it causes. Host input with several listeners (a
+/// key, a MIDI message) is one turn made of one cascade per listener, and the
+/// budget bounds each of those cascades on its own, so a listener whose
+/// cascade runs away does not cost the others the input. In a flow without a
+/// runaway loop each
 /// node emits a handful of events per stimulus — Gate and Compare fire `value`
 /// plus `true`/`false`, an aggregating input re-fires once per feeding edge —
 /// so a legitimate turn drains on the order of `nodes × fan-in`: tens to low

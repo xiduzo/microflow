@@ -1,7 +1,5 @@
 import { folder } from "leva";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Trigger">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { IconWithValue } from "../_base/icon-with-value";
 import { useNodeValue } from "@/nodes/live/node-data";
@@ -14,8 +12,7 @@ export function Trigger(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="bang" handleType="event" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

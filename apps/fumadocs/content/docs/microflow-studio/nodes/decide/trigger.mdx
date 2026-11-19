@@ -1,0 +1,38 @@
+---
+title: Trigger
+description: Fire once when a value rises or drops by a set amount within a short time.
+---
+
+The Trigger node watches a stream of values and fires once when the value moves far enough, fast enough, in one direction — for example, "fire when the value drops by 5 within 250 ms."
+
+This is different from the [Compare](/docs/microflow-studio/nodes/decide/compare) node, which checks every value on its own. The Trigger node looks at how the value *changes over time*. It fires once at the moment of the change, not on every incoming value.
+
+**Examples:**
+- Fire once when a light sensor reading drops quickly, like a hand passing over it
+- Fire once when a force sensor reading jumps, like a tap
+- Fire once when a reading climbs by 10% within half a second
+
+## How it works
+
+The Trigger node remembers the values that arrived in the last **within (ms)** milliseconds. Each new value is compared with the oldest of those values. When the difference goes the chosen way (increasing or decreasing) and is at least **by**, the node fires.
+
+After it fires, the node does not fire again until a value moves the other way from the oldest remembered value.
+
+The node remembers at most 16 values. When a value arrives while 16 are remembered, it takes the place of the newest one, so the oldest value — where the change counts from — stays. The node works the same in a live flow and in an exported Arduino sketch.
+
+## Inputs
+
+- **value** — the number to watch
+
+## Outputs
+
+- **bang** — fires once when the change happens, with the value that caused it
+
+## Settings
+
+Open the settings panel to configure:
+
+- **behaviour** — **when increasing** or **when decreasing** (the default)
+- **by** — how much the value must change. The default is 5
+- **within (ms)** — the time window to measure the change over, in milliseconds. The default is 250 ms
+- **percentage** *(advanced)* — when on, **by** is a percentage of the oldest remembered value instead of an amount

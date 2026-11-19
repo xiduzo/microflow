@@ -21,9 +21,3 @@ pub(crate) struct RelayConfig {
 fn default_pin() -> u8 {
     10
 }
-
-impl Default for RelayConfig {
-    fn default() -> Self {
-        Self { pin: default_pin(), r#type: RelayType::default() }
-    }
-}

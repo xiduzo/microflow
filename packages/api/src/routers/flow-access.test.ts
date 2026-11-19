@@ -1,78 +1,27 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { FlowDocument } from "@microflow/collab/schema";
+import { beforeEach, describe, expect, test } from "bun:test";
+import { sql } from "drizzle-orm";
+import type { Db } from "@microflow/db";
+import { flow, flowCollaborator } from "@microflow/db/schema/flow";
+import { user } from "@microflow/db/schema/auth";
+import { inviteByEmail } from "@microflow/db/flow-invitation";
+import { useTestDb } from "@microflow/db/testing";
+import { CLOSE_ACCESS_DENIED, yjsServer } from "@microflow/collab/server";
+import {
+  assertFlowRole,
+  FlowAccessDenied,
+  requireFlowAccess,
+  resolveFlowRole,
+  roleToAccess,
+  setFlowRole,
+  type FlowRole,
+} from "./flow-access";
 
 /**
- * Recording stand-ins for setFlowRole's two dependencies: the drizzle handle
- * (the row write) and the yjs server singleton (the live push). Only the call
- * shapes flow-access + flow-invitation use are modelled.
+ * Flow Access: the pure role rules, then the query and the role transition
+ * on the in-process Postgres with the real room server. A "live socket" below
+ * is a connection that joined the flow's room, so the live half of a role
+ * change is observed on it, not on a recorded call.
  */
-type Insert = { table: string; values: Record<string, unknown>; upsert: boolean };
-
-const recorded = {
-  inserts: [] as Insert[],
-  deletes: [] as string[],
-  pushes: [] as Array<{ flowId: string; userId: string; access: string }>,
-  users: [] as Array<{ id: string; email: string }>,
-};
-
-function reset() {
-  recorded.inserts = [];
-  recorded.deletes = [];
-  recorded.pushes = [];
-  recorded.users = [];
-}
-
-/** drizzle tables carry their name on a well-known symbol; read it loosely. */
-function tableName(table: unknown): string {
-  const symbol = Object.getOwnPropertySymbols(table as object).find((s) =>
-    s.toString().includes("Name"),
-  );
-  return symbol ? String((table as Record<symbol, unknown>)[symbol]) : "unknown";
-}
-
-mock.module("@microflow/db", () => ({
-  db: {
-    query: {
-      user: {
-        findFirst: async () => recorded.users[0] ?? undefined,
-      },
-    },
-    insert: (table: unknown) => ({
-      values: (values: Record<string, unknown>) => {
-        const insert: Insert = { table: tableName(table), values, upsert: false };
-        recorded.inserts.push(insert);
-        return {
-          onConflictDoUpdate: async () => {
-            insert.upsert = true;
-          },
-          then: (resolve: () => void) => resolve(),
-        };
-      },
-    }),
-    delete: (table: unknown) => ({
-      where: async () => {
-        recorded.deletes.push(tableName(table));
-      },
-    }),
-  },
-}));
-
-// `mock.module` is process-wide in `bun test`: whichever file mocks this
-// module first fixes its export names for every later importer, so every mock
-// of it exports the same names (`FlowDocument` too, which flow.ts imports).
-mock.module("@microflow/collab/server", () => ({
-  FlowDocument,
-  yjsServer: {
-    setAccess: (flowId: string, userId: string, access: string) => {
-      recorded.pushes.push({ flowId, userId, access });
-    },
-  },
-}));
-
-const { assertFlowRole, resolveFlowRole, roleToAccess, setFlowRole, FlowAccessDenied } =
-  await import("./flow-access");
-type FlowRole = import("./flow-access").FlowRole;
-const { inviteByEmail } = await import("@microflow/db/flow-invitation");
 
 const OWNER = "user-owner";
 const OTHER = "user-other";
@@ -141,52 +90,170 @@ describe("roleToAccess", () => {
   });
 });
 
+// ============================================================================
+// On real SQL
+// ============================================================================
+
+const FLOW = "flow-1";
+let db: Db;
+
+async function seed() {
+  db = await useTestDb();
+  await db.insert(user).values([
+    { id: OWNER, name: "Owner", email: "owner@example.com" },
+    { id: OTHER, name: "Other", email: "her@example.com" },
+  ]);
+  await db.insert(flow).values({ id: FLOW, name: "Blinky", ownerId: OWNER });
+}
+
+/** Who holds what on the flow, read back from the table. */
+async function grants() {
+  const rows = await db.select().from(flowCollaborator);
+  return rows.map((row) => `${row.flowId}:${row.userId}:${row.role}`);
+}
+
+/** Attach a socket to the flow's room as `userId`, recording how it is closed. */
+async function liveSocket(userId: string, canWrite: boolean) {
+  const closes: Array<number | undefined> = [];
+  const connection = await yjsServer.join(
+    FLOW,
+    { send: () => {}, close: (code?: number) => void closes.push(code) },
+    userId,
+    canWrite,
+  );
+  return { connection, closes };
+}
+
+describe("requireFlowAccess", () => {
+  beforeEach(seed);
+
+  test("the owner is an owner, and gets the flow row back", async () => {
+    const { flow: found, role } = await requireFlowAccess(FLOW, OWNER, "owner");
+
+    expect(role).toBe("owner");
+    expect(found).toMatchObject({ id: FLOW, name: "Blinky", ownerId: OWNER });
+  });
+
+  test("a collaborator gets the role on their grant", async () => {
+    await setFlowRole(FLOW, OTHER, "viewer");
+    expect((await requireFlowAccess(FLOW, OTHER, "viewer")).role).toBe("viewer");
+
+    await setFlowRole(FLOW, OTHER, "editor");
+    expect((await requireFlowAccess(FLOW, OTHER, "viewer")).role).toBe("editor");
+    expect((await requireFlowAccess(FLOW, OTHER, "editor")).role).toBe("editor");
+  });
+
+  test("a role below the minimum is denied", async () => {
+    await setFlowRole(FLOW, OTHER, "viewer");
+
+    await expect(requireFlowAccess(FLOW, OTHER, "editor")).rejects.toThrow("Access denied");
+    await setFlowRole(FLOW, OTHER, "editor");
+    await expect(requireFlowAccess(FLOW, OTHER, "owner")).rejects.toThrow("Access denied");
+  });
+
+  test("a user with no grant is denied, and a grant on another flow does not count", async () => {
+    await db.insert(flow).values({ id: "flow-2", name: "Other flow", ownerId: OWNER });
+    await setFlowRole("flow-2", OTHER, "editor");
+
+    const denied = await requireFlowAccess(FLOW, OTHER, "viewer").catch((error) => error);
+
+    expect(denied).toBeInstanceOf(FlowAccessDenied);
+    expect(denied.kind).toBe("denied");
+  });
+
+  test("a revoked collaborator is denied again", async () => {
+    await setFlowRole(FLOW, OTHER, "editor");
+    await setFlowRole(FLOW, OTHER, null);
+
+    await expect(requireFlowAccess(FLOW, OTHER, "viewer")).rejects.toThrow("Access denied");
+  });
+
+  test("a flow that does not exist is not found, whoever asks", async () => {
+    const missing = await requireFlowAccess("no-such-flow", OWNER, "viewer").catch(
+      (error) => error,
+    );
+
+    expect(missing).toBeInstanceOf(FlowAccessDenied);
+    expect(missing.kind).toBe("not-found");
+    expect(missing.message).toBe("Flow not found");
+  });
+
+  test("a database failure is not an access decision", async () => {
+    // No such table: the query itself fails, as it would on a lost connection.
+    await db.execute(sql`ALTER TABLE flow_collaborator RENAME TO flow_collaborator_away`);
+    try {
+      const failure = await requireFlowAccess(FLOW, OTHER, "viewer").catch((error) => error);
+
+      expect(failure).toBeInstanceOf(Error);
+      expect(failure).not.toBeInstanceOf(FlowAccessDenied);
+    } finally {
+      await db.execute(sql`ALTER TABLE flow_collaborator_away RENAME TO flow_collaborator`);
+    }
+  });
+});
+
 describe("setFlowRole", () => {
-  beforeEach(reset);
+  beforeEach(seed);
 
-  test("granting a role writes the row AND pushes live access", async () => {
-    await setFlowRole("flow-1", "user-2", "editor");
+  test("granting twice leaves one row, with the later role", async () => {
+    await setFlowRole(FLOW, OTHER, "viewer");
+    await setFlowRole(FLOW, OTHER, "editor");
 
-    expect(recorded.inserts.length).toBe(1);
-    expect(recorded.inserts[0]!.table).toBe("flow_collaborator");
-    expect(recorded.inserts[0]!.upsert).toBe(true);
-    expect(recorded.inserts[0]!.values).toMatchObject({
-      flowId: "flow-1",
-      userId: "user-2",
-      role: "editor",
-    });
-    expect(recorded.pushes).toEqual([
-      { flowId: "flow-1", userId: "user-2", access: "write" },
-    ]);
+    expect(await grants()).toEqual([`${FLOW}:${OTHER}:editor`]);
   });
 
-  test("changing to viewer pushes read access", async () => {
-    await setFlowRole("flow-1", "user-2", "viewer");
+  test("promoting a viewer lets their live socket write", async () => {
+    await setFlowRole(FLOW, OTHER, "viewer");
+    const { connection } = await liveSocket(OTHER, false);
 
-    expect(recorded.inserts[0]!.values).toMatchObject({ role: "viewer" });
-    expect(recorded.pushes).toEqual([
-      { flowId: "flow-1", userId: "user-2", access: "read" },
-    ]);
+    await setFlowRole(FLOW, OTHER, "editor");
+
+    expect(connection.canWrite).toBe(true);
+    connection.close();
   });
 
-  test("revoking deletes the row AND pushes none", async () => {
-    await setFlowRole("flow-1", "user-2", null);
+  test("demoting an editor stops their live socket writing, without closing it", async () => {
+    await setFlowRole(FLOW, OTHER, "editor");
+    const { connection, closes } = await liveSocket(OTHER, true);
 
-    expect(recorded.inserts.length).toBe(0);
-    expect(recorded.deletes).toEqual(["flow_collaborator"]);
-    expect(recorded.pushes).toEqual([
-      { flowId: "flow-1", userId: "user-2", access: "none" },
-    ]);
+    await setFlowRole(FLOW, OTHER, "viewer");
+
+    expect(connection.canWrite).toBe(false);
+    expect(closes).toEqual([]);
+    expect(await grants()).toEqual([`${FLOW}:${OTHER}:viewer`]);
+    connection.close();
   });
 
-  // Regression: the invitation-accept path used to write the row without the
+  test("revoking deletes the grant and closes their live socket for good", async () => {
+    await setFlowRole(FLOW, OTHER, "editor");
+    const { closes } = await liveSocket(OTHER, true);
+    const bystander = await liveSocket(OWNER, true);
+
+    await setFlowRole(FLOW, OTHER, null);
+
+    expect(await grants()).toEqual([]);
+    expect(closes).toEqual([CLOSE_ACCESS_DENIED]);
+    // Only the revoked user's sockets are touched.
+    expect(bystander.closes).toEqual([]);
+    expect(bystander.connection.canWrite).toBe(true);
+    bystander.connection.close();
+  });
+
+  test("revoking somebody who holds nothing is a no-op", async () => {
+    await setFlowRole(FLOW, OTHER, null);
+
+    expect(await grants()).toEqual([]);
+  });
+
+  // Regression: the invitation grant path used to write the row without the
   // live push, so a collaborator whose role changed via re-invite kept their
   // old room access until reconnect.
-  test("inviteByEmail granted through setFlowRole pushes live access too", async () => {
-    recorded.users = [{ id: "user-2", email: "her@example.com" }];
+  test("inviteByEmail granted through setFlowRole reaches the live socket too", async () => {
+    await setFlowRole(FLOW, OTHER, "editor");
+    const { connection } = await liveSocket(OTHER, true);
 
     const result = await inviteByEmail({
-      flowId: "flow-1",
+      flowId: FLOW,
       flowName: "Blinky",
       email: "her@example.com",
       role: "viewer",
@@ -195,10 +262,9 @@ describe("setFlowRole", () => {
       mailer: async () => {},
     });
 
-    expect(result).toEqual({ kind: "granted", userId: "user-2" });
-    expect(recorded.inserts[0]!.table).toBe("flow_collaborator");
-    expect(recorded.pushes).toEqual([
-      { flowId: "flow-1", userId: "user-2", access: "read" },
-    ]);
+    expect(result).toEqual({ kind: "granted", userId: OTHER });
+    expect(await grants()).toEqual([`${FLOW}:${OTHER}:viewer`]);
+    expect(connection.canWrite).toBe(false);
+    connection.close();
   });
 });

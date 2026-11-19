@@ -15,7 +15,7 @@
 // means adding it in both places, deliberately: the Rust side is what decides
 // which binaries this app may ever execute, and it will not take our word for it.
 
-import type { RelayCommand } from "./mcp-bridge";
+import type { RelayCommand } from "./agent-cli-port";
 
 /** How to ask one CLI for a single non-interactive answer. */
 export type CliProvider = {

@@ -21,7 +21,8 @@ export {
 } from "./indexeddb-sync-adapter";
 export { RecordingSyncAdapter } from "./recording-sync-adapter";
 
-export { createLocalSession, createCloudSession } from "./flow-session";
+export { createLocalSession, createCloudSession, provideHandleSets } from "./flow-session";
+export type { HandleSets } from "./handle-pruning";
 export { createPreviewSession } from "./preview-session";
 export { PreviewFlowSessionProvider } from "./preview-flow-session-provider";
 export { saveLocalFlow, loadLocalFlow } from "./local-flow";
@@ -62,4 +63,4 @@ export { useFlowMeta } from "./use-flow-meta";
 export { useFlowHistory } from "./use-flow-history";
 export { useReactFlowBridge } from "./use-react-flow-bridge";
 export { ReactFlowBridge } from "./react-flow-bridge";
-export { removeNodesWithEdges, removeEdgesAtHandles } from "./flow-edits";
+export { removeNodesWithEdges } from "./flow-edits";

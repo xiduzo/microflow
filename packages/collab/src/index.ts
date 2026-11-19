@@ -1,6 +1,6 @@
 // Client-side exports (browser-safe)
-export { FlowDocument, upgradeLegacyNodes, isValueEqual } from "./schema";
-export type { FlowMeta, FlowNode, FlowEdge, FlowData } from "./schema";
+export { FlowDocument, upgradeLegacyNodes, isValueEqual, decodeEdge, EDGE_TYPE, PRUNE_ORIGIN } from "./schema";
+export type { FlowMeta, FlowNode, FlowEdge, FlowData, EdgeDefect } from "./schema";
 
 export { SyncProvider } from "./sync-provider";
 export type {

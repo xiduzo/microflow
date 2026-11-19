@@ -5,6 +5,8 @@
 // --- Declarations ---
 // node compare-1 (Compare)
 bool compare_compare_1_result = false;
+bool compare_compare_1_fired = false;
+double compare_compare_1_in_prev0 = 0.0;
 // node counter-1 (Counter)
 double counter_counter_1_count = 0.0;
 // node interval-1 (Interval)
@@ -16,8 +18,6 @@ bool interval_interval_1_running = true;
 // node relay-1 (Relay)
 const uint8_t relay_relay_1_pin = 7;
 bool relay_relay_1_open = false;
-bool relay_relay_1_true_prev0 = false;
-bool relay_relay_1_false_prev0 = false;
 
 void setup() {
   // --- Setup ---
@@ -41,14 +41,14 @@ void loop() {
       interval_interval_1_fired = true;
     }
     if (interval_interval_1_fired) { counter_counter_1_count += 1.0; }
-    compare_compare_1_result = (((double)(counter_counter_1_count)) == 10.0);
-    bool relay_relay_1_true_now0 = (compare_compare_1_result);
-    bool relay_relay_1_true_fired0 = relay_relay_1_true_now0 && !relay_relay_1_true_prev0;
-    relay_relay_1_true_prev0 = relay_relay_1_true_now0;
-    if ((relay_relay_1_true_fired0)) { digitalWrite(relay_relay_1_pin, HIGH); relay_relay_1_open = true; }
-    bool relay_relay_1_false_now0 = ((!compare_compare_1_result));
-    bool relay_relay_1_false_fired0 = relay_relay_1_false_now0 && !relay_relay_1_false_prev0;
-    relay_relay_1_false_prev0 = relay_relay_1_false_now0;
-    if ((relay_relay_1_false_fired0)) { digitalWrite(relay_relay_1_pin, LOW); relay_relay_1_open = false; }
+    double compare_compare_1_in_now0 = ((double)(counter_counter_1_count));
+    bool compare_compare_1_in_fired0 = (compare_compare_1_in_now0 != compare_compare_1_in_prev0);
+    compare_compare_1_in_prev0 = compare_compare_1_in_now0;
+    compare_compare_1_fired = (compare_compare_1_in_fired0);
+    if (compare_compare_1_fired) {
+      compare_compare_1_result = (fabs(((double)(counter_counter_1_count)) - 10.0) < 0.0000000000000002220446049250313);
+    }
+    if (((compare_compare_1_fired && compare_compare_1_result))) { digitalWrite(relay_relay_1_pin, HIGH); relay_relay_1_open = true; }
+    if (((compare_compare_1_fired && !compare_compare_1_result))) { digitalWrite(relay_relay_1_pin, LOW); relay_relay_1_open = false; }
   }
 }

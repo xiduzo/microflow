@@ -1,0 +1,14 @@
+# The core runs in the browser as wasm32-unknown-unknown, where reading the OS
+# clock panics ("time not implemented on this platform"). Time in the core is
+# the engine's clock: `RuntimeContext::now_ms` (host-fed through
+# `FlowRuntime::set_now`) and wakeups (`RuntimeContext::schedule_wakeup`).
+# There is no allowed use; a test that needs one says why in an
+# `#[allow(clippy::disallowed_types, clippy::disallowed_methods)]`.
+disallowed-types = [
+  { path = "std::time::Instant", reason = "panics on wasm32-unknown-unknown; use RuntimeContext::now_ms" },
+  { path = "std::time::SystemTime", reason = "panics on wasm32-unknown-unknown; use RuntimeContext::now_ms" },
+]
+disallowed-methods = [
+  { path = "std::time::Instant::now", reason = "panics on wasm32-unknown-unknown; use RuntimeContext::now_ms" },
+  { path = "std::time::SystemTime::now", reason = "panics on wasm32-unknown-unknown; use RuntimeContext::now_ms" },
+]

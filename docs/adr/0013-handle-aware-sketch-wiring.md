@@ -1,6 +1,6 @@
 # 0013 — Sketch generation wires by handle, typed, in dataflow order
 
-Status: accepted (2026-07)
+Status: accepted (2026-07); amended (2026-11-13, 2026-11-19, 2026-11-19); refined by [ADR-0050](0050-on-device-emission-timing-follows-the-live-node.md)
 
 ## Context
 
@@ -33,23 +33,29 @@ That model could not represent the wire contract:
 Codegen resolves every edge through a typed, handle-aware wiring model
 (`codegen/wire.rs`), the static twin of the runtime router:
 
-- **`CppExpr { code, ty: Bool | Double | Str }`** — every source expression is
-  typed; consumers coerce through `as_bool` / `as_double(_or)` / `as_u8_or` /
-  `as_string`, transcribing `ComponentValue`'s conversions (strings carry no
-  number and fall back to the dispatch-site default; `as_u8` clamps 0..=255).
+- **`CppExpr { code, ty: Bool | Double | Str | Opaque }`** — every source
+  expression is typed; consumers coerce through `as_bool` / `as_double(_or)` /
+  `as_u8_or` / `as_string`, transcribing `ComponentValue`'s conversions
+  (strings carry no number and fall back to the dispatch-site default; `as_u8`
+  clamps 0..=255). `Opaque` is a colour or a list, held as a version (see the
+  amendment below).
 - **`SourceExpr`** — what a Node exposes on one emit handle:
   `output_expression(node, handle)` in `codegen/mod.rs` mirrors each
-  component's `emits()` list. Event-shaped handles (Delay/Interval `event`,
-  Trigger `bang`) carry an explicit `fired` flag variable that is true only on
-  the emitting loop iteration; level handles carry a `Detector` — `Change` for
-  `value`-style handles (the runtime emits on every update, both button edges)
-  and `RisingEdge` for `true`/`false` state handles (emitted only on entry).
+  component's `emits()` list. A handle is an **event** or a **level**, by how
+  the live Node emits on it ([ADR-0050](0050-on-device-emission-timing-follows-the-live-node.md)):
+  an event (Delay/Interval `event`, Trigger `bang`, Compare/Gate and
+  Button/Switch `true`/`false`) carries an explicit `fired` flag that is true
+  on exactly the loop iterations the live Node emits; a level (a `value` the
+  live Node emits through `set_value`) has none, and a pulse-consuming port
+  detects its changes.
 - **`NodeInputs`** — per target, every wired source grouped by the edge's real
   `target_handle`, in deterministic order. Emitters bind their actual ports
   (`emit(node, &NodeInputs)`): pulse ports consume firings via
   `bind_pulses` (the shared edge/change-detector primitive that Counter, Delay
   and the I2C trigger previously hand-rolled), level ports sample coerced
-  values, and aggregating Nodes (Calculate, Gate — the only
+  values (an output that drives hardware from a level port acts when the
+  value changes, see the amendment below), and aggregating Nodes (Calculate,
+  Gate — the only
   `aggregates_inputs` components) fold over *all* sources like the runtime
   snapshot delivery.
 - **Dataflow loop order** — `loop()` fragments are concatenated in topological
@@ -72,8 +78,8 @@ emitted action — the "single-driver limitation" classifications are gone.
 ## Consequences
 
 - Generated behavior matches the runtime router per handle: `button.true →
-  led.toggle` toggles on press; `compare.true → counter.reset` resets on the
-  crossing; `map.to + constant.value → calculate.value` sums both inputs.
+  led.toggle` toggles on press; `compare.true → counter.reset` resets on each
+  check that passes; `map.to + constant.value → calculate.value` sums both inputs.
 - A String source wired into a numeric port compiles (and reproduces the
   runtime's fallback) instead of producing invalid C++.
 - Mqtt publish and Llm request emission is pulse-driven — one message/request
@@ -94,8 +100,8 @@ can depend on the wiring (a Led's `value` port demands PWM only when an edge
 feeds it), which is why `edges` is an argument.
 
 An analog-reading Node's pin label resolves the way the live runtime reads it
-(`firmata::PinLabel`, through `codegen::emit::analog_label` /
-`resolve_analog`): `A<n>` is the board's `n`-th analog input, and a number is
+(a `firmata::PinLabel` held by the Node's config and resolved against the
+target by `codegen::emit::resolve_analog`): `A<n>` is the board's `n`-th analog input, and a number is
 that pin — `15` is the Uno's `A1`, never `A15`. A number that is not an analog
 input is a demand on that pin, and both readers flag it as such.
 
@@ -119,3 +125,61 @@ list of Node types and pin fields, kept in step by hand, and the first place the
 live behaviour and the exported sketch disagreed would have been a pin. The
 runtime depends on the ungated `codegen` module for this, and the dependency runs
 one way: codegen knows nothing of the runtime.
+
+## Amendment (2026-11-19): an emitter can refuse a Node
+
+An emitter that has settings reads them through `config::resolve` and returns
+`Result<NodeEmission, UnreadableConfig>`: `emit(node, &NodeInputs)` either
+yields the Node's C++ or says which setting could not be read. `emit_node`
+passes the refusal up, and generation turns each one into an error-severity
+`ValidationProblem` (`validate::unreadable_config`) next to the flow's other
+problems. One such problem means no sketch, the same gate that refuses
+colliding identifier tokens. A Node whose settings cannot be read has no
+`pin_demands`, so neither sketch validation nor the live pin check judges a pin
+it does not have. Unmodelled *wiring* still generates with a `// note:`; only
+unreadable *settings* refuse. The decision and its reasons are [ADR-0033](0033-one-node-config-resolution.md).
+
+## Amendment (2026-11-19): every declared Emit has a value on the board, or a reasoned refusal
+
+A flow that works live and does nothing once uploaded is the fault this
+amendment closes: an output Node (Led, Relay, Piezo, Servo, Rgb, Matrix,
+Pixel, Monitor) carried no value in the sketch, so an edge from it produced
+only a `// note:`.
+
+- **Output Nodes carry their live value.** `output_expression` gives each one
+  the value its runtime twin emits: a Led's or Vibration's level (one byte,
+  read as `byte / 255`), a Relay's open state, whether a Piezo is sounding, a
+  Servo's position or continuous speed (it starts at the centre of its range,
+  and a continuous Servo reads 0 after `stop`), a Trigger's triggered state,
+  and a Pixel's `event` as a flag on the tick a port acted.
+- **`CppType::Opaque`** — a colour or a list (an Rgb, a Matrix, a Pixel strip)
+  has no number and no text on the board. Its expression is a `uint8_t`
+  version that its producer moves on, never to 0, each time the value changes,
+  exactly when the runtime emits it. A consumer can count and detect changes
+  on it; `as_number` is `None`, and a payload renders it as nothing. Version 0
+  is the plain number 0 an output holds before it shows anything.
+- **`SourceExpr::starting_at(initial)`** — a source whose runtime twin holds a
+  value other than its type's zero before it first emits (a Servo starts
+  centred) says so, and a change detector starts from that value, so a source
+  that has not moved does not fire on the first tick.
+- **A Monitor hands on what it shows, in its source's type.** Its output
+  depends on the flow, so `Outputs` (`codegen/mod.rs`) resolves it through any
+  chain of Monitors and remembers it, so every consumer and the Monitor's own
+  declaration agree on one type. A chain that comes back round to its Monitor
+  shows nothing along that path.
+- **A level port that drives hardware acts on a change.** A Led's `value` and a
+  Servo's `value` / `rotate` write when their source changes, not on every
+  `loop()` pass. A standard Servo's `stop` is refused with a note, as it is
+  live. Calculate leaves out colour and list inputs.
+- **Every declared Emit has a value or a reasoned refusal.** An Emit with no
+  on-device value is listed in `codegen::no_value_reason` with the reason the
+  sketch's note gives (Music, the Pn532, an Llm's `thinking` / `done` /
+  `error`). The guard
+  `every_declared_emit_has_an_on_device_value_or_a_reasoned_refusal`
+  (`codegen/parity.rs`), driven from the live registry, fails on a declared
+  Emit with neither, and on a listed Emit that has a value under every setting,
+  so the list cannot go stale.
+
+Mqtt's `direction` is read the same way on both sides: exactly `publish`
+publishes, any other value subscribes (`nodes/mqtt/config.rs`).
+

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 // The core module deliberately imports nothing at runtime, so this test needs
 // no env, no stores, no wasm and no browser.
 import {
@@ -37,6 +37,7 @@ function fakeReactor(): ReactorHandle & { disposed: boolean; flows: unknown[] } 
     },
     feedBytes() {},
     dispatchToNode() {},
+    keyEvent() {},
     dispose() {
       reactor.disposed = true;
     },
@@ -242,6 +243,35 @@ describe("engine fault", () => {
     controller.pushFlowUpdate({ nodes: [], edges: [] } as never);
     await controller.settled();
     expect(h.reactors).toHaveLength(1);
+  });
+
+  test("a reactor whose teardown throws is still let go of, and the fault still shown", async () => {
+    const logged = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const h = harness();
+      const controller = new BoardController(h.deps);
+      controller.start();
+      await controller.settled();
+      const reactor = h.reactors[0];
+      reactor.dispose = () => {
+        throw new Error("a broker connection would not close");
+      };
+
+      // The fault arrives in a timer callback or the serial read loop: nothing
+      // may be thrown back at it.
+      expect(() => h.faultEngine("unreachable executed")).not.toThrow();
+
+      expect(h.boardStates.at(-1)).toEqual({ state: "error", error: "unreachable executed" });
+      expect(h.toasts).toContain("error:unreachable executed");
+      // The dead reactor is never handed a flow again.
+      expect(controller.pushFlowUpdate({ nodes: [], edges: [] } as never)).toEqual({
+        ok: false,
+        error: "unreachable executed",
+      });
+      expect(reactor.flows).toEqual([]);
+    } finally {
+      logged.mockRestore();
+    }
   });
 });
 

@@ -7,9 +7,7 @@
       "hold",
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Calculate": {
     "emits": [
@@ -77,9 +75,7 @@
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Function": {
     "emits": [
@@ -103,9 +99,7 @@
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Hotkey": {
     "emits": [
@@ -140,9 +134,7 @@
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Led": {
     "emits": [
@@ -203,9 +195,7 @@
       "false",
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Mqtt": {
     "emits": [
@@ -271,17 +261,13 @@
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Proximity": {
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "RangeMap": {
     "emits": [
@@ -318,9 +304,7 @@
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Servo": {
     "emits": [
@@ -343,9 +327,7 @@
     ]
   },
   "Stepper": {
-    "emits": [
-      "value"
-    ],
+    "emits": [],
     "ports": [
       "value",
       "to",
@@ -361,17 +343,13 @@
       "false",
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Tilt": {
     "emits": [
       "value"
     ],
-    "ports": [
-      "read"
-    ]
+    "ports": []
   },
   "Trigger": {
     "emits": [

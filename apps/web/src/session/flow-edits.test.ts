@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { FlowDocument, type FlowEdge, type FlowNode } from "@microflow/collab";
-import { removeEdgesAtHandles, removeNodesWithEdges } from "./flow-edits";
+import { removeNodesWithEdges } from "./flow-edits";
 import { readOnlyDocument } from "./read-only-document";
 
 const mkNode = (id: string): FlowNode => ({ id, type: "Led", position: { x: 0, y: 0 }, data: {} });
@@ -65,28 +65,5 @@ describe("dangling-edge pruning through a Viewer's document", () => {
     doc.deleteNode("b"); // a later transaction that would trigger a prune
     expect(doc.getEdgeIds().sort()).toEqual(["ab", "bc", "ca"]);
     stop?.();
-  });
-});
-
-describe("removeEdgesAtHandles", () => {
-  test("removes only the edges on the named handles of that node", () => {
-    const doc = seeded();
-    expect(removeEdgesAtHandles(doc, "c", ["other"])).toEqual(["ca"]);
-    expect(doc.getEdgeIds().sort()).toEqual(["ab", "bc"]);
-  });
-
-  test("is a no-op through a Viewer's read-only document", () => {
-    const doc = seeded();
-    removeEdgesAtHandles(readOnlyDocument(doc), "c", ["other", "in"]);
-    expect(doc.getEdgeIds()).toHaveLength(3);
-  });
-
-  test("why it exists: the raw Y.Map under the proxy is still writable", () => {
-    // What `useDeleteHandles` used to do. The proxy guards mutator *methods*;
-    // `edges` is the bare Y.Map and passes straight through.
-    const doc = seeded();
-    const viewer = readOnlyDocument(doc);
-    viewer.doc.transact(() => viewer.edges.delete("ca"), "local");
-    expect(doc.hasEdge("ca")).toBe(false);
   });
 });

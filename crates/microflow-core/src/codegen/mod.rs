@@ -35,12 +35,14 @@ pub mod wire;
 #[cfg(test)]
 mod parity;
 
+use crate::config::UnreadableConfig;
 use crate::flow::{FlowNode, FlowUpdate};
 use crate::nodes;
 use board::BoardTarget;
 use credentials::Credentials;
 use emit::NodeEmission;
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use ts_rs::TS;
 use validate::ValidationProblem;
@@ -49,9 +51,10 @@ use wire::{CppExpr, NodeInputs, SourceExpr};
 /// The outcome of generating a Sketch for a selected board target.
 ///
 /// Generation always emits the `.ino` source unless a problem of
-/// [`validate::ProblemSeverity::Error`] severity exists — those mean the
-/// emitted C++ itself would not compile (e.g. two Node ids sanitizing to the
-/// same identifier). Board-fit conflicts (missing pin, missing networking, …)
+/// [`validate::ProblemSeverity::Error`] severity exists — those mean no
+/// faithful Sketch can be written: the emitted C++ itself would not compile
+/// (two Node ids sanitizing to the same identifier), or a Node's settings
+/// could not be read. Board-fit conflicts (missing pin, missing networking, …)
 /// are [`validate::ProblemSeverity::Warning`]s: the Sketch is still emitted and
 /// the warnings ride alongside it, so the Author decides whether they apply to
 /// their actual hardware.
@@ -70,8 +73,9 @@ pub struct GenerationOutcome {
 /// Generate the Arduino sketch for `flow` targeting `target`.
 ///
 /// First validates the Flow against the selected board target: error-severity
-/// problems (uncompilable C++) suppress the Sketch; warning-severity problems
-/// (board-fit conflicts) are returned alongside the emitted Sketch.
+/// problems (uncompilable C++, a Node whose settings cannot be read) suppress
+/// the Sketch; warning-severity problems (board-fit conflicts) are returned
+/// alongside the emitted Sketch.
 ///
 /// The traversal is deterministic (Nodes visited in `id` order) and always
 /// terminates, so the same `(flow, target)` always yields byte-identical
@@ -110,9 +114,17 @@ pub fn generate_with_credentials(
     target: &BoardTarget,
     credentials: Option<&Credentials>,
 ) -> Result<GenerationOutcome, String> {
-    // Errors mean the emitted C++ itself would not compile — only they gate
-    // emission. Warnings (board-fit conflicts) ride alongside the Sketch.
-    let problems = validate::validate(flow, target);
+    // Warnings (board-fit conflicts) ride alongside the Sketch; only errors
+    // gate it. Emission finds the Nodes whose settings it cannot read, so a
+    // Flow's errors are all reported together.
+    let mut problems = validate::validate(flow, target);
+    let sketch = match emit_sketch(flow, target, credentials) {
+        Ok(sketch) => Some(sketch),
+        Err(unreadable) => {
+            problems.extend(unreadable);
+            None
+        }
+    };
     let has_errors = problems
         .iter()
         .any(|p| p.severity == validate::ProblemSeverity::Error);
@@ -125,40 +137,50 @@ pub fn generate_with_credentials(
         return Ok(GenerationOutcome { sketch: None, problems });
     }
 
-    Ok(GenerationOutcome {
-        sketch: Some(emit_sketch(flow, target, credentials)),
-        problems,
-    })
+    Ok(GenerationOutcome { sketch, problems })
 }
 
-/// Assemble the Arduino sketch text for an already-validated Flow.
+/// Assemble the Arduino sketch text for `flow`.
 ///
 /// Pin numbers and capability usage reflect `target`'s facts. Separated from
 /// [`generate`] so the validation gate is the single entry point.
+///
+/// # Errors
+///
+/// One [`validate::unreadable_config`] problem per Node whose settings could
+/// not be read, in Node-`id` order — no Sketch is assembled around a Node on
+/// substituted defaults.
 fn emit_sketch(
     flow: &FlowUpdate,
     target: &BoardTarget,
     credentials: Option<&Credentials>,
-) -> String {
+) -> Result<String, Vec<ValidationProblem>> {
     let order = nodes_in_id_order(flow);
-    let wiring = wire_inputs(flow);
+    let outputs = Outputs::new(flow);
+    let wiring = wire_inputs(&outputs);
 
     // Emit each Node in deterministic id order, collecting fragments. The
     // target supplies the board's pin facts so emission is board-correct.
     let empty = NodeInputs::default();
-    let emissions: Vec<NodeEmission> = order
-        .iter()
-        .map(|node| {
-            let inputs = wiring.inputs.get(node.id.as_str()).unwrap_or(&empty);
-            let mut emission = emit_node(node, inputs, target, credentials);
-            // Surface wiring the generated code cannot honor as explicit
-            // comments on the Node instead of silently dropping the edges.
-            if let Some(notes) = wiring.notes.get(node.id.as_str()) {
-                emission.declarations.extend(notes.iter().cloned());
+    let mut emissions: Vec<NodeEmission> = Vec::with_capacity(order.len());
+    let mut unreadable: Vec<ValidationProblem> = Vec::new();
+    for node in &order {
+        let inputs = wiring.inputs.get(node.id.as_str()).unwrap_or(&empty);
+        match emit_node(node, inputs, target, credentials, &outputs) {
+            Ok(mut emission) => {
+                // Surface wiring the generated code cannot honor as explicit
+                // comments on the Node instead of silently dropping the edges.
+                if let Some(notes) = wiring.notes.get(node.id.as_str()) {
+                    emission.declarations.extend(notes.iter().cloned());
+                }
+                emissions.push(emission);
             }
-            emission
-        })
-        .collect();
+            Err(reason) => unreadable.push(validate::unreadable_config(node, &reason)),
+        }
+    }
+    if !unreadable.is_empty() {
+        return Err(unreadable);
+    }
 
     // Loop bodies run in dataflow (topological) order so a value produced this
     // tick is consumed this tick, matching the runtime's event cascade instead
@@ -186,7 +208,7 @@ fn emit_sketch(
     sketch.push_str(&setup_region(&emissions, preamble.as_ref()));
     sketch.push_str(&loop_region(&emissions, &loop_permutation));
 
-    sketch
+    Ok(sketch)
 }
 
 /// Every Node exactly once, in stable `id` order — the deterministic spine for
@@ -274,15 +296,22 @@ fn header(order: &[&FlowNode], target: &BoardTarget) -> String {
 /// few board-sensitive emitters need (the Servo library differs per core; the
 /// analog `A{n}` macros resolve to per-board pin numbers).
 /// `credentials` is the generate-time surface the Mqtt/Llm emitters prefer
-/// over node data (see those emitters' docs).
+/// over node data (see those emitters' docs). `outputs` tells a Monitor which
+/// source it shows, so it keeps its copy in the type its consumers read.
+///
+/// Every emitter that has settings reads them through
+/// [`crate::config::resolve`] — the step the live `ComponentRegistry` builds
+/// the same Node through — and fails with [`UnreadableConfig`] rather than
+/// emit the Node on defaults. The emitters wrapped in `Ok` read no config.
 fn emit_node(
     node: &FlowNode,
     inputs: &NodeInputs,
     target: &BoardTarget,
     credentials: Option<&Credentials>,
-) -> NodeEmission {
+    outputs: &Outputs<'_>,
+) -> Result<NodeEmission, UnreadableConfig> {
     match node.node_type.as_deref() {
-        Some("Led") => nodes::led::codegen::emit(node, inputs),
+        Some("Led") => nodes::led::codegen::emit(node, inputs, target),
         Some("Relay") => nodes::relay::codegen::emit(node, inputs),
         Some("Servo") => nodes::servo::codegen::emit(node, inputs, target),
         Some("Rgb") => nodes::rgb::codegen::emit(node, inputs),
@@ -291,7 +320,7 @@ fn emit_node(
         Some("Matrix") => nodes::matrix::codegen::emit(node, inputs),
         Some("Stepper") => nodes::stepper::codegen::emit(node, inputs),
         // Vibration shares the live Led implementation (digital on/off output).
-        Some("Vibration") => nodes::led::codegen::emit(node, inputs),
+        Some("Vibration") => nodes::led::codegen::emit(node, inputs, target),
         Some("Button") => nodes::button::codegen::emit(node),
         // Force, HallEffect, Ldr, Potentiometer, and Tilt are all analog inputs
         // backed by the live Sensor implementation, so they share its emitter
@@ -315,7 +344,7 @@ fn emit_node(
         Some("Delay") => nodes::delay::codegen::emit(node, inputs),
         Some("Interval") => nodes::interval::codegen::emit(node, inputs),
         Some("Trigger") => nodes::trigger::codegen::emit(node, inputs),
-        Some("Counter") => nodes::counter::codegen::emit(node, inputs),
+        Some("Counter") => Ok(nodes::counter::codegen::emit(node, inputs)),
         Some("Constant") => nodes::constant::codegen::emit(node),
         // Cloud Nodes emit their networked code on every target — a board
         // without networking gets a validation warning (the code assumes an
@@ -324,7 +353,9 @@ fn emit_node(
         // issues HTTP requests over the same shared WiFi connection.
         Some("Mqtt") => nodes::mqtt::codegen::emit(node, inputs, credentials),
         Some("Figma") => nodes::figma::codegen::emit(node, inputs, credentials),
-        Some("Monitor") => nodes::monitor::codegen::emit(node, inputs),
+        Some("Monitor") => {
+            Ok(nodes::monitor::codegen::emit(node, inputs, outputs.shown_by(node).as_ref()))
+        }
         Some("Llm") => nodes::llm::codegen::emit(node, inputs, credentials),
         // Midi bridges the board's serial MIDI jack (MIDI.h); the host's Web
         // MIDI / midir I/O becomes MIDI.read()/sendNoteOn on-device. Several
@@ -335,8 +366,8 @@ fn emit_node(
         // web UI and has no Arduino hardware equivalent. We route it explicitly
         // (rather than letting it fall through) so the skip is intentional and
         // documented; the placeholder names it as browser-only. See #22.
-        Some("AudioPlayer" | "Note") => placeholder::emit(node),
-        _ => placeholder::emit(node),
+        Some("AudioPlayer" | "Note") => Ok(placeholder::emit(node)),
+        _ => Ok(placeholder::emit(node)),
     }
 }
 
@@ -356,30 +387,14 @@ struct Wiring<'a> {
 /// per-port source lists (and therefore all generated variable names) are
 /// independent of edge declaration order. Every edge either contributes a
 /// typed [`SourceExpr`] under its real target port, or a visible note.
-fn wire_inputs(flow: &FlowUpdate) -> Wiring<'_> {
-    let by_id: BTreeMap<&str, &FlowNode> =
-        flow.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
-
-    let ordered: BTreeSet<(&str, &str, &str, &str)> = flow
-        .edges
-        .iter()
-        .map(|e| {
-            (
-                e.target.as_str(),
-                e.target_handle.as_str(),
-                e.source.as_str(),
-                e.source_handle.as_str(),
-            )
-        })
-        .collect();
-
+fn wire_inputs<'a>(outputs: &Outputs<'a>) -> Wiring<'a> {
     let mut wiring = Wiring { inputs: BTreeMap::new(), notes: BTreeMap::new() };
-    for (target, target_handle, source, source_handle) in ordered {
+    for &(target, target_handle, source, source_handle) in &outputs.edges {
         // Edges into unknown Nodes have no emission slot to annotate; skip.
-        if !by_id.contains_key(target) {
+        if !outputs.by_id.contains_key(target) {
             continue;
         }
-        let Some(source_node) = by_id.get(source) else {
+        let Some(source_node) = outputs.by_id.get(source) else {
             wiring.notes.entry(target).or_default().push(format!(
                 "// note: input '{}' is wired from missing node '{}' — edge ignored",
                 emit::cpp_comment_text(target_handle),
@@ -387,7 +402,7 @@ fn wire_inputs(flow: &FlowUpdate) -> Wiring<'_> {
             ));
             continue;
         };
-        if let Some(expr) = output_expression(source_node, source_handle) {
+        if let Some(expr) = outputs.of(source_node, source_handle) {
             wiring
                 .inputs
                 .entry(target)
@@ -395,8 +410,9 @@ fn wire_inputs(flow: &FlowUpdate) -> Wiring<'_> {
                 .add(target_handle, expr);
         } else {
             let kind = source_node.node_type.as_deref().unwrap_or("unknown");
+            let why = no_value_reason(kind, source_handle).unwrap_or("it is not an output of that node");
             wiring.notes.entry(target).or_default().push(format!(
-                "// note: input '{}' from node '{}' ({kind}) output '{}' has no on-device value — edge ignored",
+                "// note: input '{}' from node '{}' ({kind}) output '{}' has no on-device value ({why}) — edge ignored",
                 emit::cpp_comment_text(target_handle),
                 emit::cpp_comment_text(source),
                 emit::cpp_comment_text(source_handle),
@@ -406,36 +422,148 @@ fn wire_inputs(flow: &FlowUpdate) -> Wiring<'_> {
     wiring
 }
 
+/// What every Node of a Flow exposes on its Emits, on-device: the static twin
+/// of the runtime router's `(source, source_handle)` lookup.
+///
+/// Most Nodes' outputs depend on the Node alone ([`output_expression`]). A
+/// Monitor's does not: it hands on what it shows, in that source's type, so
+/// its output is resolved against the Flow — through any chain of Monitors —
+/// and remembered, so that every consumer and the Monitor's own declaration
+/// agree on one type. A Monitor whose chain comes back round to itself shows
+/// nothing along that path.
+pub(crate) struct Outputs<'a> {
+    by_id: BTreeMap<&'a str, &'a FlowNode>,
+    /// Every edge as `(target, target_handle, source, source_handle)`,
+    /// sorted and deduped: the order sources are wired in.
+    edges: BTreeSet<(&'a str, &'a str, &'a str, &'a str)>,
+    /// Each Monitor's shown source, once resolved.
+    shown: RefCell<BTreeMap<&'a str, Option<SourceExpr>>>,
+    /// The Monitors being resolved, to break a chain that loops.
+    resolving: RefCell<BTreeSet<&'a str>>,
+}
+
+impl<'a> Outputs<'a> {
+    pub(crate) fn new(flow: &'a FlowUpdate) -> Self {
+        Self {
+            by_id: flow.nodes.iter().map(|n| (n.id.as_str(), n)).collect(),
+            edges: flow
+                .edges
+                .iter()
+                .map(|e| {
+                    (
+                        e.target.as_str(),
+                        e.target_handle.as_str(),
+                        e.source.as_str(),
+                        e.source_handle.as_str(),
+                    )
+                })
+                .collect(),
+            shown: RefCell::new(BTreeMap::new()),
+            resolving: RefCell::new(BTreeSet::new()),
+        }
+    }
+
+    /// The typed C++ expression `node` exposes on emit handle `handle`, or
+    /// `None` if that handle has no on-device value.
+    pub(crate) fn of(&self, node: &FlowNode, handle: &str) -> Option<SourceExpr> {
+        if node.node_type.as_deref() == Some("Monitor") {
+            return (handle == "value")
+                .then(|| nodes::monitor::codegen::output(node, self.shown_by(node).as_ref()));
+        }
+        output_expression(node, handle)
+    }
+
+    /// The source a Monitor shows: the first source wired into its `value`
+    /// port that has an on-device value — the one the Monitor's emitter binds.
+    pub(crate) fn shown_by(&self, monitor: &FlowNode) -> Option<SourceExpr> {
+        // The Node as the Flow holds it, to key the maps by.
+        let &node = self.by_id.get(monitor.id.as_str())?;
+        let id: &'a str = node.id.as_str();
+        if let Some(known) = self.shown.borrow().get(id) {
+            return known.clone();
+        }
+        if !self.resolving.borrow_mut().insert(id) {
+            return None;
+        }
+        let shown = self
+            .edges
+            .range((id, "value", "", "")..)
+            .take_while(|(target, port, _, _)| (*target, *port) == (id, "value"))
+            .find_map(|&(_, _, source, handle)| self.of(self.by_id.get(source)?, handle));
+        self.resolving.borrow_mut().remove(id);
+        self.shown.borrow_mut().insert(id, shown.clone());
+        shown
+    }
+}
+
+/// Why a declared Emit has no on-device value, for the Emits a board cannot
+/// give one: the reason the sketch's note gives, and the refusal list the
+/// interpret↔emit guard holds every declared Emit to. `None` for an Emit that
+/// has a value (under some settings) or one the node does not declare.
+pub(crate) fn no_value_reason(node_type: &str, handle: &str) -> Option<&'static str> {
+    Some(match (node_type, handle) {
+        ("Music", "value" | "track") => {
+            "a Music node plays a file on the computer and has no on-device counterpart"
+        }
+        ("Pn532", "value") => "the NFC reader has no Arduino emitter",
+        ("Llm", "thinking" | "done" | "error") => {
+            "the sketch sends the request and reads the answer within one loop() call, so it is never seen in progress, done or failed"
+        }
+        _ => return None,
+    })
+}
+
 /// The typed C++ expression `node` exposes on emit handle `handle`, or `None`
-/// if that handle has no on-device value. Handle names mirror each runtime
+/// if that handle has no on-device value — for every Node but a Monitor, whose
+/// output [`Outputs::of`] resolves against the Flow. Handle names mirror each runtime
 /// component's `emits()` list (`"value"` is `ComponentBase::VALUE_HANDLE`, the
 /// auto-emitted stored value).
 ///
-/// Boolean state Nodes (Button/Switch/Motion/Hotkey and the Compare/Gate
-/// results) also expose their `"true"` / `"false"` emit handles as the state
-/// (or its negation): the runtime fires those handles exactly when the state
-/// transitions, so a pulse-consuming port sees the same firing ticks via its
-/// edge detector, and a level-consuming port sees the last delivered payload.
+/// A boolean Node (Button/Switch/Motion/Hotkey, and the Compare/Gate results)
+/// is its state and the tick it emits: every handle carries the state, as
+/// every live emission of the Node does, and `true` / `false` are events on
+/// the ticks it emits with that state.
 fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
-    /// The `"value"`/`"event"`/`"true"`/`"false"` family shared by the boolean
-    /// state Nodes, built over the Node's state variable. `value`/`event` fire
-    /// on every state change (the runtime emits on each update, both button
-    /// edges); `true` / `false` fire only when the state enters that side, so
-    /// they carry a rising-edge detector over the (possibly negated) state.
-    fn bool_state(state: String, handle: &str) -> Option<SourceExpr> {
+    /// The `"value"`/`"true"`/`"false"`/`"event"` family of a boolean Node,
+    /// built over its `state` variable and its `emitted` flag (true on the
+    /// ticks the live Node emits `true` or `false`: an input's new level, a
+    /// transform's check). `value` fires when the state changes, as the
+    /// runtime's `set_value` emits; `true` on each emission with the state
+    /// true; `false` on each with it false, carrying that `false`; `event`
+    /// (an input's) on each emission.
+    fn bool_state(state: &str, emitted: &str, handle: &str) -> Option<SourceExpr> {
+        let value = CppExpr::boolean(state);
         match handle {
-            "value" | "event" => Some(SourceExpr::level(CppExpr::boolean(state))),
-            "true" => Some(SourceExpr::rising(CppExpr::boolean(state))),
-            "false" => Some(SourceExpr::rising(CppExpr::boolean(format!("(!{state})")))),
+            "value" => Some(SourceExpr::level(value)),
+            "true" => Some(SourceExpr::event(value, format!("({emitted} && {state})"))),
+            "false" => Some(SourceExpr::event(value, format!("({emitted} && !{state})"))),
+            "event" => Some(SourceExpr::event(value, emitted)),
             _ => None,
         }
     }
 
     match node.node_type.as_deref() {
-        Some("Button") => bool_state(nodes::button::codegen::state_var(node), handle),
-        Some("Switch") => bool_state(nodes::switch::codegen::state_var(node), handle),
-        Some("Motion") => bool_state(nodes::motion::codegen::state_var(node), handle),
-        Some("Hotkey") => bool_state(nodes::hotkey::codegen::state_var(node), handle),
+        Some("Button") if handle == "hold" => Some(nodes::button::codegen::hold_output(node)),
+        Some("Button") => bool_state(
+            &nodes::button::codegen::state_var(node),
+            &nodes::button::codegen::changed_var(node),
+            handle,
+        ),
+        Some("Switch") => bool_state(
+            &nodes::switch::codegen::state_var(node),
+            &nodes::switch::codegen::changed_var(node),
+            handle,
+        ),
+        Some("Motion") => bool_state(
+            &nodes::motion::codegen::state_var(node),
+            &nodes::motion::codegen::changed_var(node),
+            handle,
+        ),
+        Some("Hotkey") => bool_state(
+            &nodes::hotkey::codegen::state_var(node),
+            &nodes::hotkey::codegen::changed_var(node),
+            handle,
+        ),
         Some("Sensor" | "Force" | "HallEffect" | "Ldr" | "Potentiometer" | "Tilt")
             if handle == "value" =>
         {
@@ -447,25 +575,32 @@ fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
         Some("I2cDevice") if handle == "value" => {
             Some(SourceExpr::level(CppExpr::number(nodes::i2c_device::codegen::value_var(node))))
         }
-        Some("Oscillator") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(nodes::oscillator::codegen::value_var(node))))
-        }
-        Some("Constant") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(nodes::constant::codegen::value_var(node))))
-        }
+        // An Oscillator emits each sample it takes, moved or not.
+        Some("Oscillator") if handle == "value" => Some(nodes::oscillator::codegen::output(node)),
+        // A Constant emits its value once, at the start, whatever it is.
+        Some("Constant") if handle == "value" => Some(SourceExpr::event(
+            CppExpr::number(nodes::constant::codegen::value_var(node)),
+            nodes::constant::codegen::fired_var(node),
+        )),
         Some("Counter") if handle == "value" => {
             Some(SourceExpr::level(CppExpr::number(nodes::counter::codegen::value_var(node))))
         }
         Some("Calculate") if handle == "value" => {
             Some(SourceExpr::level(CppExpr::number(nodes::calculate::codegen::value_var(node))))
         }
-        Some("Compare") => bool_state(nodes::compare::codegen::state_var(node), handle),
-        Some("Gate") => bool_state(nodes::gate::codegen::state_var(node), handle),
-        // The runtime RangeMap emits the mapped number on `to`; its stored
-        // `value` is a two-element Array with no C++ counterpart.
-        Some("RangeMap") if handle == "to" => {
-            Some(SourceExpr::level(CppExpr::number(nodes::range_map::codegen::value_var(node))))
-        }
+        Some("Compare") if handle != "event" => bool_state(
+            &nodes::compare::codegen::state_var(node),
+            &nodes::compare::codegen::fired_var(node),
+            handle,
+        ),
+        Some("Gate") if handle != "event" => bool_state(
+            &nodes::gate::codegen::state_var(node),
+            &nodes::gate::codegen::fired_var(node),
+            handle,
+        ),
+        // The runtime RangeMap emits the mapped number on `to` for every value
+        // it maps; its `value` is the `[input, mapped]` pair.
+        Some("RangeMap") => nodes::range_map::codegen::output(node, handle),
         Some("Smooth") if handle == "value" => {
             Some(SourceExpr::level(CppExpr::number(nodes::smooth::codegen::value_var(node))))
         }
@@ -482,15 +617,29 @@ fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
             CppExpr::number(nodes::interval::codegen::value_var(node)),
             nodes::interval::codegen::fired_var(node),
         )),
-        // Trigger emits the crossing value on `bang`; its stored `value` is
-        // never written by the runtime, so only `bang` is exposed.
+        // Trigger emits the crossing value on `bang`, and on `value` its
+        // stored triggered state whenever that changes.
         Some("Trigger") if handle == "bang" => Some(SourceExpr::event(
             CppExpr::number(nodes::trigger::codegen::value_payload_var(node)),
             nodes::trigger::codegen::state_var(node),
         )),
+        Some("Trigger") if handle == "value" => Some(nodes::trigger::codegen::output(node)),
+        // The outputs emit what they last did: a Led (and the Vibration it
+        // backs) its level, a Relay whether it is open, a Piezo whether it is
+        // sounding, a Servo where it moved, an Rgb its colour, a Matrix the
+        // shape it shows, a Pixel strip its colours (and `event` each time a
+        // port acts on it).
+        Some("Led" | "Vibration") if handle == "value" => Some(nodes::led::codegen::output(node)),
+        Some("Relay") if handle == "value" => Some(nodes::relay::codegen::output(node)),
+        Some("Piezo") if handle == "value" => Some(nodes::piezo::codegen::output(node)),
+        Some("Servo") if handle == "value" => nodes::servo::codegen::output(node),
+        Some("Rgb") if handle == "value" => Some(nodes::rgb::codegen::output(node)),
+        Some("Matrix") if handle == "value" => nodes::matrix::codegen::output(node),
+        Some("Pixel") => nodes::pixel::codegen::output(node, handle),
         // A subscribe Mqtt Node surfaces its latest inbound message; a publish
         // Mqtt Node exposes none. Figma surfaces the latest inbound variable
-        // value; Monitor is a display-only sink. Llm surfaces its response.
+        // value; Llm surfaces its response. (A Monitor's output depends on the
+        // Flow: see `Outputs`.)
         Some("Mqtt") if handle == "value" => nodes::mqtt::codegen::output(node),
         Some("Figma") if handle == "value" || handle == "change" => nodes::figma::codegen::output(node),
         Some("Llm") if handle == "value" => nodes::llm::codegen::output(node),
@@ -1890,7 +2039,7 @@ mod tests {
 
         // Driven by the loop scheduler via an elapsed-millis comparison.
         assert!(
-            sketch.contains("millis() - delay_delay_1_armed_at >= 1000UL"),
+            sketch.contains("millis() - delay_delay_1_armed_at[delay_delay_1_head] >= 1000UL"),
             "delay must fire on the loop scheduler, got:\n{sketch}"
         );
         // No blocking wait anywhere.
@@ -1999,18 +2148,19 @@ mod tests {
             "interval timer present, got:\n{sketch}"
         );
         assert!(
-            sketch.contains("millis() - delay_delay_1_armed_at >= 1000UL"),
+            sketch.contains("millis() - delay_delay_1_armed_at[delay_delay_1_head] >= 1000UL"),
             "delay timer present, got:\n{sketch}"
         );
         assert!(!sketch.contains("delay("), "concurrent timers must not block");
-        // The Delay is armed from the Interval's event — via its fired flag,
-        // not a synthesized edge over the value.
+        // The Delay holds a trigger on each of the Interval's events — via its
+        // fired flag, not a synthesized edge over the value. Five are pending
+        // at once here (one per 200 ms, each for 1000 ms).
         assert!(
-            sketch.contains("delay_delay_1_pending && interval_iv_1_fired) {"),
-            "delay must arm on the interval's event ticks, got:\n{sketch}"
+            sketch.contains("    if (interval_iv_1_fired) {\n      if (delay_delay_1_pending < 16)"),
+            "delay must hold a trigger on every one of the interval's event ticks, got:\n{sketch}"
         );
         assert!(
-            sketch.contains("delay_delay_1_stored = ((double)(interval_iv_1_value))"),
+            sketch.contains("delay_delay_1_stored[delay_delay_1_slot] = ((double)(interval_iv_1_value))"),
             "delay stores the interval's payload, got:\n{sketch}"
         );
     }
@@ -2071,12 +2221,12 @@ mod tests {
         let sketch = generate_sketch_text(&flow);
 
         // Each input reads hardware into its variable.
-        assert!(sketch.contains("switch_sw_1_state = (digitalRead"), "switch reads");
-        assert!(sketch.contains("motion_mo_1_state = (digitalRead"), "motion reads");
-        assert!(sketch.contains("proximity_px_1_value = analogRead"), "proximity reads");
+        assert!(sketch.contains("bool switch_sw_1_now = (digitalRead"), "switch reads");
+        assert!(sketch.contains("motion_mo_1_changed = ((digitalRead"), "motion reads");
+        assert!(sketch.contains("double proximity_px_1_cm_volts = (double)analogRead"), "proximity reads");
         assert!(sketch.contains("bool hotkey_hk_1_state"), "hotkey declares state");
         assert!(sketch.contains("i2c_i2c_1_value = "), "i2c reads");
-        assert!(sketch.contains("sensor_pot_1_value = analogRead"), "potentiometer is a Sensor");
+        assert!(sketch.contains("int sensor_pot_1_reading = analogRead"), "potentiometer is a Sensor");
         // The Switch reading feeds the Led's value port (Bool ⇒ brightness 1/0).
         assert!(
             sketch.contains("(switch_sw_1_state) ? 1 : 0"),
@@ -2255,7 +2405,7 @@ mod tests {
         };
         let sketch = generate_sketch_text(&flow);
         let loop_idx = sketch.find("// --- Scheduled tasks ---").expect("loop region");
-        let read = sketch[loop_idx..].find("sensor_z_sensor_value = analogRead").expect("sensor read in loop");
+        let read = sketch[loop_idx..].find("sensor_z_sensor_reading = analogRead").expect("sensor read in loop");
         let write = sketch[loop_idx..].find("analogWrite(led_a_led_pin").expect("led write in loop");
         assert!(
             read < write,
@@ -2270,18 +2420,105 @@ mod tests {
     fn unmappable_edges_surface_as_notes() {
         let flow = FlowUpdate {
             nodes: vec![
-                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("nfc-1", "Pn532", json!({})),
                 node_data("led-1", "Led", json!({ "pin": 13 })),
             ],
-            // `hold` is a real Button emit with no on-device expression yet.
-            edges: vec![edge_h("btn-1", "hold", "led-1", "value")],
+            // A Pn532's `value` is a real emit with no on-device expression.
+            edges: vec![edge_h("nfc-1", "value", "led-1", "value")],
         };
         let sketch = generate_sketch_text(&flow);
         assert!(
-            sketch.contains("// note: input 'value' from node 'btn-1' (Button) output 'hold' has no on-device value"),
+            sketch.contains("// note: input 'value' from node 'nfc-1' (Pn532) output 'value' has no on-device value"),
             "the dropped edge must be visible in the sketch, got:\n{sketch}"
         );
         assert!(!sketch.contains("analogWrite(led_led_1_pin"), "the led stays unwired");
+        assert!(
+            sketch.contains("(the NFC reader has no Arduino emitter)"),
+            "the note says why:\n{sketch}"
+        );
+    }
+
+    /// An output's `value` reaches what it is wired into: "Led → Counter"
+    /// counts each change of the Led's level on the board, as it does live.
+    #[test]
+    fn an_output_wired_on_hands_on_its_value() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+                node_data("ctr-1", "Counter", json!({})),
+            ],
+            edges: vec![edge_h("btn-1", "true", "led-1", "toggle"), edge_h("led-1", "value", "ctr-1", "increment")],
+        };
+        let sketch = generate_sketch_text(&flow);
+        assert!(!sketch.contains("no on-device value"), "{sketch}");
+        assert!(
+            sketch.contains("double counter_ctr_1_increment_now0 = ((double)((led_led_1_level / 255.0)));"),
+            "{sketch}"
+        );
+    }
+
+    /// A Monitor hands on what it shows in that source's type, through a chain
+    /// of Monitors: its consumers and its own copy agree on the type.
+    #[test]
+    fn a_monitor_hands_on_what_it_shows_in_its_type() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("btn-1", "Button", json!({ "pin": 6 })),
+                node_data("relay-1", "Relay", json!({ "pin": 7 })),
+                node_data("mon-1", "Monitor", json!({})),
+                node_data("mon-2", "Monitor", json!({})),
+                node_data("gate-1", "Gate", json!({})),
+            ],
+            edges: vec![
+                edge_h("btn-1", "true", "relay-1", "toggle"),
+                edge_h("relay-1", "value", "mon-1", "value"),
+                edge_h("mon-1", "value", "mon-2", "value"),
+                edge_h("mon-2", "value", "gate-1", "value"),
+            ],
+        };
+        let sketch = sketch_for(&flow, &networking_target());
+        assert!(sketch.contains("bool monitor_mon_1_shown = false;"), "{sketch}");
+        assert!(sketch.contains("bool monitor_mon_2_shown = false;"), "{sketch}");
+        assert!(
+            sketch.contains("if (monitor_mon_1_moved) {\n      bool monitor_mon_2_next = (monitor_mon_1_shown);"),
+            "the second Monitor copies the first each time it moves:\n{sketch}"
+        );
+        assert!(sketch.contains("(monitor_mon_2_shown)"), "the Gate reads the copy:\n{sketch}");
+        assert!(!sketch.contains("no on-device value"), "{sketch}");
+    }
+
+    /// Monitors wired in a ring show nothing along the ring, yet every one
+    /// declares its copy in the type its consumers read it as — whichever
+    /// Monitor the resolution starts from. (`mon-b` sorts before `x-llm`, so
+    /// `mon-a` follows the ring first.)
+    #[test]
+    fn monitors_in_a_ring_agree_on_their_types() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("x-llm", "Llm", json!({ "prompt": "p" })),
+                node_data("mon-a", "Monitor", json!({})),
+                node_data("mon-b", "Monitor", json!({})),
+                node_data("ctr-1", "Counter", json!({})),
+            ],
+            edges: vec![
+                edge_h("mon-b", "value", "mon-a", "value"),
+                edge_h("x-llm", "value", "mon-a", "value"),
+                edge_h("mon-a", "value", "mon-b", "value"),
+                edge_h("mon-a", "value", "ctr-1", "set"),
+                edge_h("mon-b", "value", "ctr-1", "increment"),
+            ],
+        };
+        let sketch = sketch_for(&flow, &networking_target());
+        for start in [["mon-a", "mon-b"], ["mon-b", "mon-a"]] {
+            let outputs = Outputs::new(&flow);
+            for id in start {
+                let monitor = flow.nodes.iter().find(|n| n.id == id).expect("in the flow");
+                let output = outputs.of(monitor, "value").expect("a Monitor always has a value");
+                let declared = format!("{} {} = ", output.value.storage_type(), output.value.code);
+                assert!(sketch.contains(&declared), "from {start:?}, `{declared}`:\n{sketch}");
+            }
+        }
     }
 
     /// An edge from a missing source Node is noted, not silently dropped.
@@ -2336,6 +2573,109 @@ mod tests {
             outcome.problems.iter().all(|p| p.severity == validate::ProblemSeverity::Error),
             "identifier collisions are errors"
         );
+    }
+
+    /// A Node whose settings cannot be read refuses generation with a problem
+    /// naming the Node and the reason — never a Sketch that runs the Node on
+    /// its default pin.
+    #[test]
+    fn a_node_with_unreadable_settings_refuses_generation() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("led-1", "Led", json!({ "pin": 13 })),
+                node_data("relay-1", "Relay", json!({ "pin": "left" })),
+            ],
+            edges: vec![],
+        };
+        let outcome = generate(&flow, &default_target()).expect("generation never errors");
+        assert_eq!(outcome.sketch, None, "no sketch on default pin 10");
+        assert_eq!(
+            outcome.problems,
+            vec![ValidationProblem {
+                node_id: "relay-1".to_string(),
+                node_type: "Relay".to_string(),
+                message: "Node relay-1 (Relay): its settings could not be read (pin: invalid pin: left)"
+                    .to_string(),
+                severity: validate::ProblemSeverity::Error,
+            }]
+        );
+    }
+
+    /// Every unreadable Node is reported in one pass (in id order), next to
+    /// the Flow's other problems — and an unreadable Node has no pins, so it
+    /// raises no board-fit problem about a pin it never chose.
+    #[test]
+    fn every_unreadable_node_is_reported_alongside_the_other_problems() {
+        let flow = FlowUpdate {
+            nodes: vec![
+                node_data("servo-1", "Servo", json!({ "pin": 9, "type": "sideways" })),
+                node_data("led-9", "Led", json!({ "pin": 99 })),
+                node_data("gate-1", "Gate", json!({ "gate": "maybe" })),
+            ],
+            edges: vec![],
+        };
+        let outcome = generate(&flow, &default_target()).expect("generation never errors");
+        assert_eq!(outcome.sketch, None);
+        let reported: Vec<(&str, validate::ProblemSeverity)> =
+            outcome.problems.iter().map(|p| (p.node_id.as_str(), p.severity)).collect();
+        assert_eq!(
+            reported,
+            vec![
+                ("led-9", validate::ProblemSeverity::Warning),
+                ("gate-1", validate::ProblemSeverity::Error),
+                ("servo-1", validate::ProblemSeverity::Error),
+            ],
+            "{:?}",
+            outcome.problems
+        );
+        assert!(
+            outcome.problems[1].message.contains("(gate: unknown variant `maybe`"),
+            "the reason names the setting: {:?}",
+            outcome.problems
+        );
+    }
+
+    /// A number the editor stored with a fraction (a dragged or pasted value)
+    /// is the nearest whole number to every whole-number setting, so the
+    /// sketch is the one the rounded value gives — not a refusal.
+    #[test]
+    fn a_fraction_in_a_whole_number_setting_generates_the_rounded_sketch() {
+        let flow = |freq: serde_json::Value, delay: serde_json::Value, devices: serde_json::Value| FlowUpdate {
+            nodes: vec![
+                node_data("prox-1", "Proximity", json!({ "pin": "A0", "freq": freq })),
+                node_data("delay-1", "Delay", json!({ "delay": delay })),
+                node_data("mx-1", "Matrix", json!({ "devices": devices })),
+            ],
+            edges: vec![],
+        };
+        let written = generate(&flow(json!(25.2), json!(250.6), json!(1.5)), &default_target()).unwrap();
+        let rounded = generate(&flow(json!(25), json!(251), json!(2)), &default_target()).unwrap();
+        assert!(written.sketch.is_some(), "{:?}", written.problems);
+        assert_eq!(written, rounded);
+    }
+
+    /// A pin is a name, not a quantity: pin 13.4 is no pin, and the reason
+    /// says which setting is wrong.
+    #[test]
+    fn a_fraction_in_a_pin_refuses_generation() {
+        let flow = FlowUpdate { nodes: vec![node_data("led-1", "Led", json!({ "pin": 13.4 }))], edges: vec![] };
+        let outcome = generate(&flow, &default_target()).unwrap();
+        assert_eq!(outcome.sketch, None);
+        assert_eq!(
+            outcome.problems[0].message,
+            "Node led-1 (Led): its settings could not be read (pin: invalid pin: 13.4)"
+        );
+    }
+
+    /// A field the Node's config does not know is not unreadable: the editor
+    /// stores presentation keys (`label`, `group`, …) in the same `data`.
+    #[test]
+    fn settings_the_config_does_not_know_do_not_block_generation() {
+        let flow = FlowUpdate {
+            nodes: vec![node_data("led-1", "Led", json!({ "pin": 13, "label": "LED", "tags": ["action"] }))],
+            edges: vec![],
+        };
+        assert!(generate_sketch_text(&flow).contains("const uint8_t led_led_1_pin = 13;"));
     }
 
     /// Determinism holds for a control-heavy Flow.

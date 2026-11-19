@@ -261,15 +261,25 @@ impl Effects {
     }
 }
 
+/// One timer request a node made during dispatch, about the wakeup of one of
+/// its own methods.
+#[derive(Debug)]
+pub(super) enum TimerRequest {
+    /// Arm a future wake, in place of any pending one.
+    Schedule { node_id: String, method: String, delay_ms: u64 },
+    /// Cancel any pending wake.
+    Cancel { node_id: String, method: String },
+}
+
 /// Per-turn collector of scheduling requests made by nodes during dispatch.
 /// The `FlowRuntime` resolves these into concrete [`Wakeup`] ids / cancellations
 /// against its outstanding-wakeup table once the turn drains.
 #[derive(Debug, Default)]
 pub struct ScheduleRequests {
-    /// `(node_id, method, delay_ms)` — arm a future wake.
-    pub schedules: Vec<(String, String, u64)>,
-    /// `(node_id, method)` — cancel any pending wake for this node + method.
-    pub cancels: Vec<(String, String)>,
+    /// The timer requests, in the order the nodes made them: a schedule
+    /// followed by a cancel of the same timer leaves nothing armed, the other
+    /// way round leaves one.
+    pub(super) timers: Vec<TimerRequest>,
     /// `(node_id, kind)` — outbound cloud calls a node asked the host to perform
     /// this turn (ADR-0009). Resolved into [`Effects::cloud_requests`] when the
     /// turn drains.
@@ -320,19 +330,23 @@ impl<'a> RuntimeContext<'a> {
     }
 
     /// Ask the host to call back `dispatch_internal(method, …)` on this node
-    /// after `delay_ms`. Replaces `std::thread::sleep` for timer nodes.
+    /// after `delay_ms`. Replaces `std::thread::sleep` for timer nodes. A node
+    /// has one wakeup per method: scheduling it again replaces the pending one.
     pub fn schedule_wakeup(&mut self, method: &str, delay_ms: u64) {
-        self.requests
-            .schedules
-            .push((self.node_id.to_string(), method.to_string(), delay_ms));
+        self.requests.timers.push(TimerRequest::Schedule {
+            node_id: self.node_id.to_string(),
+            method: method.to_string(),
+            delay_ms,
+        });
     }
 
     /// Cancel a pending wakeup previously scheduled for this node + method
     /// (e.g. a re-triggered delay or a stopped interval).
     pub fn cancel_wakeup(&mut self, method: &str) {
-        self.requests
-            .cancels
-            .push((self.node_id.to_string(), method.to_string()));
+        self.requests.timers.push(TimerRequest::Cancel {
+            node_id: self.node_id.to_string(),
+            method: method.to_string(),
+        });
     }
 
     /// Record an outbound cloud call for the host to perform after the turn

@@ -13,6 +13,23 @@ Working with high voltage can be `DEADLY`. Even a momentary lapse in caution can
 Never attempt to handle high voltage circuits without proper knowledge and always work under the supervision of a qualified expert. Your life is on the line.
 </Callout>
 
+## Inputs
+
+- **true** — switches the relay on
+- **toggle** — switches the relay on if it is off, and off if it is on
+- **false** — switches the relay off
+
+## Outputs
+
+- **value** — `true` while the relay is switched on, `false` while it is off
+
+## Settings
+
+Open the settings panel to configure:
+
+- **pin** — which digital pin on your Arduino the relay is connected to
+- **type** — **Normally open (NO)** (the default) or **Normally closed (NC)**. With NO, switching on sets the pin HIGH. With NC, switching on sets the pin LOW. The relay starts switched off
+
 ## Resources
 
 - [Arduino: 4 Relays Shield Basics](https://docs.arduino.cc/tutorials/4-relays-shield/4-relay-shield-basics/)

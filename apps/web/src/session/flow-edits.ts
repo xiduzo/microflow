@@ -38,31 +38,3 @@ export function removeNodesWithEdges(doc: EditableDoc, nodeIds: Iterable<string>
   }, "local");
   return removedEdges;
 }
-
-/**
- * Remove every edge attached to the given handles of one node, as one local
- * transaction. For nodes whose handle set is data-driven: a handle that stops
- * existing must take its edges with it.
- *
- * Returns the ids of the edges it removed.
- */
-export function removeEdgesAtHandles(
-  doc: EditableDoc,
-  nodeId: string,
-  handles: readonly string[],
-): string[] {
-  if (handles.length === 0) return [];
-  const removed = doc
-    .getEdges()
-    .filter(
-      (edge) =>
-        (edge.source === nodeId && !!edge.sourceHandle && handles.includes(edge.sourceHandle)) ||
-        (edge.target === nodeId && !!edge.targetHandle && handles.includes(edge.targetHandle)),
-    )
-    .map((edge) => edge.id);
-  if (removed.length === 0) return [];
-  doc.doc.transact(() => {
-    for (const id of removed) doc.removeEdge(id);
-  }, "local");
-  return removed;
-}

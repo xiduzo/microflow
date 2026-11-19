@@ -7,8 +7,10 @@
  * first), a live transcript in the middle, a command bar that teaches itself,
  * and the selected connection's settings in a slide-over on the same surface.
  *
- * Everything here is presentation. Transports, stores and analytics stay in the
- * routes, which pass in connections, a command handler and a settings form.
+ * Everything here is presentation. What a command does, the transcript and the
+ * transports belong to the console sessions (`broker-console-session.ts`,
+ * `llm-console-session.ts`); the routes pass in a session's state, its `run`
+ * and a settings form.
  */
 import {
   Fragment,
@@ -52,8 +54,7 @@ import {
   type ConsoleCommand,
   type Suggestion,
 } from "./completions";
-
-export type { ConsoleCommand } from "./completions";
+import type { ConsoleLine } from "./console-session";
 
 /** How a connection is doing, in the only four states a rail dot can show. */
 export type ConnectionStatusTone = "ok" | "busy" | "error" | "idle";
@@ -69,21 +70,8 @@ export type ConsoleConnection = {
   badge?: ReactNode;
 };
 
-export type ConsoleLine = {
-  /** in: received · out: sent · sys: the app talking · err: something failed. */
-  kind: "in" | "out" | "sys" | "err";
-  /** Topic, model — whatever names the other end of this line. */
-  label?: string;
-  text: string;
-  at: Date;
-  /** Renders as an aligned command table instead of `text` — the "?" answer. */
-  table?: ConsoleCommand[];
-};
-
 /** A starting point offered in the rail's add menu. */
 export type ConsolePreset = { id: string; title: string; blurb: string; badge?: ReactNode };
-
-const MAX_LINES = 300;
 
 const STATUS_DOT: Record<ConnectionStatusTone, string> = {
   ok: "bg-primary",
@@ -127,11 +115,6 @@ const LINE_STYLE: Record<ConsoleLine["kind"], { glyph: string; className: string
   sys: { glyph: "··", className: "text-muted-foreground" },
   err: { glyph: "!!", className: "text-destructive" },
 };
-
-/** Append a line, keeping the transcript bounded. */
-export function appendLine(lines: ConsoleLine[], line: Omit<ConsoleLine, "at">): ConsoleLine[] {
-  return [...lines.slice(-(MAX_LINES - 1)), { ...line, at: new Date() }];
-}
 
 export function ConnectionConsole({
   title,

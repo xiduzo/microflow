@@ -11,7 +11,7 @@
 // to call `get_flow`, then `add_node`, then answering — is that run's business;
 // the runner yields transcript updates and this hook applies them.
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FlowDocument } from "@microflow/collab";
 
 import { adapterFor } from "./adapter";
@@ -54,6 +54,14 @@ export function useAskAi(doc: FlowDocument, writeMode: WriteMode, providerId: st
       usable.find((p) => p.id === providerId) ?? usable.find((p) => p.isDefault) ?? usable[0]
     );
   });
+
+  // A turn belongs to the panel that asked and to the flow it was asked about.
+  // When either goes (the panel is closed, the flow is closed, or another flow
+  // takes its place) the turn is abandoned the way Stop abandons it: its signal
+  // aborts, which ends an agent CLI's process and closes its flow tool session
+  // (`AgentCliPort.run`, `withFlowToolServer`). Nothing else would: the turn is
+  // not tied to this component's life by anything but this signal.
+  useEffect(() => () => abortRef.current?.abort(), [doc]);
 
   const reset = useCallback(() => {
     abortRef.current?.abort();

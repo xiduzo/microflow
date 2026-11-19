@@ -49,7 +49,8 @@ impl Motion {
 
 impl Component for Motion {
     fn ports() -> &'static [&'static str] {
-        &["read"]
+        // An input: it reports what the board reads and takes no edge.
+        &[]
     }
 
     fn emits() -> &'static [&'static str] {
@@ -80,10 +81,7 @@ impl Component for Motion {
         _args: ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        match method {
-            "read" => Ok(()),
-            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
-        }
+        Err(RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 }
 

@@ -1,6 +1,6 @@
 # ADR-0007 — Bidirectional node wire-interface contract: typed Emits + live catalog-parity guard
 
-- **Status:** accepted
+- **Status:** accepted; amended (2026-11-19)
 - **Date:** 2026-06-21
 - **Deciders:** sander
 
@@ -187,8 +187,46 @@ New / updated terms recorded in `CONTEXT.md`:
 - `crates/microflow-core/src/codegen/parity.rs` — exhaustive-match guard idiom.
 - `apps/web/scripts/codegen-node-registry.ts` — `COMPONENT_PORTS`/`PortOf<T>`;
   gains `COMPONENT_EMITS`/`EmitOf<T>`.
-- `apps/web/src/nodes/../../handle.tsx` — `BaseHandle<T>` to constrain.
+- `apps/web/src/nodes/_base/handle-rule.ts` — `PortSpec<T>` / `EmitSpec<T>`, where
+  handle ids are constrained (amendment below).
 - `apps/web/src-tauri/tests/catalog_parity.rs` — new live guard.
 - [ADR-0001](0001-component-trait-flow-separation.md) — Port/Internal/Hardware split
   this extends to the emit side.
 - [ADR-0006](0006-rehost-runtime-on-core.md) — names the dead port-drift guard as debt.
+
+---
+
+## Amendment (2026-11-19): handle ids are constrained in the Handle Rule
+
+D3 holds, at a different site. The `Handle` component takes `id: string`; a
+node's handle ids are typed where the node states them, in its Handle Rule
+(`apps/web/src/nodes/<node>/<node>.handles.ts`, types in
+`nodes/_base/handle-rule.ts`). A `PortSpec<T>` id is `PortOf<T>` and an
+`EmitSpec<T>` id is `EmitOf<T>`, so a Port or Emit renamed or removed in Rust
+stops the rule compiling. The one exception is an **open port**, a Port named
+by the node's own settings (a Function `{{variable}}`, a Music record): the
+component accepts it under any name, no generated list can hold it, and the
+rule marks it `open: true`. `<NodeHandles />` renders what the rule returns and
+takes no handle list of its own; its override maps are keyed by `PortOf<T>` /
+`EmitOf<T>` when the generic is bound.
+
+`COMPONENT_PORTS` / `COMPONENT_EMITS` stay the closed set of what a component
+*declares*. What a node *offers* for its current settings is the Live Handle
+Set, a subset of the declared set plus the open ports
+([ADR-0032](0032-live-handle-set-and-handle-pruning.md)).
+`apps/web/src/nodes/handles.test.ts` holds the two together in both directions:
+without open ports, every handle a rule can offer is one the component
+declares; and every declared handle is offered by some setting of its node, but
+for the exceptions that test lists with a reason, so a new Rust Port or Emit
+fails it until a rule offers it. Which exceptions there are is
+[ADR-0044](0044-declared-drawn-and-honoured-handles-are-one-set.md).
+
+**The wire interface has one source, the Rust consts.** `node-components.json`
+carries no `ports[]` or `emits[]`. The Catalog Parity Guard
+(`apps/web/src-tauri/tests/catalog_parity.rs`) writes `<Impl>::ports()` /
+`emits()` into `apps/web/wire-interface.generated.json` when run with
+`BLESS_WIRE_INTERFACE=1` and otherwise asserts the committed file is current;
+`apps/web/scripts/codegen-node-registry.ts` reads that file to emit
+`COMPONENT_PORTS` / `COMPONENT_EMITS`. D1 and D4 read with that in mind: the
+closed sets they describe are the Rust declarations, mirrored by the generated
+file, not hand-authored catalog rows.

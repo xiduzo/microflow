@@ -3,6 +3,7 @@ import wireInterface from "../wire-interface.generated.json";
 import { existsSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { nodeDefaultsJson } from "./node-defaults";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const nodesDir = join(__dirname, "../src/nodes");
@@ -229,6 +230,15 @@ nodeTypesLines.push("} as const satisfies NodeTypes & Record<ComponentType, unkn
 
 writeFileSync(join(nodesDir, "node-types.generated.ts"), nodeTypesLines.join("\n"));
 
+// node-defaults.generated.json — what the editor writes into each entry's
+// `data` (a new node's defaults, each variant's defaults, every enum option),
+// read off the catalog written above. The Catalog Parity Guard
+// (src-tauri/tests/catalog_parity.rs) feeds it through the Rust node-config
+// resolution; see `./node-defaults.ts`.
+const { NODE_CATALOG } = await import("../src/nodes/catalog.generated");
+writeFileSync(join(__dirname, "../node-defaults.generated.json"), nodeDefaultsJson(NODE_CATALOG));
+
 console.log("✓ Generated component-types.generated.ts");
 console.log("✓ Generated catalog.generated.ts");
 console.log("✓ Generated node-types.generated.ts");
+console.log("✓ Generated node-defaults.generated.json");

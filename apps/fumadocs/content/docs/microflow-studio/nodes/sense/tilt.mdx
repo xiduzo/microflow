@@ -12,15 +12,16 @@ A tilt sensor detects whether an object is tilted or upright. It gives you a sim
 
 ## Output values
 
-The Tilt node outputs one of two states:
-- **Up** — the sensor is in its normal, upright position
-- **Down** (or tilted) — the sensor has been tilted
+The Tilt node reads the sensor on an analog pin and outputs a number from **0 to 1023**. The node shows an arrow that points up when the value is in the upper half of that range, and down when it is in the lower half. Which way is "upright" depends on how you wire the sensor.
+
+To act on the two states, connect the output to a [Compare](/docs/microflow-studio/nodes/decide/compare) node, for example **number** **greater than** 511.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Pin** — which digital pin on your Arduino the tilt sensor is connected to
+- **Pin** — which analog pin on your Arduino the tilt sensor is connected to (analog pins are labelled A0, A1, A2, etc.)
+- **threshold** *(advanced)* — the node sends a new value only when the reading has changed by at least this much since the last value it sent. The default is 10
 
 ## Resources
 

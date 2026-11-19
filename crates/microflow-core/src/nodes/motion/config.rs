@@ -17,12 +17,3 @@ fn default_pin() -> u8 {
 fn default_controller() -> String {
     "HCSR501".to_string()
 }
-
-impl Default for MotionConfig {
-    fn default() -> Self {
-        Self {
-            pin: default_pin(),
-            controller: default_controller(),
-        }
-    }
-}

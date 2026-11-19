@@ -54,6 +54,63 @@ const LOCAL_ONLY_KEYS = new Set(["selected", "dragging"]);
  *  track it, or an undo would put the dangling edge back. */
 export const PRUNE_ORIGIN = "prune";
 
+// ============================================================================
+// Edge shape — the one reading of a value that should be an edge
+// ============================================================================
+
+/**
+ * The one type the app gives an edge: the canvas and Ask AI both write it. The
+ * canvas draws an edge without a type the same way.
+ */
+export const EDGE_TYPE = "animated";
+
+/** Why a value cannot be read as an edge at all. */
+export type EdgeDefect = "not-an-edge" | "no-id" | "no-source" | "no-target";
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isName = (value: unknown): value is string => typeof value === "string" && value !== "";
+
+/**
+ * A value nobody has checked, read as an edge in the shape the app writes one
+ * in: its id, its two nodes, the handle it names at each end where it names
+ * one (a non-empty string; anything else is no handle), and its type where
+ * that is the app's. Whatever else the value holds is not in it. A value
+ * without a usable id, source or target is no edge: what is wrong is returned
+ * instead.
+ *
+ * The Flow File codec reads an imported edge with it, and `FlowDocument` a
+ * stored one, so a file and a document cannot disagree about what an edge is.
+ */
+export function decodeEdge(raw: unknown): FlowEdge | EdgeDefect {
+  if (!isRecord(raw)) return "not-an-edge";
+  const { id, source, target, sourceHandle, targetHandle, type } = raw;
+  if (!isName(id)) return "no-id";
+  if (!isName(source)) return "no-source";
+  if (!isName(target)) return "no-target";
+  return {
+    id,
+    source,
+    ...(isName(sourceHandle) ? { sourceHandle } : {}),
+    target,
+    ...(isName(targetHandle) ? { targetHandle } : {}),
+    ...(type === EDGE_TYPE ? { type } : {}),
+  };
+}
+
+/**
+ * A stored value as the edge the app is given, or `null` when it is not one
+ * the app can use: it cannot be read as an edge, or it names no handle at one
+ * of its ends (the canvas cannot draw it and sketch generation refuses it).
+ * Such a value stays in the document; it is not shown and not run.
+ */
+function wiredEdge(raw: unknown): FlowEdge | null {
+  const edge = decodeEdge(raw);
+  if (typeof edge === "string" || !edge.sourceHandle || !edge.targetHandle) return null;
+  return edge;
+}
+
 /**
  * Build the `Y.Map` for a node, with `data` nested.
  *
@@ -297,6 +354,14 @@ export class FlowDocument {
    */
   private readonly nodeCache = new Map<string, FlowNode>();
   private readonly unobserveCache: () => void;
+
+  /**
+   * Stored edges as the app is given them (`wiredEdge`), keyed by the stored
+   * value. A stored value is never changed in place (a write replaces it), so
+   * its reading holds for good, and an untouched edge yields the identical
+   * object across reads, as a node does.
+   */
+  private readonly edgeReadings = new WeakMap<object, FlowEdge | null>();
 
   constructor(doc?: Y.Doc) {
     this.doc = doc ?? new Y.Doc();
@@ -732,12 +797,38 @@ export class FlowDocument {
     return this.materialiseNode(nodeId);
   }
 
+  /**
+   * The edges the app can use. The document is shared and written by every
+   * client in the room, and an old import wrote what a file held, so a stored
+   * edge is read, not cast: one without a usable id, source or target, or
+   * that names no handle at one of its ends, is left out here (`wiredEdge`).
+   * It stays in the document, untouched: the canvas, the runtime, the Code
+   * view and a published flow's readers never see it, and nothing deletes it
+   * for being there.
+   */
   getEdges(): FlowEdge[] {
-    return Array.from(this.edges.values());
+    const out: FlowEdge[] = [];
+    for (const raw of this.edges.values()) {
+      const edge = this.readEdge(raw);
+      if (edge) out.push(edge);
+    }
+    return out;
   }
 
+  /** One edge as {@link getEdges} reads it; `undefined` when it is absent or left out. */
   getEdge(edgeId: string): FlowEdge | undefined {
-    return this.edges.get(edgeId);
+    return this.readEdge(this.edges.get(edgeId)) ?? undefined;
+  }
+
+  private readEdge(raw: unknown): FlowEdge | null {
+    if (typeof raw !== "object" || raw === null) return null;
+    const known = this.edgeReadings.get(raw);
+    if (known !== undefined) return known;
+    const edge = wiredEdge(raw);
+    // Already in the app's shape: the stored value itself is the edge.
+    const reading = edge && isValueEqual(edge, raw) ? (raw as FlowEdge) : edge;
+    this.edgeReadings.set(raw, reading);
+    return reading;
   }
 
   getMeta(): FlowMeta {

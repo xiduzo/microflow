@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
-import { onHostSnapshotChange, readHostSnapshot } from "@/cloud/cloud-capabilities";
+import { hostSnapshotForFlowUpdate, onHostSnapshotChange } from "@/cloud/cloud-capabilities";
 import { DebounceScheduler, FlowUpdateDispatcher } from "./flow-update-dispatcher";
 import { TauriFlowUpdateSender } from "./tauri-flow-update-sender";
 import { WasmFlowUpdateSender } from "./wasm-flow-update-sender";
@@ -28,7 +28,7 @@ export function useFlowUpdateDispatcher(session: FlowSession): void {
     () =>
       new FlowUpdateDispatcher(
         session,
-        readHostSnapshot,
+        hostSnapshotForFlowUpdate,
         // Desktop drives the native runtime over Tauri IPC; the browser drives
         // the in-browser wasm runtime via the board-controller.
         isDesktop() ? new TauriFlowUpdateSender() : new WasmFlowUpdateSender(),

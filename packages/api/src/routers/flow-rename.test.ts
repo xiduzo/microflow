@@ -1,86 +1,12 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
-import { FlowDocument } from "@microflow/collab/schema";
+import { describe, expect, test } from "bun:test";
+import { mirrorNameToDocument } from "./flow-rename";
 
 /**
- * A rename is two writes: the flow row (lists, search) and the document's
- * `meta.name` (export and sketch filenames). `flow.update` must make both;
- * whether the document write lands in a live room or the store is
- * `YjsServer.writeMeta`'s concern, tested in the collab package.
+ * The retry policy of the rename mirror, with the document write injected.
+ * That a rename writes the row and the document (live room or store), and
+ * that a failed document write does not fail it, is tested through the Flow
+ * library in `flow-library.test.ts`.
  */
-
-const OWNER = "user-owner";
-
-const recorded = {
-  rowWrites: [] as Array<Record<string, unknown>>,
-  metaWrites: [] as Array<{ flowId: string; meta: Record<string, unknown> }>,
-};
-
-mock.module("@microflow/db", () => ({
-  db: {
-    query: {
-      flow: { findFirst: async () => ({ id: "flow-1", ownerId: OWNER }) },
-      flowCollaborator: { findFirst: async () => undefined },
-    },
-    update: () => ({
-      set: (values: Record<string, unknown>) => ({
-        where: () => ({
-          returning: async () => {
-            recorded.rowWrites.push(values);
-            return [{ id: "flow-1", ...values }];
-          },
-        }),
-      }),
-    }),
-  },
-}));
-
-mock.module("@microflow/collab/server", () => ({
-  FlowDocument,
-  yjsServer: {
-    writeMeta: async (flowId: string, meta: Record<string, unknown>) => {
-      // A name the store "cannot" take — every attempt fails, retries included.
-      if (meta.name === "Doomed") throw new Error("store unavailable");
-      recorded.metaWrites.push({ flowId, meta });
-    },
-    currentState: () => null,
-    setAccess: () => {},
-    dropRoom: () => {},
-  },
-}));
-
-mock.module("./invite-mailer", () => ({ resendInviteMailer: async () => {} }));
-
-const { flowRouter } = await import("./flow");
-const { mirrorNameToDocument } = await import("./flow-rename");
-const caller = flowRouter.createCaller({ session: { user: { id: OWNER } } } as never);
-
-beforeEach(() => {
-  recorded.rowWrites = [];
-  recorded.metaWrites = [];
-});
-
-describe("flow.update", () => {
-  test("a rename writes the row and the document's meta.name", async () => {
-    await caller.update({ id: "flow-1", name: "Renamed" });
-
-    expect(recorded.rowWrites[0]?.name).toBe("Renamed");
-    expect(recorded.metaWrites).toEqual([{ flowId: "flow-1", meta: { name: "Renamed" } }]);
-  });
-
-  test("a colour-only update leaves the document alone", async () => {
-    await caller.update({ id: "flow-1", color: "#112233" });
-
-    expect(recorded.rowWrites.length).toBe(1);
-    expect(recorded.metaWrites).toEqual([]);
-  });
-
-  test("a failed document write does not fail the rename the row already committed", async () => {
-    const result = await caller.update({ id: "flow-1", name: "Doomed" });
-
-    expect(recorded.rowWrites[0]?.name).toBe("Doomed");
-    expect(result[0]?.name).toBe("Doomed");
-  });
-});
 
 describe("mirrorNameToDocument", () => {
   const tick = (ms: number) => new Promise((r) => setTimeout(r, ms));

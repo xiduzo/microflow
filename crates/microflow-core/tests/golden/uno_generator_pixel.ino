@@ -10,20 +10,24 @@
 // --- Declarations ---
 // node osc-1 (Oscillator)
 unsigned long oscillator_osc_1_start = 0;
+unsigned long oscillator_osc_1_tick_at = 0;
 double oscillator_osc_1_value = 0.0;
 bool oscillator_osc_1_running = true;
+bool oscillator_osc_1_sampled = false;
 // node pixel-1 (Pixel)
 Adafruit_NeoPixel pixel_pixel_1(8, 6, NEO_GRB + NEO_KHZ800);
+uint8_t pixel_pixel_1_version = 1;
+bool pixel_pixel_1_event = false;
 const uint32_t pixel_pixel_1_presets[2][2] = {
   {0xFF0000, 0x00FF00},
   {0x0000FF, 0xFFFFFF}
 };
 const uint16_t pixel_pixel_1_preset_len[2] = {2, 2};
-double pixel_pixel_1_value_prev0 = 0.0;
 
 void setup() {
   // --- Setup ---
   oscillator_osc_1_start = millis();
+  oscillator_osc_1_tick_at = oscillator_osc_1_start;
   pixel_pixel_1.begin();
   pixel_pixel_1.clear();
   pixel_pixel_1.show();
@@ -36,17 +40,20 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    if (oscillator_osc_1_running) {
+    oscillator_osc_1_sampled = oscillator_osc_1_running && millis() - oscillator_osc_1_tick_at >= 16UL;
+    if (oscillator_osc_1_sampled) {
+      oscillator_osc_1_tick_at = millis();
       double oscillator_osc_1_t = (double)(millis() - oscillator_osc_1_start) + 0.0;
       oscillator_osc_1_value = 1.0 * sin(oscillator_osc_1_t * (2.0 * PI / 2000.0)) + 0.0;
     }
-    double pixel_pixel_1_value_now0 = ((double)(oscillator_osc_1_value));
-    bool pixel_pixel_1_value_fired0 = (pixel_pixel_1_value_now0 != pixel_pixel_1_value_prev0);
-    pixel_pixel_1_value_prev0 = pixel_pixel_1_value_now0;
-    if (pixel_pixel_1_value_fired0) {
+    pixel_pixel_1_event = false;
+    if (oscillator_osc_1_sampled) {
       uint16_t pixel_pixel_1_idx = (uint16_t)constrain(round(((double)(oscillator_osc_1_value))), 0.0, 1.0);
-      for (uint16_t pixel_pixel_1_i = 0; pixel_pixel_1_i < pixel_pixel_1_preset_len[pixel_pixel_1_idx]; pixel_pixel_1_i++) { pixel_pixel_1.setPixelColor(pixel_pixel_1_i, pixel_pixel_1_presets[pixel_pixel_1_idx][pixel_pixel_1_i]); }
+      bool pixel_pixel_1_changed = false;
+      for (uint16_t pixel_pixel_1_i = 0; pixel_pixel_1_i < pixel_pixel_1_preset_len[pixel_pixel_1_idx]; pixel_pixel_1_i++) { if (pixel_pixel_1.getPixelColor(pixel_pixel_1_i) != pixel_pixel_1_presets[pixel_pixel_1_idx][pixel_pixel_1_i]) { pixel_pixel_1_changed = true; } pixel_pixel_1.setPixelColor(pixel_pixel_1_i, pixel_pixel_1_presets[pixel_pixel_1_idx][pixel_pixel_1_i]); }
       pixel_pixel_1.show();
+      if (pixel_pixel_1_changed) { pixel_pixel_1_version = (pixel_pixel_1_version == 255) ? 1 : pixel_pixel_1_version + 1; }
+      pixel_pixel_1_event = true;
     }
   }
 }

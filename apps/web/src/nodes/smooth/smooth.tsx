@@ -17,11 +17,7 @@ export function Smooth(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Smooth"
-        portOverrides={{ value: { handleType: "value" } }}
-        emitOverrides={{ value: { handleType: "value" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

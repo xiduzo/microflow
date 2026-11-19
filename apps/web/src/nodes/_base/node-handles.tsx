@@ -1,82 +1,122 @@
-import { Handle, type HandleOverride } from "./handle";
+import { useUpdateNodeInternals } from "@xyflow/react";
+import { useEffect, useMemo, type ReactElement } from "react";
 import {
-  COMPONENT_EMITS,
-  COMPONENT_PORTS,
+  isComponentType,
   type ComponentType,
   type EmitOf,
   type PortOf,
 } from "../component-types.generated";
+import { handleLayout } from "../handle-rules";
+import { Handle, type HandleOverride, type HandleProps } from "./handle";
+import type { HandleLayout } from "./handle-rule";
+import { useNode } from "./node-context";
 
-/**
- * Override maps are keyed by the **generated** handle ids — `PortOf<T>` for
- * target handles, `EmitOf<T>` for source handles. Because they're object
- * literals against a `Record` of the exact id union, a key that isn't a
- * declared port/emit is an excess-property compile error at the call site. So
- * if a Rust port/emit is renamed or removed, every node that overrides the
- * stale id stops compiling — the drift the wire-interface contract is meant to
- * prevent now fails loudly instead of silently.
- */
-type PortOverrides<T extends ComponentType> = Partial<Record<PortOf<T>, HandleOverride>>;
-type EmitOverrides<T extends ComponentType> = Partial<Record<EmitOf<T>, HandleOverride>>;
+type Overrides = Partial<Record<string, HandleOverride>>;
 
 type Props<T extends ComponentType> = {
-  /** The node's ComponentType. Drives which handles are rendered. */
-  instance: T;
-  /** Presentational props per **target** handle, keyed by `PortOf<instance>`. */
-  portOverrides?: PortOverrides<T>;
-  /** Presentational props per **source** handle, keyed by `EmitOf<instance>`. */
-  emitOverrides?: EmitOverrides<T>;
+  /** Host-dependent props per **Port**, keyed by its id. */
+  portOverrides?: Partial<Record<PortOf<T>, HandleOverride>>;
+  /** Host-dependent props per **Emit**, keyed by its id. */
+  emitOverrides?: Partial<Record<EmitOf<T>, HandleOverride>>;
 };
 
+const NO_HANDLES: HandleLayout = { ports: [], emits: [] };
+
 /**
- * Renders the full handle set for a node straight from the single-source
- * wire-interface contract (ADR-0007): one **target** `Handle` for every id in
- * `COMPONENT_PORTS[instance]` and one **source** `Handle` for every id in
- * `COMPONENT_EMITS[instance]`. The contract knows _which_ handles exist; the
- * node supplies only the presentational bits it can't — offsets, titles, hints,
- * conditional connectability — through `portOverrides` / `emitOverrides`.
+ * Renders the handles of the node it is placed in: one target handle per Port
+ * and one source handle per Emit of the node's Live Handle Set, laid out as its
+ * Handle Rule says (`<node>.handles.ts`). The node's type and settings come
+ * from the `NodeContainer` around it, so a node renders `<NodeHandles />` and
+ * its handles follow its settings with no code of its own.
  *
- * Defaults: target handles sit on the `left`, source handles on the `right`;
- * either can be moved per-handle via an override's `position`.
+ * This is the only place a node's handles are rendered, which is what makes
+ * the canvas agree with every other reader of `nodes/handles.ts`. The one
+ * handle it leaves out is an open port the rule marks `hidden`: connectable,
+ * with no room to draw it.
+ *
+ * A Port sits on the left and an Emit on the right unless the rule gives it a
+ * side. The override maps carry only what the rule cannot know because it
+ * depends on the host, not on the node (see `HandleOverride`); bind the generic
+ * (`<NodeHandles<"Led"> …>`) to have their keys checked against that
+ * Component's Ports and Emits.
  */
-export function NodeHandles<T extends ComponentType>({
-  instance,
+export function NodeHandles<T extends ComponentType = ComponentType>({
   portOverrides,
   emitOverrides,
 }: Props<T>) {
-  // `COMPONENT_PORTS[instance]` is a union of readonly tuples for a generic
-  // `T`; widen to `readonly string[]` then narrow to the id union so `.map`'s
-  // callback param is `PortOf<T>` / `EmitOf<T>` (both steps are valid `as`
-  // directions — direct assertion to the id-union isn't).
-  const ports = COMPONENT_PORTS[instance] as readonly string[] as readonly PortOf<T>[];
-  const emits = COMPONENT_EMITS[instance] as readonly string[] as readonly EmitOf<T>[];
+  const { id, type, data } = useNode();
+  const updateNodeInternals = useUpdateNodeInternals();
 
-  return (
-    <>
-      {ports.map((id) => {
-        const override = portOverrides?.[id];
-        return (
-          <Handle<T>
-            key={`target-${id}`}
-            {...override}
-            type="target"
-            id={id}
-            position={override?.position ?? "left"}
-          />
-        );
-      })}
-      {emits.map((id) => {
-        const override = emitOverrides?.[id];
-        return (
-          <Handle<T>
-            key={`source-${id}`}
-            {...override}
-            type="source"
-            id={id}
-            position={override?.position ?? "right"}
-          />
-        );
-      })}
-    </>
+  const elements = useMemo(
+    () =>
+      handleElements(
+        type && isComponentType(type) ? handleLayout(type, data) : NO_HANDLES,
+        portOverrides,
+        emitOverrides,
+      ),
+    [type, data, portOverrides, emitOverrides],
   );
+
+  // ReactFlow measures a node's handles once; it has to be told when they
+  // change, or edges keep pointing at where a handle used to be.
+  const rendered = elements
+    .map(({ key, props }) => `${key}@${props.position}${props.offset ?? 0}`)
+    .join("|");
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, rendered, updateNodeInternals]);
+
+  return <>{elements}</>;
+}
+
+/**
+ * The `Handle` elements for a layout: what `NodeHandles` renders, without its
+ * hooks.
+ */
+export function handleElements(
+  layout: HandleLayout,
+  portOverrides: Overrides = {},
+  emitOverrides: Overrides = {},
+): ReactElement<HandleProps>[] {
+  // Own keys only: a handle may be called `toString`.
+  const override = (overrides: Overrides, handleId: string) =>
+    Object.hasOwn(overrides, handleId) ? overrides[handleId] : undefined;
+
+  const ports = layout.ports
+    .filter((port) => !(port.open && port.hidden))
+    .map((port) => {
+      const extra = override(portOverrides, port.id);
+      const side = port.side ?? "left";
+      return (
+        <Handle
+          key={`target:${port.id}`}
+          {...extra}
+          type="target"
+          id={port.id}
+          position={side}
+          handleType={port.kind}
+          offset={port.offset}
+          title={port.title}
+          hint={extra?.hint ?? port.hint}
+        />
+      );
+    });
+  const emits = layout.emits.map((emit) => {
+    const extra = override(emitOverrides, emit.id);
+    const side = emit.side ?? "right";
+    return (
+      <Handle
+        key={`source:${emit.id}`}
+        {...extra}
+        type="source"
+        id={emit.id}
+        position={side}
+        handleType={emit.kind}
+        offset={emit.offset}
+        title={emit.title}
+        hint={extra?.hint ?? emit.hint}
+      />
+    );
+  });
+  return [...ports, ...emits];
 }

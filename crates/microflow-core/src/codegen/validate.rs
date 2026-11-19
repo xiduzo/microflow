@@ -5,9 +5,10 @@
 //! reports a list of [`ValidationProblem`]s, each carrying a
 //! [`ProblemSeverity`]:
 //!
-//! - [`ProblemSeverity::Error`] — the emitted C++ itself would not compile
-//!   (today: two Node ids sanitizing to the same identifier token). Errors
-//!   block emission.
+//! - [`ProblemSeverity::Error`] — no faithful Sketch can be written: the
+//!   emitted C++ itself would not compile (two Node ids sanitizing to the same
+//!   identifier token), or a Node's settings could not be read
+//!   ([`unreadable_config`], raised by emission). Errors block emission.
 //! - [`ProblemSeverity::Warning`] — the Sketch compiles, but the Flow does not
 //!   fit the selected board's facts (missing pin, missing PWM, missing
 //!   networking, …). Warnings never block emission — the board pin maps are
@@ -55,8 +56,9 @@
 //! clock, no IO, deterministic ordering (Nodes in `id` order).
 
 use crate::codegen::board::{BoardCapability, BoardTarget, CoreFamily};
-use crate::codegen::emit::{analog_label, resolve_analog, NodeToken};
+use crate::codegen::emit::{resolve_analog, NodeToken};
 use crate::codegen::placeholder::CLOUD_NODE_TYPES;
+use crate::config::UnreadableConfig;
 use crate::firmata::PinLabel;
 use crate::flow::{FlowEdge, FlowNode, FlowUpdate};
 use crate::nodes;
@@ -69,7 +71,8 @@ use ts_rs::TS;
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum ProblemSeverity {
-    /// The emitted C++ would not compile — no Sketch is produced.
+    /// No faithful Sketch can be written — the emitted C++ would not compile,
+    /// or a Node's settings could not be read. No Sketch is produced.
     Error,
     /// The Flow does not fit the selected board's facts, but the Sketch is
     /// still emitted — the Author decides whether the warning applies to their
@@ -100,6 +103,9 @@ pub struct ValidationProblem {
 /// Validate `flow` against `target`, returning every problem — warnings for
 /// board-fit conflicts, errors for constraints that would make the emitted C++
 /// itself uncompilable. An empty vector means the Flow fits `target` cleanly.
+///
+/// A Node whose settings cannot be read has no pins to judge here
+/// ([`pin_demands`]); emission reports it ([`unreadable_config`]).
 ///
 /// Problems are returned in deterministic Node-`id` order per pass.
 #[must_use]
@@ -199,44 +205,63 @@ pub struct PinDemand {
 /// decides the wiring-dependent demands (a Led's `value` port drives PWM only
 /// when something feeds it). Pins are resolved by the Node's own emitter, so
 /// validation and emission cannot drift apart. Empty for Nodes without
-/// configurable pins (`I2cDevice` uses the board's fixed SDA/SCL).
+/// configurable pins (`I2cDevice` uses the board's fixed SDA/SCL), and for a
+/// Node whose settings cannot be read: it has no pins to judge — the live
+/// runtime does not run it, and sketch generation refuses it
+/// ([`unreadable_config`]).
 ///
 /// An analog reader's pin keeps the Node's own label (`"A0"` or a pin number),
 /// resolved against the live board's pin profile there and against the
 /// target's pin map here ([`resolve_analog`]) — the same rule on both sides.
 #[must_use]
 pub fn pin_demands(node: &FlowNode, edges: &[FlowEdge]) -> Vec<PinDemand> {
+    readable_pin_demands(node, edges).unwrap_or_default()
+}
+
+/// [`pin_demands`] of a Node whose settings can be read.
+fn readable_pin_demands(
+    node: &FlowNode,
+    edges: &[FlowEdge],
+) -> Result<Vec<PinDemand>, UnreadableConfig> {
     let Some(kind) = node.node_type.as_deref() else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
     let one = |pin: u8, uses: PinUse| PinDemand { field: "", pin: PinLabel::Pin(pin), uses };
     let each = |pins: &[(&'static str, u8)], uses: PinUse| -> Vec<PinDemand> {
         pins.iter().map(|&(field, pin)| PinDemand { field, pin: PinLabel::Pin(pin), uses }).collect()
     };
-    match kind {
+    let analog = |pin: PinLabel| PinDemand { field: "", pin, uses: PinUse::AnalogIn };
+    Ok(match kind {
         "Led" | "Vibration" => {
-            let pin = nodes::led::codegen::pin(node);
+            let pin = nodes::led::codegen::pin(node)?;
             let mut demands = vec![one(pin, PinUse::Digital)];
             if edges.iter().any(|e| e.target == node.id && e.target_handle == "value") {
                 demands.push(one(pin, PinUse::Pwm));
             }
             demands
         }
-        "Relay" => vec![one(nodes::relay::codegen::pin(node), PinUse::Digital)],
-        "Servo" => vec![one(nodes::servo::codegen::pin(node), PinUse::Servo)],
-        "Button" => vec![one(nodes::button::codegen::pin(node), PinUse::Digital)],
-        "Piezo" => vec![one(nodes::piezo::codegen::pin(node), PinUse::Digital)],
-        "Pixel" => vec![one(nodes::pixel::codegen::pin(node), PinUse::Digital)],
-        "Switch" => vec![one(nodes::switch::codegen::pin(node), PinUse::Digital)],
-        "Motion" => vec![one(nodes::motion::codegen::pin(node), PinUse::Digital)],
-        "Rgb" => each(&nodes::rgb::codegen::pins(node), PinUse::Pwm),
-        "Matrix" => each(&nodes::matrix::codegen::pins(node), PinUse::Digital),
-        "Stepper" => each(&nodes::stepper::codegen::pins(node), PinUse::Digital),
-        k if is_analog_reader(k) => {
-            vec![PinDemand { field: "", pin: analog_label(node), uses: PinUse::AnalogIn }]
+        "Relay" => vec![one(nodes::relay::codegen::pin(node)?, PinUse::Digital)],
+        "Servo" => vec![one(nodes::servo::codegen::pin(node)?, PinUse::Servo)],
+        "Button" => vec![one(nodes::button::codegen::pin(node)?, PinUse::Digital)],
+        "Piezo" => vec![one(nodes::piezo::codegen::pin(node)?, PinUse::Digital)],
+        "Pixel" => vec![one(nodes::pixel::codegen::pin(node)?, PinUse::Digital)],
+        "Switch" => vec![one(nodes::switch::codegen::pin(node)?, PinUse::Digital)],
+        "Motion" => vec![one(nodes::motion::codegen::pin(node)?, PinUse::Digital)],
+        "Rgb" => each(&nodes::rgb::codegen::pins(node)?, PinUse::Pwm),
+        "Matrix" => each(&nodes::matrix::codegen::pins(node)?, PinUse::Digital),
+        "Stepper" => each(&nodes::stepper::codegen::pins(node)?, PinUse::Digital),
+        "Proximity" => vec![analog(nodes::proximity::codegen::label(node)?)],
+        k if nodes::sensor::codegen::ANALOG_SENSOR_TYPES.contains(&k) => {
+            vec![analog(nodes::sensor::codegen::label(node)?)]
         }
         _ => vec![],
-    }
+    })
+}
+
+/// The analog pin an analog reader names, or `None` when its settings cannot
+/// be read.
+fn analog_label(node: &FlowNode) -> Option<PinLabel> {
+    pin_demands(node, &[]).into_iter().find(|d| d.uses == PinUse::AnalogIn).map(|d| d.pin)
 }
 
 /// The digital pins a Node will be emitted on, as `(label, pin)` pairs — the
@@ -358,7 +383,7 @@ fn digital_pin_problem(
 /// board. Called only after [`digital_pin_problem`] has confirmed the pin
 /// exists, so a `None` here means "exists but not PWM".
 fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
-    let pin = nodes::servo::codegen::pin(node);
+    let pin = nodes::servo::codegen::pin(node).ok()?;
     if target.pwm_pins().contains(&pin) {
         return None;
     }
@@ -379,6 +404,7 @@ fn pwm_pin_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationPr
 /// non-PWM channel is reported, naming the channel.
 fn rgb_pwm_problem(node: &FlowNode, target: &BoardTarget) -> Option<ValidationProblem> {
     let (channel, pin) = nodes::rgb::codegen::pins(node)
+        .ok()?
         .into_iter()
         .find(|(_, pin)| !target.pwm_pins().contains(pin))?;
     Some(problem(
@@ -413,7 +439,7 @@ fn led_brightness_pwm_problems(
             if !brightness_wired {
                 return None;
             }
-            let pin = nodes::led::codegen::pin(node);
+            let pin = nodes::led::codegen::pin(node).ok()?;
             // Only meaningful for pins the board has; a missing pin is already
             // flagged by the per-Node pass.
             if !has_pin(target, pin) || target.pwm_pins().contains(&pin) {
@@ -462,8 +488,8 @@ fn analog_oversubscription_problems(
         }
         // A label that does not land on an analog input is reported by the
         // per-Node analog check; skip it here so a sensor never raises two
-        // problems.
-        if resolve_analog(analog_label(node), target).1.is_none() {
+        // problems. A sensor whose settings cannot be read uses no input.
+        if analog_label(node).and_then(|label| resolve_analog(label, target).1).is_none() {
             continue;
         }
         used += 1;
@@ -490,7 +516,7 @@ fn analog_pin_problem(
     kind: &str,
     target: &BoardTarget,
 ) -> Option<ValidationProblem> {
-    let label = analog_label(node);
+    let label = analog_label(node)?;
     if resolve_analog(label, target).1.is_some() {
         return None;
     }
@@ -597,14 +623,16 @@ fn tone_timer_pwm_conflict_problems(
         };
         match kind {
             "Rgb" => {
-                for (_, pin) in nodes::rgb::codegen::pins(node) {
+                for (_, pin) in nodes::rgb::codegen::pins(node).into_iter().flatten() {
                     if TIMER2_PWM_PINS.contains(&pin) && has_pin(target, pin) {
                         pwm_users.push((node, kind, pin));
                     }
                 }
             }
             "Led" | "Vibration" => {
-                let pin = nodes::led::codegen::pin(node);
+                let Ok(pin) = nodes::led::codegen::pin(node) else {
+                    continue;
+                };
                 let brightness_wired = flow
                     .edges
                     .iter()
@@ -655,6 +683,21 @@ fn tone_timer_pwm_conflict_problems(
 /// True when `target`'s pin map contains a pin with `number`.
 fn has_pin(target: &BoardTarget, number: u8) -> bool {
     target.pins.iter().any(|p| p.number == number)
+}
+
+/// The problem a Node raises when its settings cannot be read into its config
+/// ([`crate::config::resolve`]). An error: emitting the Node on its defaults
+/// instead would hand the Author a Sketch that runs something other than the
+/// Flow — on a pin they did not pick. The live runtime reports the same fact
+/// as Node health ("Not running: its settings could not be read").
+pub(crate) fn unreadable_config(node: &FlowNode, reason: &UnreadableConfig) -> ValidationProblem {
+    let kind = node.node_type.as_deref().unwrap_or("unknown");
+    problem(
+        node,
+        kind,
+        ProblemSeverity::Error,
+        format!("Node {} ({kind}): its settings could not be read ({reason})", node.id),
+    )
 }
 
 /// Construct a [`ValidationProblem`] for `node`.

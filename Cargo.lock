@@ -3101,6 +3101,7 @@ version = "0.16.1"
 dependencies = [
  "async-trait",
  "dashmap",
+ "libc",
  "log",
  "microflow-core",
  "midir",
@@ -3130,6 +3131,7 @@ dependencies = [
  "tracing-subscriber",
  "ts-rs",
  "uuid",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

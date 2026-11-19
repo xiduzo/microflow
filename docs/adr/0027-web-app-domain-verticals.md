@@ -1,6 +1,6 @@
 # ADR-0027 — The web app is organised by domain vertical, each with explicit public entry files
 
-- **Status:** accepted — implemented (2026-09-25)
+- **Status:** accepted — implemented (2026-09-25); amended (2026-11-19)
 - **Date:** 2026-09-25
 - **Deciders:** sander
 - **Plan:** [`docs/plans/vertical-structure.md`](../plans/vertical-structure.md) (the
@@ -90,6 +90,8 @@ as importers.
 5. **unknown-vertical** — every folder and file directly in `src/` is listed in
    `VERTICALS` or as a root file. New code has to pick a home.
 
+A sixth rule, **may-import**, is recorded in the amendment below.
+
 The guard lives beside the code it checks:
 
 | File | Role |
@@ -110,7 +112,7 @@ The same rules run as lint errors, so a broken boundary shows up in the editor a
 not only in the test run. `.oxlintrc.json` loads `oxlint-plugin.mjs` for
 `apps/web/src` with three rules:
 
-- `microflow/vertical-boundaries`: the five rules above, reported on the import.
+- `microflow/vertical-boundaries`: the guard's rules, reported on the import.
 - `microflow/cross-vertical-alias`: an import into another vertical uses the `@/`
   alias, never `../`, so every crossing is visible in the import list. It has an
   autofix.
@@ -158,12 +160,15 @@ that `no-cycle` resolves the `@/` alias.
   rule fails until both exist. Name it after a `CONTEXT.md` term or its route, and add
   its line to `ARCHITECTURE.md`.
 - **Cycles between verticals are allowed**, as long as each edge goes through a
-  public file. The guard constrains which files cross a boundary, not the direction.
+  public file. The guard constrains which files cross a boundary; it constrains the
+  direction only for a vertical that declares `mayImport` (amendment below).
   `derive-public-surface.ts` prints the cycles so they stay visible.
 - **Adding a node needs no hand-edited registry.** Codegen writes
   `nodes/component-types.generated.ts`, `nodes/catalog.generated.ts` and
   `nodes/node-types.generated.ts`, and finds a node's host adapter by the presence of
-  `nodes/<node>/<node>.adapter.ts`.
+  `nodes/<node>/<node>.adapter.ts`. The one hand-written line per catalog entry is
+  its Handle Rule in `nodes/handle-rules.ts`, which does not compile while an entry
+  is missing ([ADR-0032](0032-live-handle-set-and-handle-pruning.md)).
 - **The LLM provider store, the Llm node's transport (`llm-client.ts`) and
   its performer (`llm-performer.ts`) live in `ai/`**, next to `ai/adapter.ts`, which Ask AI and
   the provider transport share
@@ -177,3 +182,37 @@ that `no-cycle` resolves the `@/` alias.
   (`shell/sidebar.ts`, `flows/active-flow.ts`, `board/arduino-onboarding.ts`), so a
   returning user keeps their sidebar, active flow and onboarding state. Delete it
   once returning users have been migrated.
+
+---
+
+## Amendment (2026-11-19): a sixth rule pins a dependency direction
+
+The guard has a sixth rule.
+
+6. **may-import** — a vertical whose `VERTICALS` entry has a `mayImport` list
+   imports only the verticals on it. `import type` counts. The public surface of
+   an allowed vertical still applies.
+
+The five rules above say which *files* may cross a boundary. This one says
+which *verticals* a vertical may depend on at all, for the few places where the
+direction matters. One vertical declares it:
+
+```ts
+session: { public: ["index.ts"], mayImport: ["lib", "ui", "platform"] },
+```
+
+The session knows documents, not nodes, boards or the canvas. What it needs
+from a vertical it may not import is handed to it as a parameter by code that
+may import both: `wireApp()` in `apps/web/src/app-wiring.ts`, a root file in the
+top layer that `main.tsx` calls before anything renders. Today it hands the
+session the node library's handle sets (`provideHandleSets(nodeHandles)`,
+[ADR-0032](0032-live-handle-set-and-handle-pruning.md)), and
+`apps/web/src/app-wiring.test.ts` runs exactly what the app runs.
+
+A vertical without a `mayImport` list is unconstrained in direction.
+The engine reports at most one rule per import, the first it breaks, in the
+order `unknown-vertical`, `routes-are-top`, `infra-layer`, `may-import`,
+`restricted-file`, `public-surface`. A `may-import` failure names two fixes:
+invert the dependency, or add the vertical to the list in
+`apps/web/scripts/architecture/verticals.ts`. The second is a decision to make
+in review, not a way to get the test green.

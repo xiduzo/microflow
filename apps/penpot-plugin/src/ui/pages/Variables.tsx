@@ -1,5 +1,5 @@
-import { type BridgeSnapshotEntry, type ResolvedType, toWireId, topics } from "@microflow/design-bridge";
-import { useAppStore, useCopyToClipboard } from "@microflow/design-bridge/react";
+import type { ResolvedType } from "@microflow/design-bridge";
+import { useBridgeSession, useCopyToClipboard } from "@microflow/design-bridge/react";
 import {
   Check,
   ClipboardList,
@@ -12,7 +12,7 @@ import {
   Type,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import { openLink } from "../channel";
+import { openLink, session } from "../channel";
 import { IconButton, PageContent, PageHeader } from "../components/PageLayout";
 import { toast } from "../components/Toast";
 
@@ -25,8 +25,8 @@ const TYPE_ICONS: Record<ResolvedType, ReactNode> = {
   COLOR: <Palette size={12} />,
 };
 
-export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
-  const uid = useAppStore((state) => state.mqttConfig?.uniqueId);
+export function Variables() {
+  const { entries } = useBridgeSession(session);
 
   return (
     <>
@@ -39,7 +39,7 @@ export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
         }
       />
       <PageContent>
-        {props.entries.length === 0 && (
+        {entries.length === 0 && (
           <div className="py-6 text-center">
             <ClipboardList size={32} className="mx-auto mb-3 opacity-30" />
             <p className="mb-2 text-[15px] font-semibold text-gray-900 dark:text-white">No tokens found</p>
@@ -49,7 +49,7 @@ export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
             </p>
           </div>
         )}
-        {props.entries.map(({ variable }) => (
+        {entries.map(({ variable, topics }) => (
           <div key={variable.id} className="flex items-center justify-between gap-2 py-1">
             <div className="flex min-w-0 items-center gap-2 text-[13px] text-gray-900 dark:text-gray-100">
               <span
@@ -65,12 +65,12 @@ export function Variables(props: { entries: BridgeSnapshotEntry[] }) {
             <div className="flex shrink-0 gap-0.5">
               <CopyButton
                 title="Copy subscribe topic"
-                text={uid && topics.value(uid, "penpot", toWireId(variable.id))}
+                text={topics?.value}
                 icon={<Radio size={12} />}
               />
               <CopyButton
                 title="Copy publish topic"
-                text={uid && topics.set(uid, toWireId(variable.id))}
+                text={topics?.set}
                 icon={<RadioTower size={12} />}
               />
             </div>

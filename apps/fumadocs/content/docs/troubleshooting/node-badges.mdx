@@ -38,7 +38,7 @@ Give the load its own power supply (connect the grounds). The outputs come back 
 ## The node could not start
 
 - **"Could not set up on the board: …"** — the node failed while it set up its pins. The rest of the message says why.
-- **"Not running: its settings could not be read …"** — the saved settings do not fit the node, often after a flow was made with a different version of Microflow. Open the node and set it up again.
+- **"Not running: its settings could not be read (pin: invalid pin: left)"** — a saved setting does not fit the node, often after a flow was made with a different version of Microflow. The text in brackets names the setting and says what is wrong with it. Open the node and set that setting again. Until you do, **Show code** cannot export the flow as an Arduino sketch: it lists the same node and setting where the sketch would be.
 - **"Not running: "…" is not a node type this runtime knows"** — the flow uses a node your version of Microflow does not have. Update Microflow, or delete the node.
 
 Some nodes also report their own problems, for example an [I2C Device](/docs/microflow-studio/nodes/sense/i2c-device) that does not answer at its address, or a [Music](/docs/microflow-studio/nodes/express/music) node with no songs. Those messages explain themselves.

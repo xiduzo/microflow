@@ -1,6 +1,6 @@
 # ADR-0022 — The flow-role transition has one owner
 
-- **Status:** accepted (2026-08-31)
+- **Status:** accepted (2026-08-31); amended (2026-11-19)
 - **Date:** 2026-08-31
 - **Deciders:** sander
 
@@ -44,9 +44,10 @@ Callers that cannot reach it get it injected, or stay deliberately partial:
   `InviteMailer`: the api layer passes `setFlowRole`, so a grant made from
   db still reaches live sockets.
 - **The sign-up accept path** (`acceptInvites`, in the better-auth
-  `user.create.after` hook) calls `grantAccess` directly — rows only, by
-  design. A user who just created their account holds no live socket to
-  push to, and auth cannot reach collab.
+  `user.create.after` hook) writes the collaborator rows itself, through the
+  same upsert `grantAccess` uses — rows only, by design. A user who just
+  created their account holds no live socket to push to, and auth cannot
+  reach collab.
 
 ## Consequences
 
@@ -60,3 +61,23 @@ Callers that cannot reach it get it injected, or stay deliberately partial:
 - The sign-up path is a second grant caller by design. If an accepting user
   can ever hold a live socket at accept time, that path should take the
   `GrantRole` adapter too.
+
+---
+
+## Amendment (2026-11-19): the accept path is one transaction, and a refusal has its own error
+
+`acceptInvites` runs in one database transaction: it consumes the pending
+invites with `DELETE … RETURNING` and grants exactly the rows that returned,
+through the upsert `grantAccess` shares (`upsertGrants` in
+`packages/db/src/flow-invitation.ts`). It stays rows-only, for the reason
+given above. The sign-up hook runs once per account, so a failure rolls back
+and leaves every invite pending, never some flows granted and the rest lost.
+
+`requireFlowAccess` reports a decision as `FlowAccessDenied` (`not-found` or
+`denied`), distinct from a failure to decide. Every flow procedure reaches a
+role through it, `flow.get` included, and then makes one call into the Flow
+library (`packages/api/src/routers/flow-library.ts`). The tRPC layer maps the
+error to `NOT_FOUND` or `FORBIDDEN` in one middleware
+(`packages/api/src/index.ts`), [ADR-0034](0034-database-handle-bound-at-the-composition-root.md). `setFlowRole` remains the one owner
+of the transition. `flow-access.test.ts` runs the access query and the role transition on the
+in-process Postgres and real room connections.

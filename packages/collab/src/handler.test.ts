@@ -1,30 +1,20 @@
-import { describe, expect, mock, test } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
+import { useTestDb } from "@microflow/db/testing";
+import { createYjsHandler, yjsServer } from "./handler";
+import { CLOSE_ACCESS_DENIED } from "./protocol";
 
 /**
  * The handler is the composition root: it wires the singleton `YjsServer` to
- * the production `RoomStore`, so importing it reaches the database. Stub it —
- * everything below is about the transport, not persistence.
+ * the production `RoomStore`, so its rooms reach the database. Everything
+ * below is about the transport, not persistence, so an empty in-process
+ * Postgres is enough: no flow has a row, a room loads empty and its save is a
+ * no-op.
  */
-const saved: unknown[] = [];
-const tx = {
-  select: () => ({
-    from: () => ({ where: () => ({ for: async () => [{ ydoc: null }] }) }),
-  }),
-  update: () => ({ set: () => ({ where: async (w: unknown) => saved.push(w) }) }),
-};
-mock.module("@microflow/db", () => ({
-  db: {
-    query: { flow: { findFirst: async () => ({ id: "flow-1", ydoc: null }) } },
-    transaction: async (run: (t: typeof tx) => Promise<void>) => run(tx),
-  },
-}));
-
-const { createYjsHandler, yjsServer } = await import("./handler");
-const { CLOSE_ACCESS_DENIED } = await import("./protocol");
+await useTestDb();
 
 const MESSAGE_SYNC = 0;
 

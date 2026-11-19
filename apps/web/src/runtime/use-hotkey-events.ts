@@ -4,19 +4,18 @@ import { isDesktop } from "@/platform/platform";
 import { emit } from "@tauri-apps/api/event";
 import { useFlowNodes, useFlowSession } from "@/session";
 import type { Hotkey } from "@tanstack/react-hotkeys";
-import { NODE_CATALOG } from "@/nodes/catalog.generated";
-import { isComponentType } from "@/nodes/component-types.generated";
-import { dispatchToNode } from "@/board/board-controller";
+import { keyEvent } from "@/board/board-controller";
+import { hotkeyAccelerators } from "./hotkey-accelerators";
 
 /**
- * Registers TanStack hotkeys for every Hotkey node in the current flow.
- * On keydown/keyup the key reaches the runtime, which handles all component
- * routing and flow graph processing. No logic lives here.
+ * Registers a TanStack hotkey for every accelerator a node of the current flow
+ * listens on. On keydown/keyup the accelerator reaches the runtime, which
+ * decides which nodes hear it and runs the flow from there. No logic lives
+ * here.
  *
- * The two hosts differ only in how the key gets there: desktop fires a Tauri
- * event and lets Rust find the registered Hotkey components; the browser has no
- * such registry on the host side, so it dispatches straight into the wasm
- * runtime's `key_event` port on the nodes that asked for this accelerator.
+ * The two hosts differ only in the door the key goes through: desktop fires a
+ * Tauri event for the actor, the browser calls into the wasm runtime. Behind
+ * either door it is the same `dispatch_key_event`.
  *
  * Mounted inside a `FlowSessionProvider`.
  */
@@ -24,20 +23,7 @@ export function useHotkeyEvents() {
   const { doc } = useFlowSession();
   const nodes = useFlowNodes(doc);
 
-  /** accelerator -> the node ids listening for it (one key may drive several). */
-  const listeners = useMemo(() => {
-    const out = new Map<string, string[]>();
-    for (const node of nodes) {
-      const instance = node.data?.instance;
-      if (typeof instance !== "string" || !isComponentType(instance)) continue;
-      const accel = NODE_CATALOG[instance].adapter?.accelerator?.(node);
-      if (!accel) continue;
-      const ids = out.get(accel);
-      if (ids) ids.push(node.id);
-      else out.set(accel, [node.id]);
-    }
-    return out;
-  }, [nodes]);
+  const accelerators = useMemo(() => hotkeyAccelerators(nodes), [nodes]);
 
   const hotkeys = useMemo(() => {
     const emitKeyEvent = (key: string, pressed: boolean) => {
@@ -45,12 +31,10 @@ export function useHotkeyEvents() {
         emit("key_event", { key, pressed });
         return;
       }
-      for (const nodeId of listeners.get(key) ?? []) {
-        dispatchToNode(nodeId, "key_event", pressed);
-      }
+      keyEvent(key, pressed);
     };
 
-    return [...listeners.keys()].flatMap((key) => [
+    return accelerators.flatMap((key) => [
       {
         hotkey: key as Hotkey,
         callback: () => emitKeyEvent(key, true),
@@ -73,7 +57,7 @@ export function useHotkeyEvents() {
         },
       },
     ]);
-  }, [listeners]);
+  }, [accelerators]);
 
   useHotkeys(hotkeys);
 }

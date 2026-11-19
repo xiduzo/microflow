@@ -12,9 +12,3 @@ pub(crate) struct LedConfig {
 fn default_pin() -> u8 {
     13
 }
-
-impl Default for LedConfig {
-    fn default() -> Self {
-        Self { pin: default_pin() }
-    }
-}

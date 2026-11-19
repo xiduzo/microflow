@@ -1,6 +1,6 @@
 # ADR-0006 — Re-host the Live Flow Runtime on microflow-core via a sans-IO `Effects` seam
 
-- **Status:** accepted
+- **Status:** accepted; amended (2026-11-19)
 - **Date:** 2026-06-19
 - **Deciders:** sander
 
@@ -50,7 +50,8 @@ the browser does.
   writes the bytes to the port, dispatches the events to its UI stores, arms the
   wakeups as timers, and clears the cancellations. Every public entry point
   (`update_flow`, `feed_bytes`, `wake`, `dispatch`, `deliver_message`,
-  `inject_event`, `dispatch_key_event`) returns `Effects`.
+  `inject_event`, `dispatch_key_event`, `dispatch_midi_message`) returns
+  `Effects`.
 
 - **D4 — `BoardWriter` replaces the `BoardHandle` / `BoardCommand` /
   `CommandReceipt` / **Board IO Loop** stack.** Hardware nodes call a typed
@@ -73,7 +74,7 @@ the browser does.
     `FlowRuntime` lives inside a dedicated actor thread (`run_actor`) that owns the
     serial port and a Tokio handle for timers and cloud I/O. Only `Send` handles
     cross the spawn boundary; cloud-node results re-enter via `inject_event`
-    through a `ChannelEmitter`.
+    as an `ActorMsg::Inject`.
   - **Browser** (`apps/web/src/runtime/flow-reactor.ts`): a `setTimeout`/Web
     Serial loop that applies the same `Effects` — bytes to the port, events to the
     Zustand stores, wakeups to `setTimeout`, cancellations to `clearTimeout`.
@@ -150,3 +151,25 @@ the codegen wasm build still pulls in nothing from the runtime. Because the
 table is shared, so are its rules: a servo is allowed on any digital pin, and a
 numeric analog pin label is that pin, in the sketch and on the live board
 alike.
+
+---
+
+## Amendment (2026-11-19): host input is an entry point, not a host loop
+
+D3's entry points include the two that take a **host input**:
+`dispatch_key_event(accelerator, pressed)` and
+`dispatch_midi_message(port_name, bytes)`
+(`crates/microflow-core/src/runtime/host_input.rs`). Neither takes a node id.
+The runtime picks the listening nodes from its own tables and delivers to them
+one at a time, in node-id order, inside one turn, so a key or a MIDI message is
+one `Effects` however many nodes hear it. Each listener's cascade has the whole
+turn budget, so D3's "one turn, one `Effects`" holds while a turn started by a
+host input can drain more than one budget of events.
+
+D6's hosts own the devices only: they register the shortcuts and open the MIDI
+ports the runtime says it wants (`listens_to_midi`, `wants_midi_input`), and
+hand over what arrives. Decided in
+[ADR-0037](0037-core-owns-host-input-fan-out.md).
+
+How a Node's `data` is read into the config that interpret and emit share is
+`config::resolve`, decided in [ADR-0033](0033-one-node-config-resolution.md).

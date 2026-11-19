@@ -6,6 +6,7 @@
 //! *which* record plays and *when*; the host resolves the source by index from
 //! the flow it already holds.
 
+use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 /// One record on the node. `name` is also the record's dynamic **Port** id on
@@ -24,7 +25,7 @@ pub(crate) struct MusicConfig {
     #[serde(default)]
     pub(crate) tracks: Vec<MusicTrack>,
     /// Which record is selected when the flow starts. `set` moves it at runtime.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) track: usize,
     /// Playback volume, 0.0–1.0.
     #[serde(default = "default_volume")]
@@ -36,10 +37,4 @@ pub(crate) struct MusicConfig {
 
 fn default_volume() -> f32 {
     0.8
-}
-
-impl Default for MusicConfig {
-    fn default() -> Self {
-        Self { tracks: Vec::new(), track: 0, volume: default_volume(), r#loop: false }
-    }
 }

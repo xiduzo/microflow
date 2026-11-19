@@ -3,7 +3,7 @@ title: Counter
 description: Keep track of how many times something happens.
 ---
 
-The Counter node keeps a running total. Each time it receives a signal, it increases or decreases the count and outputs the new total. You can also reset it, or jump it to a specific value at any time.
+The Counter node keeps a running total. Each time it receives a signal, it adds or subtracts 1 and outputs the new total. You can also reset it, or jump it to a specific value at any time.
 
 **Examples:**
 - Count how many times a button has been pressed
@@ -13,16 +13,15 @@ The Counter node keeps a running total. Each time it receives a signal, it incre
 
 ## Inputs
 
-- **Increment** — increases the count by the step value
-- **Decrement** — decreases the count by the step value
-- **Reset** — sets the count back to the starting value
-- **Set** — sets the count to a specific incoming value
+- **+** (increment) — adds 1 to the count
+- **set** — sets the count to the incoming number
+- **-** (decrement) — subtracts 1 from the count
+- **reset** — sets the count back to 0
+
+## Outputs
+
+- **value** — the count, each time it changes
 
 ## Settings
 
-Open the settings panel to configure:
-
-- **Start value** — the initial count when the flow starts (default: 0)
-- **Step** — how much to add or subtract on each increment or decrement (default: 1)
-- **Min** *(optional)* — a lower limit; the count will not go below this value
-- **Max** *(optional)* — an upper limit; the count will not go above this value
+The Counter node has no settings. The count starts at 0.

@@ -2,30 +2,24 @@
 //! Web MIDI `MidiPerformer`.
 //!
 //! Owns the open `midir` connections, confined to the actor thread like the
-//! runtime itself. Routing stays out of here on purpose: an input callback only
-//! forwards the raw bytes as [`ActorMsg::MidiMessage`]; the actor fans each
-//! message out against its cached listener list, which it rebuilds from
-//! `FlowRuntime::collect_midi_listeners()` on every flow update — the same point
-//! it calls [`MidiManager::reconcile`], so the open ports and the routing table
-//! are always derived from the same listener list. Output connections open
-//! lazily on the first send to a matching port name.
+//! runtime itself. It only moves bytes. Which ports are open is the flow's
+//! desired state, asked of the runtime on every flow update
+//! ([`MidiManager::reconcile`]); an input callback forwards the raw bytes and
+//! the port they arrived on as [`ActorMsg::MidiMessage`], and the runtime
+//! decides which nodes hear them (`FlowRuntime::dispatch_midi_message`). Output
+//! connections open lazily on the first send to a port the runtime's
+//! device-name rule matches.
 //!
 //! [`ActorMsg::MidiMessage`]: crate::runtime::host::ActorMsg
 
 use crate::runtime::host::ActorMsg;
 use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
-use microflow_core::runtime::subscriptions::MidiListener;
+use microflow_core::runtime::{midi_device_matches, FlowRuntime};
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
 /// Client name shown to the OS MIDI stack.
 const CLIENT: &str = "microflow";
-
-/// Case-insensitive substring match; an empty filter matches every port.
-#[must_use]
-pub fn device_matches(port_name: &str, filter: &str) -> bool {
-    filter.is_empty() || port_name.to_lowercase().contains(&filter.to_lowercase())
-}
 
 pub struct MidiManager {
     /// Open input connections keyed by port name. Dropping one closes it.
@@ -40,15 +34,12 @@ impl MidiManager {
         Self { inputs: HashMap::new(), outputs: HashMap::new() }
     }
 
-    /// Reconcile the open input connections against the flow's listeners: open
-    /// every port some listener's filter matches, close ports no filter matches
-    /// anymore. Called by the actor after every flow update.
-    pub fn reconcile(&mut self, listeners: &[MidiListener], tx: &UnboundedSender<ActorMsg>) {
-        let wanted = |port_name: &str| {
-            listeners.iter().any(|l| device_matches(port_name, &l.device_name))
-        };
-        self.inputs.retain(|name, _| wanted(name));
-        if listeners.is_empty() {
+    /// Reconcile the open input connections against the flow `rt` runs: open
+    /// every port it wants, close the ports it no longer does. Called by the
+    /// actor after every flow update.
+    pub fn reconcile(&mut self, rt: &FlowRuntime, tx: &UnboundedSender<ActorMsg>) {
+        self.inputs.retain(|name, _| rt.wants_midi_input(name));
+        if !rt.listens_to_midi() {
             return;
         }
 
@@ -61,7 +52,7 @@ impl MidiManager {
         };
         for port in probe.ports() {
             let Ok(name) = probe.port_name(&port) else { continue };
-            if self.inputs.contains_key(&name) || !wanted(&name) {
+            if self.inputs.contains_key(&name) || !rt.wants_midi_input(&name) {
                 continue;
             }
             // One `MidiInput` client per connection — midir consumes it on connect.
@@ -88,8 +79,8 @@ impl MidiManager {
         }
     }
 
-    /// Write one raw message to every output whose port name matches
-    /// `device_name` ("" = all), opening connections lazily.
+    /// Write one raw message to every output port `device_name` addresses
+    /// ("" = all), opening connections lazily.
     pub fn send(&mut self, device_name: &str, bytes: &[u8]) {
         let probe = match MidiOutput::new(CLIENT) {
             Ok(output) => output,
@@ -100,7 +91,7 @@ impl MidiManager {
         };
         for port in probe.ports() {
             let Ok(name) = probe.port_name(&port) else { continue };
-            if !device_matches(&name, device_name) {
+            if !midi_device_matches(&name, device_name) {
                 continue;
             }
             if !self.outputs.contains_key(&name) {
@@ -129,17 +120,5 @@ impl MidiManager {
 impl Default for MidiManager {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::device_matches;
-
-    #[test]
-    fn empty_filter_matches_everything_and_matching_is_case_insensitive() {
-        assert!(device_matches("Launchpad Mini MK3", ""));
-        assert!(device_matches("Launchpad Mini MK3", "launchpad"));
-        assert!(!device_matches("Launchpad Mini MK3", "push"));
     }
 }

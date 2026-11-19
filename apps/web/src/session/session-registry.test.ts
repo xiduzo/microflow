@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 // A local session persists through y-indexeddb; bun's test runner provides no
 // `indexedDB`. Import the shim here so this file does not depend on another
 // test file having installed one.
@@ -11,11 +11,16 @@ import {
   peekSession,
   releaseSession,
 } from "./session-registry";
-import { createLocalSession } from "./flow-session";
+import { createLocalSession, provideHandleSets } from "./flow-session";
 
 afterEach(() => {
   __resetRegistry();
 });
+
+// These sessions are not about handle pruning. A writable session without
+// handle sets reports the missing wiring, so give them one that knows no node.
+beforeAll(() => provideHandleSets(() => null));
+afterAll(() => provideHandleSets(null));
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

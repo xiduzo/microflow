@@ -1,3 +1,6 @@
+// First, for its side effect: binds the database before anything can query.
+import "./database";
+
 import { trpcServer } from "@hono/trpc-server";
 import { createContext } from "@microflow/api/context";
 import { appRouter } from "@microflow/api/routers/index";

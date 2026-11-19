@@ -27,6 +27,7 @@
 //! continuous reads (arm).
 
 use crate::runtime::board::BoardWriter;
+use crate::runtime::host_input::fold_device_name;
 use crate::runtime::wiring::{BoardWiring, I2cContinuousRead, ListenerWiring};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -85,8 +86,10 @@ pub struct ListenerTables {
     pub pin_listeners: HashMap<u8, Vec<Arc<str>>>,
     /// I2C address → `(register, component id)` listeners.
     pub i2c_listeners: HashMap<u8, Vec<(u8, Arc<str>)>>,
-    /// Hotkey accelerator (lowercased) → listening component ids.
+    /// Hotkey accelerator (lowercased) → listening component ids, sorted.
     pub key_listeners: HashMap<String, Vec<Arc<str>>>,
+    /// MIDI in-nodes as `(component id, folded device filter)`, sorted by id.
+    pub midi_listeners: Vec<(Arc<str>, String)>,
 }
 
 /// Walk every live component's wiring once, splitting it into the inbound
@@ -95,8 +98,10 @@ pub struct ListenerTables {
 /// Takes the wiring as plain data rather than the component map, so the gather
 /// is testable as a value — no `Component` to construct, no runtime.
 ///
-/// Hotkeys are delivered by the host (keyboard) via `dispatch_key_event`, not
-/// the board, so they land in the tables and contribute nothing to the board.
+/// Hotkeys and MIDI are host input (`runtime::host_input`), not board input, so
+/// they land in the tables and contribute nothing to the board. Their listeners
+/// are kept in node-id order: host input is delivered listener by listener, so
+/// the order is behaviour and must not follow the component map's iteration.
 pub fn gather_wiring<'a, I>(wirings: I) -> (ListenerTables, DesiredBoard)
 where
     I: IntoIterator<Item = (&'a str, Vec<ListenerWiring>, BoardWiring)>,
@@ -122,6 +127,9 @@ where
                 ListenerWiring::HotKey { accelerator } => {
                     tables.key_listeners.entry(accelerator).or_default().push(Arc::from(id));
                 }
+                ListenerWiring::MidiInput { device_name } => {
+                    tables.midi_listeners.push((Arc::from(id), fold_device_name(&device_name)));
+                }
             }
         }
 
@@ -139,6 +147,10 @@ where
         }
     }
 
+    for ids in tables.key_listeners.values_mut() {
+        ids.sort();
+    }
+    tables.midi_listeners.sort();
     desired.has_i2c_listeners = !tables.i2c_listeners.is_empty();
     desired.report = report;
     (tables, desired)

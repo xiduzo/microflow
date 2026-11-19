@@ -1,6 +1,6 @@
 # ADR-0008 — `Effects` apply-policy: canonical order behind a typed `EffectsSink`
 
-- **Status:** implemented (2026-06-21)
+- **Status:** implemented (2026-06-21); amended (2026-11-19)
 - **Date:** 2026-06-21
 - **Deciders:** sander
 
@@ -35,7 +35,8 @@ semantics of the four fields — is written down nowhere, and the two hosts have
 
 This is benign **today** — within one turn `wakeups` carry freshly-allocated
 `WakeupId`s and `cancellations` carry previously-issued ones, so they cannot
-collide on the same id regardless of order. But it is an unguarded latent
+collide on the same id regardless of order (a guarantee the runtime makes
+itself: see the amendment below). But it is an unguarded latent
 hazard: the testability seam stops at the runtime boundary, the host's
 *application* of effects is unspecified and unconformance-tested, and a future
 field or ordering rule (e.g. "a cancellation and a re-arm of the same logical
@@ -122,3 +123,36 @@ New term recorded in `CONTEXT.md`:
 - `apps/web/src/runtime/flow-reactor.ts:81` — browser `apply` (reordered + four-hook).
 - [ADR-0006](0006-rehost-runtime-on-core.md) — the `Effects` seam this deepens.
 - [ADR-0009](0009-cloud-sans-io-capability.md) — adds `cloud_requests`, the field this policy will absorb.
+
+---
+
+## Amendment (2026-11-19): a turn's timer requests resolve in the order they were made
+
+D1 applies a turn's cancellations before its wakeups. That is safe only if a
+cancellation never names a timer of the same turn; Context observed that ids
+"cannot collide", and the runtime guarantees it.
+
+A node has one wakeup per `(node, method)`: scheduling it again replaces the
+pending one. During a turn, `schedule_wakeup` and `cancel_wakeup` only record a
+`TimerRequest` (`Schedule` or `Cancel`) in `ScheduleRequests`, in the order the
+nodes made them. `FlowRuntime::resolve_schedule`
+(`crates/microflow-core/src/runtime/mod.rs`) resolves them in that order against
+the outstanding-wakeup table:
+
+- a schedule of an outstanding `(node, method)` replaces the prior timer;
+- a timer the same turn asked for, then cancelled or re-scheduled later in that
+  turn, is **withdrawn** from `Effects.wakeups` and never reaches the host;
+- only a timer an earlier turn handed to the host is put in
+  `Effects.cancellations`.
+
+A schedule followed by a cancel leaves nothing armed; a cancel followed by a
+schedule leaves one timer. What the host holds after `Effects::apply` is what
+it would hold had each request reached it on its own, so the canonical order
+needs no host-side rule for a cancel and a re-arm of the same logical timer.
+The tests are in `runtime/mod.rs` (`a_timer_scheduled_then_cancelled_in_one_cascade_is_not_left_armed`
+and its neighbours).
+
+The canonical order `Effects::apply` drives is `outbound_bytes → cancellations
+→ wakeups → cloud_requests → component_events → node_diagnostics`, with the
+hooks `write_bytes`, `cancel_wakeup`, `arm_wakeup`, `perform_cloud`,
+`dispatch_events` (one call per turn) and `report_diagnostic`.

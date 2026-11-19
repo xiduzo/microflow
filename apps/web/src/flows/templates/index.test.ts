@@ -1,17 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-  COMPONENT_EMITS,
-  COMPONENT_PORTS,
-  isComponentType,
-} from "@/nodes/component-types.generated";
+import { isComponentType } from "@/nodes/component-types.generated";
 import { NODE_CATALOG } from "@/nodes/catalog.generated";
+import { checkEdge } from "@/nodes/handles";
 import { TEMPLATES } from ".";
 
 // Templates are plain @xyflow Node/Edge objects, so nothing type-checks their
-// handles against the generated port/emit catalog. This suite is that guard:
-// a template edge naming a handle the Rust component never declared would load
-// visually but silently never fire.
+// handles. This suite is that guard. Every edge must attach to the Live Handle
+// Set of its nodes as the template configures them: an edge to a handle the
+// node does not render for those settings would be in the flow, and in the
+// runtime, without ever showing on the canvas.
 describe("TEMPLATES", () => {
   it("has unique template ids", () => {
     const ids = TEMPLATES.map((t) => t.id);
@@ -41,20 +39,14 @@ describe("TEMPLATES", () => {
         }
       });
 
-      it("edges connect existing nodes via declared emits and ports", () => {
+      it("every edge attaches to a handle its nodes offer as configured", () => {
         const byId = new Map(template.nodes.map((n) => [n.id, n]));
         for (const edge of template.edges) {
-          const source = byId.get(edge.source);
-          const target = byId.get(edge.target);
-          expect(source).toBeDefined();
-          expect(target).toBeDefined();
-          if (!source?.type || !target?.type) continue;
-          if (!isComponentType(source.type) || !isComponentType(target.type)) continue;
-
-          const emits: readonly string[] = COMPONENT_EMITS[source.type];
-          const ports: readonly string[] = COMPONENT_PORTS[target.type];
-          expect(emits).toContain(edge.sourceHandle);
-          expect(ports).toContain(edge.targetHandle);
+          // The edge id rides along so a failure names the edge.
+          expect({ edge: edge.id, problem: checkEdge(edge, (id) => byId.get(id)) }).toEqual({
+            edge: edge.id,
+            problem: null,
+          });
         }
       });
     });

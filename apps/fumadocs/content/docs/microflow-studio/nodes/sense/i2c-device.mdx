@@ -9,14 +9,14 @@ Use it for sensors that don't have a dedicated node in Microflow: temperature/hu
 
 ## Inputs
 
-- **Write** — send bytes to the device at the configured address and register. Accepts a single number or an array of numbers
-- **Trigger** — perform a one-shot read from the device
+- **write** — send bytes to the device at the configured address and register. Accepts a single number or an array of numbers
+- **trigger** — perform a one-shot read from the device
 
-Most sensors don't need either input: once the node is on the canvas it **streams** on its own (see [How reading works](#how-reading-works)). Use **Write** only to configure a device that needs it, and **Trigger** only for read-on-demand.
+Most sensors don't need either input: once the node is on the canvas it **streams** on its own (see [How reading works](#how-reading-works)). Use **write** only to configure a device that needs it, and **trigger** only for read-on-demand (with **auto-read** off).
 
 ## Outputs
 
-- **Value** — the data read from the device, formatted according to the **Output format** setting:
+- **value** — the data read from the device, formatted according to the **output format** setting:
   - **Raw bytes** → an array of numbers, one per byte (e.g. `[0, 44, 1, 8]`)
   - **Unsigned int** → the bytes combined big-endian into one positive number
   - **Signed int** → the bytes combined big-endian as a two's-complement number (can be negative)
@@ -27,12 +27,13 @@ A raw sensor value is rarely the final number you want. See [Transforming values
 
 Open the settings panel to configure:
 
-- **Device preset** — choose a known sensor to auto-fill address, register, read length, and output format, or **Custom** for manual setup. The auto-filled values stay editable
-- **Address** — the 7-bit I2C address of the device (0–127)
-- **Register** — the register (command) the read points at (0–255)
-- **Read bytes** — how many bytes to read back (1–32)
-- **Output format** — how to interpret the bytes: Raw bytes, Unsigned int, or Signed int
-- **Interval** — how often to read, in milliseconds. Each sensor has a floor set by its conversion time; reading faster than that returns stale or zero values
+- **device preset** — choose a known sensor to auto-fill address, register, read length, output format and interval, or **Custom** for manual setup. The auto-filled values stay editable
+- **address (dec)** — the 7-bit I2C address of the device, as a decimal number (for example 72 for 0x48)
+- **auto-read** — on (the default): the node streams readings on its own. Off: the node reads only when the **trigger** input fires
+- **register (dec)** *(config)* — the register (command) the read points at, as a decimal number (0–255)
+- **read bytes** *(config)* — how many bytes to read back (1–32)
+- **output format** *(config)* — how to interpret the bytes: Raw bytes, Unsigned int, or Signed int
+- **stream interval (ms)** *(config)* — how often to read while streaming, from 20 to 5000 ms. Each sensor has a floor set by its conversion time; reading faster than that returns stale or zero values
 
 <Callout type="warn" title="Interval is shared by the whole board">
 The read interval is a single global Firmata setting, so **every** I2C node on the board runs at the *slowest* configured interval. If one sensor needs 180 ms and another 20 ms, both run at 180 ms. The presets already pick a safe floor per sensor.
@@ -42,7 +43,7 @@ The read interval is a single global Firmata setting, so **every** I2C node on t
 
 When you add an I2C node, Microflow arms a **continuous read** on the board: the firmware re-reads the register every interval and pushes the bytes back on its own. You do not poll — the **Value** output just updates.
 
-Devices that need waking up or configuring first — clearing the accelerometer's sleep bit, powering on the colour sensor's ADC, putting the pressure sensor into continuous mode — are set up automatically for the presets that need it. The one exception is the **VL53L0X**, whose start-up is too involved for this to cover (see its entry below). For a **Custom** device that needs configuration, send the setup bytes to the **Write** handle once.
+Devices that need waking up or configuring first — clearing the accelerometer's sleep bit, powering on the colour sensor's ADC, putting the pressure sensor into continuous mode — are set up automatically for the presets that need it. The one exception is the **VL53L0X**, whose start-up is too involved for this to cover (see its entry below). For a **Custom** device that needs configuration, send the setup bytes to the **write** handle once.
 
 ## Device presets
 
@@ -225,7 +226,7 @@ Turning the BME280's raw ADC counts into °C / %RH / hPa requires each chip's fa
 **Address 0x76 · Advanced.** The temperature-and-pressure sensor on the common purple breakout — the BME280's humidity-less sibling. Two presets: temperature (0xFA) and pressure (0xF7). Microflow wakes it into continuous (normal) mode automatically, so both stream on their own.
 
 <Callout type="info" title="Address 0x76 or 0x77">
-The presets use **0x76**. Some BMP280 breakouts tie the address-select (SDO) pin high, which puts the chip at **0x77** — if the node reads nothing, set its **Address** to 0x77 and try again.
+The presets use **0x76**. Some BMP280 breakouts tie the address-select (SDO) pin high, which puts the chip at **0x77** — if the node reads nothing, set its **address (dec)** to 119 (0x77) and try again.
 </Callout>
 
 **Data produced:** Unsigned int — the **raw, uncompensated** reading. Each preset reads 3 bytes; the measurement is the top 20 bits, so drop the low 4:
@@ -247,10 +248,10 @@ Like the BME280, the BMP280's raw counts need the chip's factory calibration coe
 - Find the register that holds the measurement and how many bytes it is.
 - If the value is one number, pick **Unsigned int** or **Signed int** and convert with a [Function](/docs/microflow-studio/nodes/shape/function) node.
 - If it's several fields, pick **Raw bytes** and parse the array in a Function node (see the MPU6050 and TCS34725 snippets for big-endian vs. little-endian).
-- If the chip needs configuring first, send the setup bytes to the **Write** input once.
+- If the chip needs configuring first, send the setup bytes to the **write** input once.
 
 <Callout type="warn" title="Avoid clock-stretching commands on AVR boards">
-On classic AVR boards (Uno/Nano/Mega) a "hold master" command that stretches the clock during conversion can freeze the whole bus. Prefer a "no-hold" command and set the node's **Interval** long enough for the conversion to finish.
+On classic AVR boards (Uno/Nano/Mega) a "hold master" command that stretches the clock during conversion can freeze the whole bus. Prefer a "no-hold" command and set the node's **stream interval (ms)** long enough for the conversion to finish.
 </Callout>
 
 ## Wiring

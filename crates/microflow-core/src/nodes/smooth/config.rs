@@ -1,5 +1,6 @@
 //! Smooth Node config — shared by the live runtime and the codegen emitter.
 
+use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -16,7 +17,7 @@ pub(crate) struct SmoothConfig {
     pub(crate) smooth_type: SmoothType,
     #[serde(default = "default_attenuation")]
     pub(crate) attenuation: f64,
-    #[serde(default = "default_window_size", rename = "windowSize")]
+    #[serde(default = "default_window_size", rename = "windowSize", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) window_size: usize,
 }
 

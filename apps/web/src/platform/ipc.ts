@@ -143,11 +143,19 @@ type GenerateSketch = {
 // Local agent CLIs as an LLM provider (desktop only) — see
 // `ai/cli-providers.ts` for why these cannot go over the HTTP transport.
 // `bin` is checked against an allowlist in Rust; `args` never reaches a shell.
+// `run` names the process for as long as it lives; `llm_cli_stop` ends the
+// process of that name and everything it started.
 type LlmCliGenerate = {
   type: "llm_cli_generate";
+  run: string;
   bin: string;
   args: string[];
   prompt: string;
+};
+
+type LlmCliStop = {
+  type: "llm_cli_stop";
+  run: string;
 };
 
 type LlmCliProbe = {
@@ -164,6 +172,7 @@ type LlmCliModels = {
 type Command =
   | Flow
   | LlmCliGenerate
+  | LlmCliStop
   | LlmCliProbe
   | LlmCliModels
   | MqttConnect

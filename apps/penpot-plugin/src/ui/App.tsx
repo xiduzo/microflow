@@ -1,15 +1,8 @@
-import { MSG, messages } from "@microflow/design-bridge";
-import {
-  type Page,
-  useAppStore,
-  useDesignBridge,
-  useMqttAutoConnect,
-  useNavigation,
-  usePluginStartup,
-} from "@microflow/design-bridge/react";
+import { messages } from "@microflow/design-bridge";
+import { type Page, useAppStore, useNavigation } from "@microflow/design-bridge/react";
 import { useEffect } from "react";
-import { channel, storage } from "./channel";
-import { Toaster, toast } from "./components/Toast";
+import { channel } from "./channel";
+import { Toaster } from "./components/Toast";
 import { Home } from "./pages/Home";
 import { MqttSettings } from "./pages/MqttSettings";
 import { Variables } from "./pages/Variables";
@@ -23,17 +16,7 @@ const PANEL_SIZES: Record<Page, { width: number; height: number }> = {
 
 export function App() {
   const { page } = useNavigation();
-  const { darkMode, setDarkMode } = useAppStore();
-
-  usePluginStartup(channel, storage);
-  useMqttAutoConnect("penpot");
-  const entries = useDesignBridge("penpot", channel, {
-    onInvalid: (name, payload) =>
-      toast(`Ignored "${truncate(payload)}" for ${name}`, { error: true }),
-  });
-
-  channel.useMessage(MSG.THEME, (theme) => setDarkMode(theme === "dark"));
-  channel.useMessage(MSG.SHOW_TOAST, ({ message, error }) => toast(message, { error }));
+  const { darkMode } = useAppStore();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", darkMode);
@@ -47,13 +30,9 @@ export function App() {
   return (
     <div className="min-h-screen bg-white text-gray-900 dark:bg-gray-900 dark:text-white">
       {page === "mqtt" && <MqttSettings />}
-      {page === "variables" && <Variables entries={entries} />}
+      {page === "variables" && <Variables />}
       {page === "home" && <Home />}
       <Toaster />
     </div>
   );
-}
-
-function truncate(text: string, max = 24) {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
 }

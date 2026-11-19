@@ -14,13 +14,10 @@ use crate::runtime::{
     ListenerWiring, RuntimeContext, RuntimeError,
 };
 
-/// Quiet window a line must hold before a deferred level is accepted. Must
-/// exceed one 50Hz mains period (20ms): a floating pin picks up hum as
-/// dead-regular ~20ms edges, and a window at exactly that period razor-edges
-/// between accepting and rejecting every edge (observed as random on/off
-/// "interference" toggles). A clean edge after a quiet line is still accepted
-/// immediately, so real press latency stays imperceptible.
-const DEBOUNCE_MS: f64 = 50.0;
+/// Quiet window a line must hold before a deferred level is accepted — the
+/// one the emitted sketch settles by too ([`crate::config::DEBOUNCE_MS`],
+/// which says why it is 50 ms).
+const DEBOUNCE_MS: f64 = crate::config::DEBOUNCE_MS as f64;
 
 use super::config::ButtonConfig;
 
@@ -98,7 +95,8 @@ impl Button {
 
 impl Component for Button {
     fn ports() -> &'static [&'static str] {
-        &["read"]
+        // An input: it reports what the board reads and takes no edge.
+        &[]
     }
 
     fn emits() -> &'static [&'static str] {
@@ -135,10 +133,7 @@ impl Component for Button {
         _args: ComponentValue,
         _ctx: &mut RuntimeContext,
     ) -> Result<(), RuntimeError> {
-        match method {
-            "read" => Ok(()),
-            _ => Err(RuntimeError::ComponentError(format!("Unknown method: {method}"))),
-        }
+        Err(RuntimeError::ComponentError(format!("Unknown method: {method}")))
     }
 
     fn dispatch_internal(

@@ -2,6 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
+import { wireApp } from "./app-wiring";
 import { routeTree } from "./routeTree.gen";
 import { queryClient, trpc } from "@/lib/trpc";
 import { loadAnalytics } from "@/lib/analytics";
@@ -12,6 +13,9 @@ import {
   NotFoundComponent,
   RouteErrorComponent,
 } from "@/shell/failure-screens";
+
+// Before anything can make a session.
+wireApp();
 
 loadAnalytics();
 // As early as possible: anything thrown from here on is reported. Before the

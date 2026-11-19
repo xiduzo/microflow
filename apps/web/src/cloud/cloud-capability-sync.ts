@@ -10,7 +10,9 @@ import type { HostSnapshot } from "@/runtime/flow-update-dispatcher";
  *   slice from the owning zustand store, `subscribe` to that store, and
  *   `push()` the current config to the runtime host's Service Registry.
  * - `listen` — optional runtime→store feedback channel (e.g. broker
- *   connection status events). Returns a cleanup.
+ *   connection status events). Resolves to its cleanup once the channel is
+ *   open: the capability's first push waits for that, so nothing the runtime
+ *   says in answer to it is missed.
  * - `snapshot` — this capability's contribution to the dispatcher's
  *   `HostSnapshot`.
  * - `watchSnapshot` — optional: call `onChange` when that contribution changes,
@@ -25,24 +27,50 @@ export type CloudCapability = {
     subscribe(onChange: () => void): () => void;
     push(): void;
   };
-  listen?: () => () => void;
+  listen?: () => Promise<() => void>;
   snapshot(): Partial<HostSnapshot>;
   watchSnapshot?: (onChange: () => void) => () => void;
 };
 
 /**
  * Start the sync driver for every capability: push once on start, then
- * re-push whenever the capability's config slice changes. Returns a cleanup
- * that unsubscribes everything.
+ * re-push whenever the capability's config slice changes. A capability that
+ * listens has its channel opened first, and pushes once it is open, in
+ * order. Returns a cleanup that unsubscribes everything; a push still
+ * waiting for the channel then does not happen.
  */
 export function startCloudCapabilitySync(
   capabilities: readonly CloudCapability[],
 ): () => void {
   const cleanups: Array<() => void> = [];
   for (const { sync, listen } of capabilities) {
+    const listening = listen?.();
+    if (listening) {
+      cleanups.push(() => {
+        listening.then(
+          (stop) => stop(),
+          () => {},
+        );
+      });
+    }
     if (sync) {
+      let stopped = false;
+      cleanups.push(() => {
+        stopped = true;
+      });
+      // A channel that failed to open is logged, and the pushes go ahead.
+      const open = listening?.then(
+        () => undefined,
+        (error: unknown) => console.error(error),
+      );
+      const push = () => {
+        if (!open) return void sync.push();
+        void open.then(() => {
+          if (!stopped) sync.push();
+        });
+      };
       let last = sync.read();
-      sync.push();
+      push();
       cleanups.push(
         sync.subscribe(() => {
           const next = sync.read();
@@ -50,11 +78,10 @@ export function startCloudCapabilitySync(
           // churn (e.g. a status update) keeps the same reference → no re-push.
           if (Object.is(next, last)) return;
           last = next;
-          sync.push();
+          push();
         }),
       );
     }
-    if (listen) cleanups.push(listen());
   }
   return () => {
     for (const cleanup of cleanups) cleanup();

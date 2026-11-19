@@ -1,8 +1,8 @@
-import { useAppStore, useNavigation } from "@microflow/design-bridge/react";
-import { type ConnectionStatus, useMqttStore } from "@microflow/mqtt";
+import { useBridgeSession, useNavigation } from "@microflow/design-bridge/react";
+import { type ConnectionStatus, settingsProblems } from "@microflow/design-bridge/session";
 import { ExternalLink, Heart, List, Settings } from "lucide-react";
 import type { ReactNode } from "react";
-import { openLink } from "../channel";
+import { openLink, session } from "../channel";
 import { IconButton, PageContent } from "../components/PageLayout";
 
 const STATUS_COLORS: Record<ConnectionStatus, string> = {
@@ -32,10 +32,10 @@ function Row(props: { label: ReactNode; actions: ReactNode }) {
 }
 
 export function Home() {
-  const { status, connectedClients } = useMqttStore();
-  const { mqttConfig } = useAppStore();
+  const { connection, studio, settingsErrors } = useBridgeSession(session);
   const { navigate } = useNavigation();
-  const studioStatus = connectedClients.find(({ appName }) => appName === "app")?.status;
+  // Stored settings that today's rules refuse are not connected with: say which, and why.
+  const problems = settingsProblems(settingsErrors);
 
   return (
     <PageContent>
@@ -43,7 +43,7 @@ export function Home() {
         label={
           <>
             MQTT
-            <StatusDot status={mqttConfig ? status : undefined} />
+            <StatusDot status={connection} />
           </>
         }
         actions={
@@ -57,11 +57,17 @@ export function Home() {
           </>
         }
       />
+      {problems.map((problem) => (
+        // As the settings page shows a setting's error.
+        <p key={problem} className="-mt-2 text-[11px] text-red-500">
+          {problem}
+        </p>
+      ))}
       <Row
         label={
           <>
             Microflow studio
-            <StatusDot status={studioStatus} />
+            <StatusDot status={studio} />
           </>
         }
         actions={

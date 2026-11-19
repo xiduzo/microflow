@@ -48,6 +48,7 @@ export interface ReactorHandle {
   applyFlow(flow: CoreFlowUpdate): FlowApplyResult;
   feedBytes(bytes: Uint8Array): void;
   dispatchToNode(nodeId: string, port: string, value: unknown): void;
+  keyEvent(accelerator: string, pressed: boolean): void;
   dispose(): void;
 }
 
@@ -208,11 +209,19 @@ export class BoardController {
   }
 
   /**
-   * Deliver one host-originated input (today: a hotkey key event) to a node's
-   * port. A no-op only while the runtime is down (an engine fault).
+   * Deliver one host-originated value to a node's port. A no-op only while the
+   * runtime is down (an engine fault).
    */
   dispatchToNode(nodeId: string, port: string, value: unknown): void {
     this.reactor?.dispatchToNode(nodeId, port, value);
+  }
+
+  /**
+   * Hand a hotkey press or release to the runtime, which decides the nodes
+   * that hear it. A no-op only while the runtime is down (an engine fault).
+   */
+  keyEvent(accelerator: string, pressed: boolean): void {
+    this.reactor?.keyEvent(accelerator, pressed);
   }
 
   /** The one writer of the board store: a latched engine fault outranks every
@@ -291,12 +300,27 @@ export class BoardController {
     if (this.engineFault !== null) return;
     this.engineFault = message;
     this.cancelRetry();
-    this.reactor?.dispose();
-    this.reactor = null;
+    this.dropReactor();
     console.error("[board-controller] flow engine fault:", message);
     this.publish({ state: "error", error: message });
     this.deps.notify.error(message);
     if (this.link !== null) void this.run(() => this.dispatch({ type: "disconnectRequested" }));
+  }
+
+  /**
+   * Let go of the reactor and tear it down. It is let go of first, and what its
+   * teardown throws is logged, not thrown: a reactor that cannot be torn down
+   * cleanly is still never called again, and what follows here (the error
+   * state after an engine fault, closing the port) still happens.
+   */
+  private dropReactor(): void {
+    const reactor = this.reactor;
+    this.reactor = null;
+    try {
+      reactor?.dispose();
+    } catch (error) {
+      console.error("[board-controller] flow reactor teardown failed:", error);
+    }
   }
 
   /** The link's hooks: a live link losing its transport re-enters the machine
@@ -368,8 +392,7 @@ export class BoardController {
         break;
       }
       case "closePort": {
-        this.reactor?.dispose();
-        this.reactor = null;
+        this.dropReactor();
         const link = this.link;
         this.link = null;
         await link?.disconnect();
@@ -468,8 +491,7 @@ export class BoardController {
           this.deps.notify.success(`Flashed StandardFirmata to ${a.board}.`, { id: a.flashToast });
           a.flashToast = undefined;
         }
-        this.reactor?.dispose();
-        this.reactor = null;
+        this.dropReactor();
         if (link) await this.attachToLink(link);
         if (a) {
           this.deps.track("board_connected", this.trackData(a));

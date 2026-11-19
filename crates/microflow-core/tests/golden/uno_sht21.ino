@@ -11,8 +11,13 @@
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 9;
 bool led_led_1_on = false;
+uint8_t led_led_1_level = 0;
 // node map-1 (RangeMap)
 double range_map_map_1_value = 0.0;
+double range_map_map_1_input = 0.0;
+uint8_t range_map_map_1_pair = 1;
+bool range_map_map_1_fired = false;
+double range_map_map_1_in_prev0 = 0.0;
 // node sht-1 (I2cDevice)
 long i2c_sht_1_value = 0;
 unsigned long i2c_sht_1_previous = 0;
@@ -57,9 +62,20 @@ void loop() {
       }
       i2c_sht_1_value = i2c_sht_1_acc;
     }
-    range_map_map_1_value = round((((((double)(i2c_sht_1_value)) - 0.0) * (255.0 - 0.0) / (65535.0 - 0.0) + 0.0)) * 1.0) / 1.0;
-    uint8_t led_led_1_brightness = (uint8_t)constrain((double)(range_map_map_1_value), 0.0, 255.0);
-    analogWrite(led_led_1_pin, led_led_1_brightness);
-    led_led_1_on = led_led_1_brightness > 0;
+    double range_map_map_1_in_now0 = ((double)(i2c_sht_1_value));
+    bool range_map_map_1_in_fired0 = (range_map_map_1_in_now0 != range_map_map_1_in_prev0);
+    range_map_map_1_in_prev0 = range_map_map_1_in_now0;
+    range_map_map_1_fired = (range_map_map_1_in_fired0);
+    if (range_map_map_1_fired) {
+      double range_map_map_1_next = round((((((double)(i2c_sht_1_value)) - 0.0) * (255.0 - 0.0) / (65535.0 - 0.0) + 0.0)) * 1.0) / 1.0;
+      if (((double)(i2c_sht_1_value)) != range_map_map_1_input || range_map_map_1_next != range_map_map_1_value) { range_map_map_1_pair = range_map_map_1_pair == 255 ? 1 : range_map_map_1_pair + 1; }
+      range_map_map_1_input = ((double)(i2c_sht_1_value)); range_map_map_1_value = range_map_map_1_next;
+    }
+    if (range_map_map_1_fired) {
+      uint8_t led_led_1_brightness = (uint8_t)constrain((double)(range_map_map_1_value), 0.0, 255.0);
+      analogWrite(led_led_1_pin, led_led_1_brightness);
+      led_led_1_on = led_led_1_brightness >= 1;
+      led_led_1_level = led_led_1_brightness;
+    }
   }
 }

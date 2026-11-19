@@ -50,10 +50,10 @@ user chooses ([ADR-0028](docs/adr/0028-design-tool-bridge-protocol.md)). By desi
   in the `localStorage` of its UI page.
 - **The Figma plugin may reach any domain.** Its manifest sets `networkAccess.allowedDomains`
   to `["*"]`, so it can connect to whichever broker the user enters.
-- **Certificate checks.** `@microflow/mqtt`, the plugins' MQTT client, passes
-  `rejectUnauthorized: false` for `ws`/`wss` connections. Both plugins run in a
-  browser, where the browser's own WebSocket TLS check applies; outside a browser this
-  option would turn certificate verification off.
+- **Certificate checks.** The plugins' MQTT client
+  (`packages/design-bridge/src/mqtt-broker.ts`) opens every connection on the
+  platform's own WebSocket (`forceNativeWebSocket`) and sets no TLS option, so the
+  platform checks the broker's certificate: the browser in a plugin, and bun in tests.
 
 ## Supported versions
 

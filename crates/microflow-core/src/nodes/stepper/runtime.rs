@@ -10,11 +10,16 @@
 //! 3. `dispatch("to", position)` — Absolute move to position.
 //! 4. `dispatch("stop", _)` — Stop with deceleration.
 //! 5. `dispatch("zero", _)` — Reset position counter.
+//! 6. `dispatch("enable", on)` — Hold the motor (truthy) or release it (falsy).
 //!
-//! Move-complete / position-report sysex replies will eventually land on a
-//! `HardwareComponent::on_stepper_reply` Hardware Callback (mirrors
-//! `on_pin_change` / `on_i2c_reply`); the dispatch path no longer carries
-//! a reserved string for it.
+//! The Stepper declares no Emit. Where the motor is, and when a move is
+//! done, only the board knows: `AccelStepperFirmata` reports it in
+//! move-complete / position-report sysex replies, which no Hardware Callback
+//! decodes yet (it would mirror `on_pin_change` / `on_i2c_reply`). A position
+//! counted from the moves sent would be wrong as soon as a move is cut short
+//! (`stop`) or a relative move arrives mid-move (the board moves relative to
+//! where the motor is, not to where it was heading). Its outputs come with
+//! that callback, in the runtime and the sketch together.
 
 use crate::firmata::FirmwareFeature;
 use crate::runtime::{
@@ -45,7 +50,6 @@ pub(crate) const MAX_STEPS: i32 = (1 << 28) - 1;
 pub(crate) struct Stepper {
     base: ComponentBase,
     config: StepperConfig,
-    current_position: i32,
     /// A move was clamped to [`MAX_STEPS`] and the node says so; the next move
     /// in range clears it.
     clamp_shown: bool,
@@ -57,7 +61,6 @@ impl Stepper {
         Self {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
-            current_position: 0,
             clamp_shown: false,
         }
     }
@@ -237,14 +240,13 @@ impl Stepper {
         self.send_sysex(ctx, vec![CMD_STOP, self.config.device_num])
     }
 
-    /// Reset position counter to zero.
+    /// Make where the motor is now position zero on the board.
     pub(crate) fn zero(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        self.current_position = 0;
-        self.base.set_value(ComponentValue::Number(0.0));
         self.send_sysex(ctx, vec![CMD_ZERO, self.config.device_num])
     }
 
-    /// Enable or disable the driver (if enable pin is configured).
+    /// Hold the motor (`true`) or release it (`false`): the driver's enable
+    /// pin when one is configured, and the coils of a wired motor.
     pub(crate) fn enable(&mut self, ctx: &mut RuntimeContext, state: bool) -> Result<(), RuntimeError> {
         self.send_sysex(ctx, vec![
             CMD_ENABLE,
@@ -257,7 +259,7 @@ impl Stepper {
 impl Component for Stepper {
     fn ports() -> &'static [&'static str] { &["value", "to", "stop", "zero", "enable"] }
 
-    fn emits() -> &'static [&'static str] { &[ComponentBase::VALUE_HANDLE] }
+    // No `emits()`: see the module docs.
 
     fn base(&self) -> &ComponentBase { &self.base }
     fn base_mut(&mut self) -> &mut ComponentBase { &mut self.base }
@@ -288,10 +290,9 @@ impl Component for Stepper {
             }
             "stop" => self.stop(ctx),
             "zero" => self.zero(ctx),
-            "enable" => {
-                let state = args.as_number().map_or(true, |n| n > 0.0);
-                self.enable(ctx, state)
-            }
+            // Truthy holds the motor, falsy releases it: the same test the
+            // sketch makes on its `enable` input.
+            "enable" => self.enable(ctx, args.is_truthy()),
             _ => Err(RuntimeError::ComponentError(
                 format!("Stepper: unknown method '{method}'")
             )),
@@ -399,6 +400,45 @@ mod sim_tests {
         assert_eq!(position(&rig), 0, "stop before the move ran");
         rig.dispatch("motor", "enable", 0.0);
         assert!(!rig.board.stepper(0).expect("configured").enabled);
+    }
+
+    /// The Stepper passes nothing on: no move, `zero`, `stop` or `enable`
+    /// gives an event an edge could carry.
+    #[test]
+    fn a_stepper_passes_nothing_on() {
+        let mut rig = stepper(json!({ "enablePin": 7 }));
+        rig.take_events();
+        rig.dispatch("motor", "value", 100.0);
+        rig.dispatch("motor", "to", -40.0);
+        rig.dispatch("motor", "zero", true);
+        rig.dispatch("motor", "stop", true);
+        rig.dispatch("motor", "enable", false);
+        rig.pump();
+        let out: Vec<_> = rig.events().iter().filter(|e| &*e.source == "motor").collect();
+        assert!(out.is_empty(), "{out:?}");
+        assert!(<super::Stepper as crate::runtime::Component>::emits().is_empty());
+    }
+
+    /// `enable` holds the motor for a truthy value and releases it for a falsy
+    /// one. The sketch decides on the same truth (`codegen.rs`), so a negative
+    /// number holds the motor on the board and live alike.
+    #[test]
+    fn enable_follows_the_truth_of_what_arrives() {
+        use crate::runtime::ComponentValue;
+
+        let mut rig = stepper(json!({ "enablePin": 7 }));
+        let cases = [
+            (ComponentValue::Bool(false), false),
+            (ComponentValue::Bool(true), true),
+            (ComponentValue::Number(0.0), false),
+            (ComponentValue::Number(1.0), true),
+            (ComponentValue::String(String::new()), false),
+            (ComponentValue::Number(-1.0), true),
+        ];
+        for (value, held) in cases {
+            rig.dispatch("motor", "enable", value.clone());
+            assert_eq!(rig.board.stepper(0).expect("configured").enabled, held, "enable = {value:?}");
+        }
     }
 
     /// A move past the 28 bits `AccelStepperFirmata` decodes wrapped silently;

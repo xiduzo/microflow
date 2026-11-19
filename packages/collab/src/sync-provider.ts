@@ -154,10 +154,13 @@ const REAUTH_REFRESH_TIMEOUT_MS = 10_000;
  * The editor's presence and connection surface, over `y-websocket`.
  *
  * The transport itself — connecting, the sync handshake, exponential backoff,
- * reconnect, dropping remote presence when the socket dies, cross-tab
- * `BroadcastChannel` relay, and the "no message in 30s" watchdog — is
- * `WebsocketProvider`'s job. This class deliberately owns only what the
- * library does not:
+ * reconnect, dropping remote presence when the socket dies, and the "no
+ * message in 30s" watchdog — is `WebsocketProvider`'s job. Its cross-tab
+ * `BroadcastChannel` relay is switched off: every client, a second tab of the
+ * same browser included, exchanges document updates and presence with the room
+ * and with nothing else, so the room's order is the only order a client sees.
+ * Two tabs that are both offline do not see each other until they reconnect.
+ * This class deliberately owns only what the library does not:
  *
  * 1. **Presence throttling.** Cursor and drag positions are coalesced to one
  *    broadcast per `cursorThrottleMs`. `y-websocket` sends an awareness frame
@@ -259,6 +262,11 @@ export class SyncProvider {
         // y-websocket only treats 4400–4499 as final; the server's auth gate
         // closes with 1008, which it would otherwise retry forever.
         shouldReconnect: (event: CloseEvent) => this.shouldReconnect(event),
+        // The room is the only path between two clients, tabs of one browser
+        // included. y-websocket's `BroadcastChannel` would hand a tab its
+        // neighbour's updates and presence directly, in an order the room
+        // never gave them and while the tab is not in sync with the room.
+        disableBc: true,
         ...(options.WebSocketPolyfill ? { WebSocketPolyfill: options.WebSocketPolyfill } : {}),
       },
     );
@@ -657,8 +665,8 @@ export class SyncProvider {
 
     this.awareness.off("change", this.handleAwarenessChange);
     this.doc.off("update", this.handleDocUpdate);
-    // Tears down the socket, the watchdog and the BroadcastChannel, and
-    // detaches the doc and awareness handlers it installed.
+    // Tears down the socket and the watchdog, and detaches the doc and
+    // awareness handlers it installed.
     this.provider.destroy();
     this.awareness.destroy();
 

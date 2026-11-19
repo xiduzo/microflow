@@ -1,6 +1,6 @@
 # ADR-0017 — One seam owns the wasm crossing; a runtime fault is never transport news
 
-- **Status:** implemented (2026-08-26); amended (2026-11-13)
+- **Status:** implemented (2026-08-26); amended (2026-11-13); amended (2026-11-19, twice)
 - **Date:** 2026-08-26
 - **Deciders:** sander
 
@@ -72,12 +72,15 @@ The routing (`FlowReactor.handleFault`) is per class, not per call site:
 - **`badInput` with a node → that node's diagnostic badge**
   (`useNodeDiagnosticsStore`), the same channel the runtime's own
   `node_diagnostics` effect uses ([ADR-0008](0008-effects-apply-policy.md)). Only
-  `wake`, `injectEvent` and `deliverMessage` carry a node id; those are exactly
-  the ops where one node is genuinely at fault.
+  `wake`, `dispatch`, `injectEvent` and `deliverMessage` carry a node id; those
+  are exactly the ops where one node is genuinely at fault.
 - **`badInput` without a node → the console.** `feedBytes`, `updateFlow`,
-  `setPins`, `reconcileSubscriptions` and `midiListeners` belong to the runtime
-  as a whole. Pinning a badge on an arbitrary node would be a lie, and the board
-  is still working, so the board error state would be one too.
+  `setPins`, `reconcileSubscriptions`, the host-input ops (`keyEvent`,
+  `midiMessage`), the MIDI queries (`listensToMidi`, `wantsMidiInput`,
+  `midiDeviceMatches`) and the announce policy (`figmaAnnounce`) belong to the
+  runtime as a whole. Pinning a badge on an
+  arbitrary node would be a lie, and the board is still working, so the board
+  error state would be one too.
 
 **D3 — A trapped module is terminal, by policy.** A wasm trap does not destroy
 the instance: the trap unwinds the JS call, and the module remains mechanically
@@ -174,7 +177,7 @@ New terms recorded in `CONTEXT.md`:
 ## References
 
 - `apps/web/src/runtime/runtime-bridge.ts` — the seam.
-- `apps/web/src/runtime/flow-reactor.ts` — `turn` / `handleFault`: every crossing and the routing.
+- `apps/web/src/runtime/flow-reactor.ts` — `applyTurn` / `handleFault`: every crossing and the routing.
 - `apps/web/src/board/board-link.ts` — `pumpReader`: `onClosed` means the reader ended; `onLost`: a failed transport, reported once.
 - `apps/web/src/board/board-controller-core.ts` — `onEngineFault`: the board error state, then `disconnectRequested`.
 - `apps/web/src-tauri/src/runtime/supervisor.rs` — the desktop Runtime Supervisor (amendment below).
@@ -187,8 +190,9 @@ New terms recorded in `CONTEXT.md`:
 
 **Amendment (2026-08-31):** the first negative consequence is resolved.
 `RuntimeBridge` now exposes one typed entry point per runtime op
-(`updateFlow`, `wake`, `feedBytes`, `dispatch`, `injectEvent`,
-`deliverMessage`, `reconcileSubscriptions`, `midiListeners`, `setPins`),
+(`setPins`, `updateFlow`, `feedBytes`, `wake`, `dispatch`, `injectEvent`,
+`deliverMessage`, `keyEvent`, `midiMessage`, `reconcileSubscriptions`,
+`listensToMidi`, `wantsMidiInput`, `midiDeviceMatches`),
 each owning the op name, the JSON encode of its arguments and the decode of
 its reply into the ts-rs binding types; `call()` is the private core behind
 them, so call sites read as `bridge.updateFlow(flow, now)` rather than
@@ -247,9 +251,10 @@ the policy, `Actor::recover` in `host.rs` for the actor half). A panic:
 3. writes the safe state through the live board session;
 4. **respawns**: a fresh runtime seeded from the session's pin table, the last
    flow re-applied, then the subscriptions reconciled against the respawned
-   runtime's wirings — MQTT/Figma through `reconcile_subscriptions` (a diff, so
-   an unchanged set touches nothing), MIDI listeners on the actor. It does not
-   restore outputs: a panicked runtime's last values are not trusted.
+   runtime's wirings — MQTT/Figma through `CloudPerformer::reconcile` (a diff,
+   so an unchanged set touches nothing), MIDI inputs through
+   `MidiManager::reconcile`. It does not restore outputs: a panicked runtime's
+   last values are not trusted.
 
 A `CrashGuard` halts the actor instead after 3 panics within 60 s, including a
 respawn that itself panics, so a deterministic fault does not loop. The board is
@@ -264,3 +269,35 @@ catch anything.
 
 The browser keeps D3 unchanged. A trapped wasm module would need a fresh
 instance behind the live board, and the reload that provides one is cheap there.
+
+---
+
+## Amendment (2026-11-19): host input crosses as a whole-flow op
+
+A key or a MIDI message crosses the seam without a node id: `keyEvent(accelerator,
+pressed, nowMs)` and `midiMessage(portName, bytes, nowMs)`. Core picks the
+listening nodes ([ADR-0037](0037-core-owns-host-input-fan-out.md)), so the host
+has no node to name. Under D2 a `badInput` on either is therefore console-only,
+like `feedBytes`: a rejected key is not shown on a Hotkey node's badge. A fault
+inside one listener's cascade is still attributed by the runtime's own node
+health ledger, which travels in the turn's `Effects`.
+
+The three MIDI questions the host asks (`listensToMidi`, `wantsMidiInput`,
+`midiDeviceMatches`) return a boolean, not an `Effects`. They go through the
+same private `call`, so a trap inside one latches the bridge like any other, and
+a caller that gets `undefined` treats it as "no": the browser opens no MIDI
+input and sends to no output for a runtime that cannot answer.
+
+## Amendment (2026-11-19): the announce policy crosses the bridge
+
+Core's `figma_announce_actions` is a function of the wasm module, not an op of
+the runtime. It crosses like every call into the module:
+`RuntimeBridge.figmaAnnounce(policy)` runs it through the private `call`, so a
+module that trapped is not asked, and a caller that gets `undefined` announces
+nothing. The goodbyes a teardown says after an engine fault need no module:
+the CloudPerformer asked the policy for each broker's goodbye when it announced
+([ADR-0036](0036-browser-host-owns-subscription-state.md)). A dispose runs every
+teardown step whatever the ones before threw, and the board controller lets go
+of a reactor before tearing it down, so an engine fault always reaches the
+board error state.
+

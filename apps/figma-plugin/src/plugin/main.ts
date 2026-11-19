@@ -1,7 +1,7 @@
 import { showUI } from "@create-figma-plugin/utilities";
-import { MSG, type PluginMessage, createMessageRouter, messages } from "@microflow/design-bridge";
+import { MSG, type PluginMessage, createSandboxBridge, messages } from "@microflow/design-bridge";
 import { loadLocalValue } from "./handlers/client-storage";
-import { readSnapshot, writeVariable } from "./handlers/variables";
+import { createFigmaAdapter } from "./variables";
 
 function sendToUI(message: PluginMessage) {
   figma.ui.postMessage(message);
@@ -10,11 +10,20 @@ function sendToUI(message: PluginMessage) {
 export default function () {
   showUI({ width: 275, height: 190 });
 
-  figma.ui.onmessage = createMessageRouter(
+  const bridge = createSandboxBridge(
+    createFigmaAdapter(figma.variables),
     {
-      [MSG.UI_READY]: () => {
-        sendToUI(messages.uiReady());
+      send: sendToUI,
+      reportError: (text, cause) => {
+        console.error(`[plugin] ${text}`, cause);
+        figma.notify(text, { error: true });
       },
+      onFailure: (type, error) => {
+        console.error(`[plugin] ${type} failed`, error);
+        figma.notify(`Error: ${type} failed`, { error: true });
+      },
+    },
+    {
       [MSG.GET_LOCAL_STATE]: async ({ key, value }) => {
         sendToUI(messages.getLocalState(key, await loadLocalValue(key, value)));
       },
@@ -30,14 +39,8 @@ export default function () {
       [MSG.RESIZE]: ({ width, height }) => {
         figma.ui.resize(width, height);
       },
-      [MSG.GET_VARIABLES]: async () => {
-        sendToUI(messages.getVariables(await readSnapshot()));
-      },
-      [MSG.SET_VARIABLE]: ({ id, value }) => writeVariable(id, value),
-    },
-    (type, error) => {
-      console.error(`[plugin] ${type} failed`, error);
-      figma.notify(`Error: ${type} failed`, { error: true });
     },
   );
+
+  figma.ui.onmessage = bridge.dispatch;
 }

@@ -1,5 +1,5 @@
-import { and, eq } from "drizzle-orm";
-import { db } from "./index";
+import { and, eq, sql } from "drizzle-orm";
+import { db, type Db } from "./index";
 import { flowCollaborator, flowInvite } from "./schema/flow";
 import { user } from "./schema/auth";
 
@@ -56,6 +56,14 @@ export type GrantRole = (
   role: CollaboratorRole,
 ) => Promise<void>;
 
+/** The inviter named their own address: a refusal, not a failure. */
+export class CannotInviteSelf extends Error {
+  constructor() {
+    super("Cannot add yourself as a collaborator");
+    this.name = "CannotInviteSelf";
+  }
+}
+
 // ============================================================================
 // Grants
 // ============================================================================
@@ -73,12 +81,25 @@ export async function grantAccess(
   userId: string,
   role: CollaboratorRole,
 ): Promise<void> {
-  await db
+  await upsertGrants(db, userId, [{ flowId, role }]);
+}
+
+/**
+ * The one grant write: each `(flow, user)` ends up with exactly one row,
+ * carrying the role given here. `on` is the handle or an open transaction.
+ * A flow may appear at most once in `grants`.
+ */
+async function upsertGrants(
+  on: Pick<Db, "insert">,
+  userId: string,
+  grants: Array<{ flowId: string; role: CollaboratorRole }>,
+): Promise<void> {
+  await on
     .insert(flowCollaborator)
-    .values({ id: crypto.randomUUID(), flowId, userId, role })
+    .values(grants.map((grant) => ({ id: crypto.randomUUID(), userId, ...grant })))
     .onConflictDoUpdate({
       target: [flowCollaborator.flowId, flowCollaborator.userId],
-      set: { role },
+      set: { role: sql`excluded.role` },
     });
 }
 
@@ -91,8 +112,8 @@ export async function grantAccess(
  *
  * Grants immediately when the address already has an account; otherwise
  * records a pending invite that `acceptInvites` converts on sign-up. Throws
- * when the inviter targets themselves — the one rule that has no sensible
- * fallback.
+ * `CannotInviteSelf` when the inviter targets themselves — the one rule that
+ * has no sensible fallback.
  */
 export async function inviteByEmail(params: {
   flowId: string;
@@ -108,7 +129,7 @@ export async function inviteByEmail(params: {
   const targetUser = await db.query.user.findFirst({ where: eq(user.email, email) });
 
   if (targetUser?.id === invitedBy.id) {
-    throw new Error("Cannot add yourself as a collaborator");
+    throw new CannotInviteSelf();
   }
 
   const result: InviteResult = targetUser
@@ -151,19 +172,34 @@ export async function inviteByEmail(params: {
 /**
  * Convert every pending invite for `email` into a collaborator grant.
  * Called from the sign-up hook; returns the flow ids granted.
+ *
+ * All or nothing, in one transaction. The hook runs once per account, so
+ * nothing retries an accept that stopped part-way: a failure rolls back and
+ * leaves every invite pending, never some flows granted and the rest lost.
+ * An invite revoked before the accept grants nothing, and a second accept
+ * grants nothing more.
+ *
+ * The invites are consumed by the `DELETE … RETURNING` itself, and exactly
+ * the rows it returns are granted, with the role each row holds when it is
+ * deleted; nothing is read before the delete. That keeping it one statement
+ * stops an invite revoked or re-issued *during* an accept from being granted
+ * stale is the reason for the shape, not something the tests show: they run
+ * on one database connection, which cannot interleave a second writer.
  */
 export async function acceptInvites(email: string, userId: string): Promise<string[]> {
-  const invites = await db.query.flowInvite.findMany({
-    where: eq(flowInvite.email, email),
+  return db.transaction(async (tx) => {
+    const accepted = await tx
+      .delete(flowInvite)
+      .where(eq(flowInvite.email, email))
+      .returning({ flowId: flowInvite.flowId, role: flowInvite.role });
+    if (accepted.length === 0) return [];
+
+    // One invite per flow per address (unique index), so no flow appears
+    // twice here.
+    await upsertGrants(tx, userId, accepted);
+
+    return accepted.map((invite) => invite.flowId);
   });
-  if (invites.length === 0) return [];
-
-  for (const invite of invites) {
-    await grantAccess(invite.flowId, userId, invite.role);
-  }
-  await db.delete(flowInvite).where(eq(flowInvite.email, email));
-
-  return invites.map((invite) => invite.flowId);
 }
 
 // ============================================================================

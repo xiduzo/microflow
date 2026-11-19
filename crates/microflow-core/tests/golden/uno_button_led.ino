@@ -6,14 +6,23 @@
 // node btn-1 (Button)
 const uint8_t button_btn_1_pin = 6;
 bool button_btn_1_state = false;
+bool button_btn_1_changed = false;
+bool button_btn_1_hold = false;
+bool button_btn_1_hold_said = false;
+unsigned long button_btn_1_pressed_at = 0;
+bool button_btn_1_line = false;
+bool button_btn_1_seen = false;
+bool button_btn_1_pending = false;
+unsigned long button_btn_1_edge_at = 0;
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 13;
 bool led_led_1_on = false;
-bool led_led_1_true_prev0 = false;
-bool led_led_1_false_prev0 = false;
+uint8_t led_led_1_level = 0;
 // node led-2 (Led)
 const uint8_t led_led_2_pin = 5;
 bool led_led_2_on = false;
+uint8_t led_led_2_level = 0;
+double led_led_2_value_prev0 = 0.0;
 
 void setup() {
   // --- Setup ---
@@ -31,17 +40,33 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
-    button_btn_1_state = (digitalRead(button_btn_1_pin) == LOW);
-    bool led_led_1_true_now0 = (button_btn_1_state);
-    bool led_led_1_true_fired0 = led_led_1_true_now0 && !led_led_1_true_prev0;
-    led_led_1_true_prev0 = led_led_1_true_now0;
-    if ((led_led_1_true_fired0)) { digitalWrite(led_led_1_pin, HIGH); led_led_1_on = true; }
-    bool led_led_1_false_now0 = ((!button_btn_1_state));
-    bool led_led_1_false_fired0 = led_led_1_false_now0 && !led_led_1_false_prev0;
-    led_led_1_false_prev0 = led_led_1_false_now0;
-    if ((led_led_1_false_fired0)) { digitalWrite(led_led_1_pin, LOW); led_led_1_on = false; }
-    uint8_t led_led_2_brightness = (uint8_t)((button_btn_1_state) ? 1 : 0);
-    analogWrite(led_led_2_pin, led_led_2_brightness);
-    led_led_2_on = led_led_2_brightness > 0;
+    button_btn_1_changed = false;
+    bool button_btn_1_now = (digitalRead(button_btn_1_pin) == LOW);
+    bool button_btn_1_settle = false;
+    if (!button_btn_1_seen || button_btn_1_now != button_btn_1_line) {
+      button_btn_1_settle = !button_btn_1_seen || millis() - button_btn_1_edge_at >= 50UL;
+      button_btn_1_pending = !button_btn_1_settle;
+      button_btn_1_line = button_btn_1_now; button_btn_1_seen = true; button_btn_1_edge_at = millis();
+    } else if (button_btn_1_pending && millis() - button_btn_1_edge_at >= 50UL) {
+      button_btn_1_pending = false; button_btn_1_settle = true;
+    }
+    if (button_btn_1_settle && button_btn_1_line != button_btn_1_state) {
+      button_btn_1_state = button_btn_1_line;
+      button_btn_1_changed = true;
+      if (button_btn_1_state) { button_btn_1_pressed_at = millis(); button_btn_1_hold_said = false; }
+    }
+    button_btn_1_hold = button_btn_1_state && !button_btn_1_hold_said && millis() - button_btn_1_pressed_at >= 500UL;
+    if (button_btn_1_hold) { button_btn_1_hold_said = true; }
+    if (((button_btn_1_changed && button_btn_1_state))) { digitalWrite(led_led_1_pin, HIGH); led_led_1_on = true; led_led_1_level = 255; }
+    if (((button_btn_1_changed && !button_btn_1_state))) { digitalWrite(led_led_1_pin, LOW); led_led_1_on = false; led_led_1_level = 0; }
+    double led_led_2_value_now0 = ((button_btn_1_state) ? 1.0 : 0.0);
+    bool led_led_2_value_fired0 = (led_led_2_value_now0 != led_led_2_value_prev0);
+    led_led_2_value_prev0 = led_led_2_value_now0;
+    if (led_led_2_value_fired0) {
+      uint8_t led_led_2_brightness = (uint8_t)((button_btn_1_state) ? 1 : 0);
+      analogWrite(led_led_2_pin, led_led_2_brightness);
+      led_led_2_on = led_led_2_brightness >= 1;
+      led_led_2_level = led_led_2_brightness;
+    }
   }
 }

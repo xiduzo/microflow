@@ -4,73 +4,23 @@
  * which limits the boards we can support
  */
 
-import {
-  DotIcon,
-  RedoDotIcon,
-  UndoDotIcon,
-} from "lucide-react";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Stepper">;
+import { CogIcon } from "lucide-react";
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, type BaseNode } from "../_base/_base";
 import { useNodeData } from "../_base/_base";
-import { useNodeValue } from "@/nodes/live/node-data";
-import { type Data, type Value, dataSchema } from "./stepper.schema";
+import { type Data, dataSchema } from "./stepper.schema";
 import { pinsToOptions } from "@/board/pin-label";
 import { MODES, usePins } from "@/board/board-store";
 import { folder } from "leva";
-import { IconWithValue } from "../_base/icon-with-value";
-import { useMemo } from "react";
 
 export function Stepper(props: Props) {
   return (
     <NodeContainer {...props}>
-      <Value />
+      <CogIcon className="text-muted-foreground" size={48} />
       <Settings />
-      <Handle
-        type="target"
-        position="left"
-        id="value"
-        handleType="value"
-        hint="steps (±)"
-        offset={-1.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="to"
-        handleType="value"
-        hint="go to position"
-        offset={-0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="stop"
-        handleType="command"
-        offset={0.5}
-      />
-      <Handle
-        type="target"
-        position="left"
-        id="zero"
-        handleType="command"
-        hint="reset position"
-        offset={1.5}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
-}
-
-function Value() {
-  const value = useNodeValue<Value>(0);
-
-  const icon = useMemo(() => {
-    if (value === 0) return DotIcon;
-    return value > 0 ? RedoDotIcon : UndoDotIcon;
-  }, [value]);
-
-  return <IconWithValue icon={icon} value={value} />;
 }
 
 function Settings() {

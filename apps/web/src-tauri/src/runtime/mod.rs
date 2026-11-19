@@ -5,17 +5,18 @@
 //! `Rc`/`RefCell`), so it lives on its own thread and is driven entirely by
 //! `ActorMsg`s. Everything in this module is the desktop-side glue around it:
 //!
+//! - [`cloud_performer`] — the `CloudPerformer`: publishes the `CloudRequest`s
+//!   the sans-IO `Mqtt`/`Figma` nodes record (they live in `microflow-core`,
+//!   ADR-0009) and owns the MQTT subscriptions, reconciled against the
+//!   runtime's subscriber wirings. The desktop's only cloud-specific code.
 //! - [`commands`] — the Tauri commands (`flow_update`, `component_call`, …) that
 //!   post `ActorMsg`s to the actor and await its replies.
 //! - [`host`] — the actor thread: owns the core `FlowRuntime` + the serial port,
 //!   applies each turn's `Effects` via its `EffectsSink` (serial writes,
 //!   `component-event` emits, wakeup timers, and cloud calls through the
-//!   `CloudPerformer`); cloud results re-enter as `ActorMsg::Inject`. The sans-IO
-//!   `Mqtt`/`Llm`/`Figma` nodes now live in `microflow-core` (ADR-0009, `cloud`
-//!   feature) and are auto-registered there; the desktop's only cloud-specific
-//!   code is the `CloudPerformer` that performs their recorded `CloudRequest`s.
-//! - [`services`] — the `MqttPublisher` / `LlmRegistry` handles the
-//!   `CloudPerformer` holds (and that `flow_update` syncs credentials into).
+//!   `CloudPerformer`); cloud results re-enter as `ActorMsg::Inject`.
+//! - [`services`] — the `MqttBrokers` Capability Trait the `CloudPerformer`
+//!   reaches the broker pool through, and its recording adapter.
 //! - [`supervisor`] — the crash-loop guard and panic fingerprint behind the
 //!   actor's respawn-on-panic (a turn that panics rebuilds the runtime).
 //!
@@ -24,6 +25,7 @@
 //! re-host went live. `microflow-core` is now the single source of truth for
 //! flow execution on both desktop and web.
 
+pub mod cloud_performer;
 pub mod commands;
 pub mod host;
 pub mod midi;

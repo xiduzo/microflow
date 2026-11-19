@@ -37,8 +37,10 @@
 //! Like every other emitter this is a pure function of the [`FlowNode`]:
 //! identical input always yields identical output.
 
+use super::config::FunctionConfig;
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Function Node's latest result.
@@ -48,16 +50,16 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
 }
 
 /// Emit C++ for a Function Node from its `trigger` port. The first wired
-/// source feeds the Node's `input` (extra sources are noted); with nothing
-/// wired in, the translated expression evaluates with `input = 0`, mirroring
-/// the runtime.
+/// source feeds the Node's `input` (extra sources are noted). Like the live
+/// Node, it evaluates on each tick that source fires and on no other
+/// ([`NodeEmission::transform`]): with nothing wired in it never evaluates and
+/// its value stays at `0.0`.
 ///
 /// On success the Node's value variable is assigned the translated expression
 /// in `loop()`. When the source falls outside the supported subset, a
 /// clearly-marked `// unsupported` comment is emitted instead and no assignment
 /// is produced — the value stays at `0.0`.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let var = value_var(node);
     let token = node.id_token();
     let mut e = NodeEmission {
@@ -65,25 +67,21 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         ..NodeEmission::default()
     };
 
-    let code = node
-        .data
-        .get("code")
-        .and_then(serde_json::Value::as_str)
-        .unwrap_or("");
+    let config = resolve::<FunctionConfig>(&node.data)?;
 
     let sources = inputs.on("trigger");
     if let Some(note) = extra_sources_note("trigger", sources) {
         e.declarations.push(note);
     }
-    // The `input` C++ expression downstream code reads. With nothing wired in,
-    // the runtime evaluates the JS with `input = 0`, so we mirror that.
-    let input_expr = sources
-        .first()
-        .map_or_else(|| "0.0".to_string(), |s| s.value.as_double());
+    let first = &sources[..sources.len().min(1)];
+    // The `input` C++ expression the translation reads: the value the source
+    // fired with. Unwired, the step never runs, so `0.0` only keeps the
+    // translation's subset check alive.
+    let input_expr = first.first().map_or_else(|| "0.0".to_string(), |s| s.value.as_double());
 
-    match translate(code, &input_expr) {
+    match translate(&config.code, &input_expr) {
         Ok(cpp) => {
-            e.loop_body.push(format!("{var} = (double)({cpp});"));
+            e.transform(&format!("function_{token}"), first, vec![format!("{var} = (double)({cpp});")]);
         }
         Err(reason) => {
             e.declarations.push(format!(
@@ -91,7 +89,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
             ));
         }
     }
-    e
+    Ok(e)
 }
 
 /// Translate the Function Node's JS body into a single C++ `double` expression,
@@ -482,17 +480,38 @@ mod tests {
         inputs
     }
 
+    /// The assignment the step makes, as written: the line that sets the
+    /// Node's value.
     fn loop_line(e: &NodeEmission) -> String {
-        e.loop_body.join("\n")
+        e.loop_body
+            .iter()
+            .map(|l| l.trim())
+            .find(|l| l.starts_with("function_") && l.contains("_value = "))
+            .unwrap_or_default()
+            .to_string()
     }
 
     fn is_unsupported(e: &NodeEmission) -> bool {
         e.declarations.iter().any(|d| d.contains("unsupported"))
     }
 
+    /// A Function node that holds no `code` runs the starter body
+    /// (`FunctionConfig`'s default, the one the editor places) in the live
+    /// runtime, which returns its input. The sketch is that same node: it
+    /// passes the input through, not an `// unsupported` note.
+    #[test]
+    fn a_function_without_code_passes_its_input_through_like_the_runtime() {
+        let mut without_code = func("fn-1", "");
+        without_code.data = json!({});
+        let e = emit(&without_code, &trig("x")).unwrap();
+        assert!(!is_unsupported(&e), "{:?}", e.declarations);
+        assert_eq!(loop_line(&e), "function_fn_1_value = (double)((((double)(x))));");
+        assert_eq!(e, emit(&func("fn-1", "const value = input;\nreturn value;"), &trig("x")).unwrap());
+    }
+
     #[test]
     fn declares_output_variable() {
-        let e = emit(&func("fn-1", "return input;"), &NodeInputs::default());
+        let e = emit(&func("fn-1", "return input;"), &NodeInputs::default()).unwrap();
         assert!(e
             .declarations
             .iter()
@@ -509,7 +528,7 @@ mod tests {
 
     #[test]
     fn return_input_reads_driver() {
-        let e = emit(&func("fn-1", "return input;"), &trig("sensor_s_value"));
+        let e = emit(&func("fn-1", "return input;"), &trig("sensor_s_value")).unwrap();
         let body = loop_line(&e);
         assert!(body.contains("function_fn_1_value"));
         assert!(
@@ -521,7 +540,7 @@ mod tests {
 
     #[test]
     fn arithmetic_is_translated() {
-        let e = emit(&func("fn-1", "return input * 2 + 1;"), &trig("x"));
+        let e = emit(&func("fn-1", "return input * 2 + 1;"), &trig("x")).unwrap();
         let body = loop_line(&e);
         assert!(body.contains('*') && body.contains('+'), "got: {body}");
         assert!(!is_unsupported(&e));
@@ -530,7 +549,7 @@ mod tests {
     #[test]
     fn bindings_chain_into_return() {
         let code = "const a = input * 2;\nconst b = a + 3;\nreturn b;";
-        let e = emit(&func("fn-1", code), &trig("x"));
+        let e = emit(&func("fn-1", code), &trig("x")).unwrap();
         let body = loop_line(&e);
         // `b` resolves to `a + 3` which resolves to `input * 2`.
         assert!(body.contains('*'), "binding a inlined: {body}");
@@ -542,14 +561,14 @@ mod tests {
     fn default_code_passthrough_is_supported() {
         // The Node's default body: assigns input and returns it.
         let code = "const value = input;\nreturn value;";
-        let e = emit(&func("fn-1", code), &trig("driver"));
+        let e = emit(&func("fn-1", code), &trig("driver")).unwrap();
         assert!(loop_line(&e).contains("driver"));
         assert!(!is_unsupported(&e));
     }
 
     #[test]
     fn comparison_and_ternary_are_translated() {
-        let e = emit(&func("fn-1", "return input > 10 ? 1 : 0;"), &trig("x"));
+        let e = emit(&func("fn-1", "return input > 10 ? 1 : 0;"), &trig("x")).unwrap();
         let body = loop_line(&e);
         assert!(
             body.contains('>') && body.contains('?') && body.contains(':'),
@@ -560,13 +579,13 @@ mod tests {
 
     #[test]
     fn logical_operators_are_translated() {
-        let e = emit(&func("fn-1", "return input > 0 && input < 100;"), &trig("x"));
+        let e = emit(&func("fn-1", "return input > 0 && input < 100;"), &trig("x")).unwrap();
         assert!(loop_line(&e).contains("&&"));
     }
 
     #[test]
     fn strict_equality_collapses_to_cpp_equality() {
-        let e = emit(&func("fn-1", "return input === 5 ? 1 : 0;"), &trig("x"));
+        let e = emit(&func("fn-1", "return input === 5 ? 1 : 0;"), &trig("x")).unwrap();
         let body = loop_line(&e);
         assert!(body.contains("=="), "got: {body}");
         assert!(!body.contains("==="), "=== must collapse to ==, got: {body}");
@@ -574,13 +593,13 @@ mod tests {
 
     #[test]
     fn math_helpers_are_translated() {
-        let e = emit(&func("fn-1", "return Math.max(input, 0);"), &trig("x"));
+        let e = emit(&func("fn-1", "return Math.max(input, 0);"), &trig("x")).unwrap();
         assert!(loop_line(&e).contains("max("), "Math.max → max");
     }
 
     #[test]
     fn unary_negation_is_translated() {
-        let e = emit(&func("fn-1", "return -input;"), &trig("x"));
+        let e = emit(&func("fn-1", "return -input;"), &trig("x")).unwrap();
         assert!(loop_line(&e).contains('-'));
     }
 
@@ -589,7 +608,7 @@ mod tests {
     #[test]
     fn loop_construct_is_marked_unsupported() {
         let code = "let s = 0;\nfor (let i = 0; i < 10; i++) { s = s + i; }\nreturn s;";
-        let e = emit(&func("fn-1", code), &trig("x"));
+        let e = emit(&func("fn-1", code), &trig("x")).unwrap();
         assert!(
             e.declarations
                 .iter()
@@ -603,57 +622,65 @@ mod tests {
 
     #[test]
     fn string_literal_is_marked_unsupported() {
-        let e = emit(&func("fn-1", "return \"hello\";"), &trig("x"));
+        let e = emit(&func("fn-1", "return \"hello\";"), &trig("x")).unwrap();
         assert!(is_unsupported(&e));
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn template_slot_is_marked_unsupported() {
-        let e = emit(&func("fn-1", "return input + {{gain}};"), &trig("x"));
+        let e = emit(&func("fn-1", "return input + {{gain}};"), &trig("x")).unwrap();
         assert!(is_unsupported(&e));
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn unknown_call_is_marked_unsupported() {
-        let e = emit(&func("fn-1", "return parseInt(input);"), &trig("x"));
+        let e = emit(&func("fn-1", "return parseInt(input);"), &trig("x")).unwrap();
         assert!(is_unsupported(&e));
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn missing_return_is_marked_unsupported() {
-        let e = emit(&func("fn-1", "const a = input;"), &trig("x"));
+        let e = emit(&func("fn-1", "const a = input;"), &trig("x")).unwrap();
         assert!(is_unsupported(&e));
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
     fn unknown_identifier_is_marked_unsupported() {
-        let e = emit(&func("fn-1", "return undeclared + 1;"), &trig("x"));
+        let e = emit(&func("fn-1", "return undeclared + 1;"), &trig("x")).unwrap();
         assert!(is_unsupported(&e));
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
     #[test]
-    fn no_driver_uses_zero_input() {
-        // With nothing wired in the runtime evaluates with input = 0.
-        let e = emit(&func("fn-1", "return input + 1;"), &NodeInputs::default());
-        let body = loop_line(&e);
-        assert!(body.contains("0.0"), "input defaults to 0.0, got: {body}");
+    fn no_driver_never_evaluates() {
+        // With nothing wired in the runtime never runs the code: the value
+        // stays 0.0.
+        let e = emit(&func("fn-1", "return input + 1;"), &NodeInputs::default()).unwrap();
+        assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(!is_unsupported(&e));
+    }
+
+    /// The code runs on the ticks the source fires, and on no other.
+    #[test]
+    fn evaluates_only_when_its_source_fires() {
+        let e = emit(&func("fn-1", "return input + 1;"), &trig("x")).unwrap();
+        let body = e.loop_body.join("\n");
+        assert!(body.contains("function_fn_1_fired = (function_fn_1_in_fired0);\nif (function_fn_1_fired) {"), "{body}");
     }
 
     #[test]
     fn emits_deterministically() {
         let n = func("fn-1", "return input * 2 + 1;");
-        assert_eq!(emit(&n, &trig("x")), emit(&n, &trig("x")));
+        assert_eq!(emit(&n, &trig("x")).unwrap(), emit(&n, &trig("x")).unwrap());
     }
 
     #[test]
     fn unsupported_is_deterministic() {
         let n = func("fn-1", "for (;;) {}\nreturn 1;");
-        assert_eq!(emit(&n, &trig("x")), emit(&n, &trig("x")));
+        assert_eq!(emit(&n, &trig("x")).unwrap(), emit(&n, &trig("x")).unwrap());
     }
 }

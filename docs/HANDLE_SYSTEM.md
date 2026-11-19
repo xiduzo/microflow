@@ -245,6 +245,10 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ## 8. Resulting node specs
 
+These are the handles each node draws, as its Handle Rule states them
+(`apps/web/src/nodes/<node>/<node>.handles.ts`). Some nodes also emit an
+implicit `value` that they do not draw; it is not listed here.
+
 ### AudioPlayer
 
 - **Inputs:** `trigger` (command), `stop` (command)
@@ -288,7 +292,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Hotkey
 
 - **Inputs:** —
-- **Outputs:** `event` (event), `true` (state)
+- **Outputs:** `event` (event), `true` (state), `false` (state)
 
 ### Interval
 
@@ -298,17 +302,17 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Led
 
 - **Inputs:** `true` (command), `toggle` (command), `value` (value), `false` (command)
-- **Outputs:** `event` (event)
+- **Outputs:** `value` (value)
 
 ### Llm
 
 - **Inputs:** `trigger` (command), named slots from `{{var}}` (value)
-- **Outputs:** `value` (value)
+- **Outputs:** `thinking` (state), `done` (event), `value` (value), `error` (event)
 
 ### Matrix
 
-- **Inputs:** `value` (value), `reset` (command)
-- **Outputs:** `event` (event)
+- **Inputs:** `value` (value), `reset` (command), `reinitialize` (command)
+- **Outputs:** `value` (value)
 
 ### Monitor
 
@@ -333,7 +337,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Piezo
 
 - **Inputs:** `trigger` (command), `stop` (command)
-- **Outputs:** —
+- **Outputs:** `value` (value: whether it is sounding)
 
 ### Pixel
 
@@ -342,38 +346,43 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 
 ### Proximity / Sensor / Force / HallEffect / Ldr / Potentiometer / Tilt
 
-- **Inputs:** —
+- **Inputs:** — (no `read`: a sensor reports on its own)
 - **Outputs:** `value` (value)
 
 ### RangeMap
 
 - **Inputs:** `value` (value)
-- **Outputs:** `value` (value)
+- **Outputs:** `to` (value)
 
 ### Relay
 
 - **Inputs:** `true` (command), `toggle` (command), `false` (command)
-- **Outputs:** —
+- **Outputs:** `value` (value: whether it is open)
 
 ### Rgb
 
-- **Inputs:** `red` (value), `green` (value), `blue` (value), `alpha` (value)
-- **Outputs:** `event` (event)
+- **Inputs:** `red` (value), `green` (value), `blue` (value), `alpha` (value), `off` (command)
+- **Outputs:** `value` (value)
 
 ### Servo (standard)
 
 - **Inputs:** `min` (value), `value` (value), `max` (value)
-- **Outputs:** `event` (event)
+- **Outputs:** `value` (value)
 
 ### Servo (continuous)
 
 - **Inputs:** `value` (value), `stop` (command)
-- **Outputs:** `event` (event)
+- **Outputs:** `value` (value)
 
 ### Smooth
 
 - **Inputs:** `value` (value)
 - **Outputs:** `value` (value)
+
+### Stepper
+
+- **Inputs:** `value` (value: steps), `to` (value: position), `stop` (command), `zero` (command), `enable` (value)
+- **Outputs:** —
 
 ### Switch
 
@@ -383,7 +392,7 @@ Users learn: **"Circles carry data, diamonds trigger, triangles are actions, squ
 ### Trigger
 
 - **Inputs:** `value` (value)
-- **Outputs:** `event` (event)
+- **Outputs:** `bang` (event)
 
 ---
 

@@ -1,41 +1,44 @@
 //! Firmware Flasher Module
 //!
-//! This module handles flashing firmware (like `StandardFirmata`) to Arduino boards.
+//! Flashes firmware (like `StandardFirmata`) onto Arduino boards.
 //!
-//! # Architecture
+//! The bootloader protocols (`STK500v1`, `STK500v2`, AVR109) are not here: they
+//! are the sans-IO `FlashDriver`s in `microflow_core::flasher`, shared with the
+//! browser. This module is the desktop's executor of those drivers: it carries
+//! their steps out on a serial port.
 //!
 //! ```text
 //! flasher/
-//! ├── mod.rs           - Public API and module orchestration
-//! ├── types.rs         - Shared types (BoardType, FlashResult, etc.)
-//! ├── boards.rs        - Board configurations and detection
-//! ├── firmware.rs      - Embedded StandardFirmata hex files
-//! ├── hex.rs           - Intel HEX file parser
-//! ├── error.rs         - Error types
+//! ├── mod.rs           - Public API: parse the hex, pick the driver, run it
+//! ├── executor.rs      - Runs a FlashDriver's steps on a serial port
+//! ├── serial.rs        - SerialHost: the seam to the OS's serial ports
+//! ├── sim_serial.rs    - Test adapter of that seam: a modelled board
+//! ├── hardware_smoke.rs - Ignored test: flash a real board
 //! ├── commands.rs      - Tauri command handlers
-//! └── protocols/
-//!     ├── mod.rs       - Protocol trait and exports
-//!     ├── stk500v1.rs  - STK500v1 protocol (Uno, Nano)
-//!     └── avr109.rs    - AVR109 protocol (Leonardo, Micro)
+//! └── types.rs         - Command result payloads
 //! ```
+//!
+//! The board catalogue, the embedded firmware, the hex parser and the error
+//! type are core's too.
 
-mod boards;
-mod error;
-mod firmware;
-mod hex;
-mod protocols;
+mod executor;
+#[cfg(test)]
+mod hardware_smoke;
+mod serial;
+#[cfg(test)]
+mod sim_serial;
+#[cfg(test)]
+mod tests;
 mod types;
 
 // Public modules
 pub mod commands;
 
-// Re-export public API
-pub use boards::BoardConfig;
-pub use error::FlashError;
-pub use firmware::Firmware;
-pub use types::{BoardType, FlashResult};
+pub use microflow_core::flasher::{BoardConfig, BoardType, FlashError};
+pub use types::FlashResult;
 
-use protocols::{Avr109Flasher, Protocol, Stk500v1Flasher, Stk500v2Flasher};
+use microflow_core::flasher::{firmware, hex, new_driver};
+use serial::{SerialHost, SystemSerial};
 
 /// Main flasher interface - orchestrates the flashing process
 pub struct Flasher;
@@ -59,20 +62,7 @@ impl Flasher {
         let hex_data = hex::parse(hex_content)?;
         log::info!("Parsed {} bytes from hex file", hex_data.len());
 
-        match config.protocol {
-            Protocol::Stk500v1 => {
-                let mut flasher = Stk500v1Flasher::new(port_name, config)?;
-                flasher.flash(&hex_data)?;
-            }
-            Protocol::Stk500v2 => {
-                let mut flasher = Stk500v2Flasher::new(port_name, config)?;
-                flasher.flash(&hex_data)?;
-            }
-            Protocol::Avr109 => {
-                let mut flasher = Avr109Flasher::new(port_name, config);
-                flasher.flash(&hex_data)?;
-            }
-        }
+        flash_image(&SystemSerial, port_name, board_type, &hex_data)?;
 
         Ok(FlashResult {
             success: true,
@@ -87,7 +77,7 @@ impl Flasher {
         port_name: &str,
         board_type: BoardType,
     ) -> Result<FlashResult, FlashError> {
-        let hex_content = Firmware::get_firmata_hex(board_type);
+        let hex_content = firmware::standard_firmata_hex(board_type);
 
         log::info!("Flashing StandardFirmata to {board_type:?} on {port_name}");
         Self::flash(port_name, board_type, hex_content)
@@ -108,4 +98,17 @@ impl Flasher {
 
         Self::flash_standard_firmata(port_name, board_type)
     }
+}
+
+/// Program the raw flash `image` onto the board on `port_name`, through `host`:
+/// the board's core driver, run by the desktop executor.
+fn flash_image(
+    host: &dyn SerialHost,
+    port_name: &str,
+    board_type: BoardType,
+    image: &[u8],
+) -> Result<(), FlashError> {
+    let baud = BoardConfig::find(board_type).baud_rate;
+    let mut driver = new_driver(board_type, image.to_vec());
+    executor::run(host, port_name, baud, driver.as_mut())
 }

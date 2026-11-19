@@ -1,19 +1,47 @@
-//! Sans-IO AVR109 driver (Leonardo, Micro). A port of the desktop blocking
-//! flasher: a "1200-baud touch" resets the board into its bootloader, which
+//! Sans-IO AVR109 driver (Leonardo, Micro), as the Caterina bootloader speaks
+//! it: a "1200-baud touch" resets the board into its bootloader, which
 //! re-enumerates as a new USB device; then sync ("CATERIN"), chip erase,
 //! sequential block programming, and exit.
 //!
-//! The re-enumeration is expressed as a [`FlashStep::ReacquirePort`] — trivial
-//! on the desktop (the OS re-lists the port), but in the browser the bootloader
-//! appears as a *new* Web Serial device that may need the user to re-pick it.
-//! The executor handles that; the protocol logic here is identical to desktop.
+//! The re-enumeration is a [`FlashStep::ReacquirePort`]: how the bootloader's
+//! port is found again is the executor's business (the desktop polls the OS
+//! port list, the browser picks among the granted Web Serial ports).
 
 use super::driver::{FlashDriver, FlashStep};
-use super::BoardConfig;
+use super::{word_aligned, BoardConfig, FlashError};
+
+// The cadence, from `Caterina.c`. The bootloader runs for 8 s
+// (`TIMEOUT_PERIOD`) from its start, and only a block write restarts that
+// clock: identify, erase and the first block must all happen inside it. The
+// host gets here 1 to 4 s in (USB enumeration, then the executor's search for
+// the port), and the erase takes about 2 s. Over USB an answer takes
+// milliseconds, so the 2 s wait is ample; of the five identify attempts, the
+// ones 0, 2 and 4 s after the first can still be followed by the erase and a
+// block in time.
+//
+// The driver listens from the first identify to 10 s after it without
+// discarding anything, and the answer to any of them ends the phase, whenever
+// in that time it comes in. The bootloader answers every identify it gets, so
+// as many more identifiers as identifies were repeated can follow that
+// answer. They come in before the answer to the erase and are read past
+// there: the erase is answered with a carriage return, which no identifier
+// starts with.
 
 const EXPECT_CR: u8 = 0x0D;
+/// What every Caterina's identifier starts with.
+const IDENTIFIER_START: &[u8] = b"CATER";
+/// AVR109's answer to `S`: seven characters (Caterina's are `CATERIN`).
+const IDENTIFIER_LEN: usize = 7;
 const BLOCK_SIZE: usize = 128;
 const TRANSACT_TIMEOUT_MS: u32 = 2000;
+/// The chip erase is answered only once every application page is erased and
+/// rewritten: 224 pages at 3.7 to 4.5 ms, twice, is 1.7 to 2.0 s on an
+/// `ATmega32U4` before the answer even sets off.
+const ERASE_TIMEOUT_MS: u32 = 5000;
+/// How long the port stays open after `E`, so the command is on the wire
+/// before the port closes. A bootloader that never gets it waits out its 8 s
+/// timeout before it starts the sketch.
+const EXIT_HOLD_MS: u32 = 100;
 const MAX_SYNC_ATTEMPTS: u32 = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +56,7 @@ enum Phase {
     ProgBlock,
     Progress,
     Exit,
+    ExitHold,
     Done,
 }
 
@@ -38,11 +67,18 @@ pub struct Avr109Driver {
     sync_attempt: u32,
     block_index: usize,
     total_blocks: usize,
+    /// Input read since the first identify and not yet made sense of.
+    rx: Vec<u8>,
+    /// Bytes the last step asked for; fewer came in if its read timed out.
+    asked: usize,
+    /// Answers to repeated identifies that can still come in.
+    late_identifiers: u32,
 }
 
 impl Avr109Driver {
     #[must_use]
     pub fn new(flash: Vec<u8>, config: &BoardConfig) -> Self {
+        let flash = word_aligned(flash);
         let total_blocks = flash.len().div_ceil(BLOCK_SIZE);
         Self {
             flash,
@@ -51,11 +87,89 @@ impl Avr109Driver {
             sync_attempt: 0,
             block_index: 0,
             total_blocks,
+            rx: Vec::new(),
+            asked: 0,
+            late_identifiers: 0,
         }
     }
 
-    fn sync_step() -> FlashStep {
-        FlashStep::Transact { write: vec![b'S'], read_len: 7, timeout_ms: TRANSACT_TIMEOUT_MS }
+    /// A step that reads `read_len` bytes, remembering how many it asked for.
+    fn read(&mut self, write: Vec<u8>, read_len: usize, timeout_ms: u32, keep_input: bool) -> FlashStep {
+        self.asked = read_len;
+        FlashStep::Transact { write, read_len, timeout_ms, keep_input }
+    }
+
+    /// Ask the bootloader to identify itself. The first time discards what
+    /// is in the input; the ones after it keep what came in since.
+    fn identify(&mut self) -> FlashStep {
+        let first = self.sync_attempt == 0;
+        if first {
+            self.rx.clear();
+        }
+        self.phase = Phase::Sync;
+        let missing = self.identifier_missing();
+        self.read(vec![b'S'], missing, TRANSACT_TIMEOUT_MS, !first)
+    }
+
+    /// How many bytes an identifier still takes. What cannot be part of one
+    /// is read past.
+    fn identifier_missing(&mut self) -> usize {
+        // The identifier, or as much of its start as the input ends with.
+        let at = (0..self.rx.len())
+            .find(|&at| {
+                let tail = &self.rx[at..];
+                tail.starts_with(IDENTIFIER_START) || IDENTIFIER_START.starts_with(tail)
+            })
+            .unwrap_or(self.rx.len());
+        self.rx.drain(..at);
+        IDENTIFIER_LEN.saturating_sub(self.rx.len())
+    }
+
+    /// The step after `input` came in for an identify.
+    fn on_identify_input(&mut self, input: &[u8]) -> FlashStep {
+        self.rx.extend_from_slice(input);
+        if self.identifier_missing() > 0 {
+            self.sync_attempt += 1;
+            if self.sync_attempt < MAX_SYNC_ATTEMPTS {
+                return self.identify();
+            }
+            return self.fail(FlashError::SyncFailed);
+        }
+        self.rx.drain(..IDENTIFIER_LEN);
+        // The bootloader may have got every identify before this one too.
+        self.late_identifiers = self.sync_attempt;
+        self.phase = Phase::Erase;
+        self.read(vec![b'e'], 1, ERASE_TIMEOUT_MS, true)
+    }
+
+    /// The step after `input` came in for the chip erase.
+    fn on_erase_input(&mut self, input: &[u8]) -> FlashStep {
+        let timed_out = input.len() < self.asked;
+        self.rx.extend_from_slice(input);
+        // An answer to an earlier identify.
+        while self.late_identifiers > 0
+            && self.rx.len() >= IDENTIFIER_LEN
+            && self.rx.starts_with(IDENTIFIER_START)
+        {
+            self.rx.drain(..IDENTIFIER_LEN);
+            self.late_identifiers -= 1;
+        }
+        // The start of one more.
+        let late_identifier = self.late_identifiers > 0
+            && !self.rx.is_empty()
+            && (self.rx.starts_with(IDENTIFIER_START) || IDENTIFIER_START.starts_with(&self.rx));
+        if late_identifier && !timed_out {
+            // The rest of it, and then the erase's own answer.
+            let missing = IDENTIFIER_LEN - self.rx.len() + 1;
+            return self.read(Vec::new(), missing, ERASE_TIMEOUT_MS, true);
+        }
+        if std::mem::take(&mut self.rx).first() == Some(&EXPECT_CR) {
+            // Set the word address to 0; the bootloader auto-increments.
+            self.phase = Phase::SetAddr;
+            command(vec![b'A', 0, 0], 1)
+        } else {
+            self.fail(FlashError::ProgramFailed("chip erase was not acknowledged".into()))
+        }
     }
 
     fn block_step(&self) -> FlashStep {
@@ -69,28 +183,31 @@ impl Avr109Driver {
         write.push((len & 0xFF) as u8);
         write.push(b'F');
         write.extend_from_slice(chunk);
-        FlashStep::Transact { write, read_len: 1, timeout_ms: TRANSACT_TIMEOUT_MS }
+        command(write, 1)
     }
 
     fn begin_blocks(&mut self) -> FlashStep {
         if self.total_blocks == 0 {
             self.phase = Phase::Exit;
-            return FlashStep::Transact { write: vec![b'E'], read_len: 0, timeout_ms: TRANSACT_TIMEOUT_MS };
+            // Answered with a carriage return that is not waited for: see
+            // the exit after the last block.
+            return command(vec![b'E'], 0);
         }
         self.block_index = 0;
         self.phase = Phase::ProgBlock;
         self.block_step()
     }
 
-    fn fail(&mut self, message: &str) -> FlashStep {
+    fn fail(&mut self, error: FlashError) -> FlashStep {
         self.phase = Phase::Done;
-        FlashStep::Error { message: message.into() }
+        FlashStep::Error { error }
     }
 }
 
-/// True when the sync reply contains the Caterina bootloader identifier.
-fn is_caterina(resp: &[u8]) -> bool {
-    String::from_utf8_lossy(resp).contains("CATER")
+/// A command sent once nothing earlier can still be on its way: the input is
+/// discarded, `write` goes out, and `read_len` bytes of answer are read.
+fn command(write: Vec<u8>, read_len: usize) -> FlashStep {
+    FlashStep::Transact { write, read_len, timeout_ms: TRANSACT_TIMEOUT_MS, keep_input: false }
 }
 
 impl FlashDriver for Avr109Driver {
@@ -118,36 +235,15 @@ impl FlashDriver for Avr109Driver {
             }
             Phase::Settle => {
                 self.sync_attempt = 0;
-                self.phase = Phase::Sync;
-                Self::sync_step()
+                self.identify()
             }
-            Phase::Sync => {
-                if is_caterina(input) {
-                    self.phase = Phase::Erase;
-                    FlashStep::Transact { write: vec![b'e'], read_len: 1, timeout_ms: TRANSACT_TIMEOUT_MS }
-                } else {
-                    self.sync_attempt += 1;
-                    if self.sync_attempt < MAX_SYNC_ATTEMPTS {
-                        Self::sync_step()
-                    } else {
-                        self.fail("Failed to sync with the AVR109 bootloader")
-                    }
-                }
-            }
-            Phase::Erase => {
-                if input.first() == Some(&EXPECT_CR) {
-                    // Set the word address to 0; the bootloader auto-increments.
-                    self.phase = Phase::SetAddr;
-                    FlashStep::Transact { write: vec![b'A', 0, 0], read_len: 1, timeout_ms: TRANSACT_TIMEOUT_MS }
-                } else {
-                    self.fail("Chip erase failed")
-                }
-            }
+            Phase::Sync => self.on_identify_input(input),
+            Phase::Erase => self.on_erase_input(input),
             Phase::SetAddr => {
                 if input.first() == Some(&EXPECT_CR) {
                     self.begin_blocks()
                 } else {
-                    self.fail("Failed to set flash address")
+                    self.fail(FlashError::ProgramFailed("Failed to set flash address".into()))
                 }
             }
             Phase::ProgBlock => {
@@ -158,7 +254,10 @@ impl FlashDriver for Avr109Driver {
                         total: self.total_blocks as u32,
                     }
                 } else {
-                    self.fail(&format!("Block {} write failed", self.block_index))
+                    self.fail(FlashError::ProgramFailed(format!(
+                        "block {} was not acknowledged",
+                        self.block_index
+                    )))
                 }
             }
             Phase::Progress => {
@@ -168,71 +267,23 @@ impl FlashDriver for Avr109Driver {
                     self.block_step()
                 } else {
                     self.phase = Phase::Exit;
-                    // 'E' exits the bootloader and starts the application; no reply.
-                    FlashStep::Transact { write: vec![b'E'], read_len: 0, timeout_ms: TRANSACT_TIMEOUT_MS }
+                    // 'E' exits the bootloader: Caterina answers it with a
+                    // carriage return and starts the sketch about half a
+                    // second later. Every block was acknowledged by then, so
+                    // the answer is not waited for (and a lost one is not a
+                    // failed flash); the port is held open a moment instead.
+                    command(vec![b'E'], 0)
                 }
             }
             Phase::Exit => {
+                self.phase = Phase::ExitHold;
+                FlashStep::Delay { ms: EXIT_HOLD_MS }
+            }
+            Phase::ExitHold => {
                 self.phase = Phase::Done;
                 FlashStep::Done
             }
             Phase::Done => FlashStep::Done,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::flasher::BoardType;
-
-    #[test]
-    fn happy_path_syncs_erases_and_programs_every_block() {
-        // 300 bytes over 128-byte blocks => 3 blocks.
-        let flash = vec![0x5Au8; 300];
-        let config = BoardConfig::find(BoardType::Leonardo);
-        let mut d = Avr109Driver::new(flash, &config);
-
-        let mut step = d.start();
-        let (mut syncs, mut erases, mut blocks, mut exits) = (0, 0, 0, 0);
-        let mut guard = 0;
-        loop {
-            guard += 1;
-            assert!(guard < 200, "driver did not terminate");
-            step = match &step {
-                FlashStep::Done => break,
-                FlashStep::Error { message } => panic!("unexpected error: {message}"),
-                FlashStep::Transact { write, read_len, .. } => {
-                    let reply: Vec<u8> = match write.first() {
-                        Some(&b'S') => {
-                            syncs += 1;
-                            b"CATERIN".to_vec()
-                        }
-                        Some(&b'e') => {
-                            erases += 1;
-                            vec![EXPECT_CR]
-                        }
-                        Some(&b'A') => vec![EXPECT_CR],
-                        Some(&b'B') => {
-                            blocks += 1;
-                            vec![EXPECT_CR]
-                        }
-                        Some(&b'E') => {
-                            exits += 1;
-                            Vec::new()
-                        }
-                        other => panic!("unexpected avr109 command: {other:?}"),
-                    };
-                    // 'E' reads nothing; others read exactly one byte (sync: 7).
-                    assert!(reply.len() >= *read_len || *read_len == 0 || write.first() == Some(&b'S'));
-                    d.advance(&reply)
-                }
-                _ => d.advance(&[]),
-            };
-        }
-        assert_eq!(syncs, 1);
-        assert_eq!(erases, 1);
-        assert_eq!(blocks, 3, "one block write per 128-byte block");
-        assert_eq!(exits, 1);
     }
 }

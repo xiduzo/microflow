@@ -1,21 +1,30 @@
-//! Platform-independent flasher core: the transport-free pieces of firmware
-//! flashing, shared by the desktop flasher and (via wasm) the browser.
+//! Platform-independent flasher core: everything about flashing firmware that
+//! is not I/O, shared by the desktop flasher and (via wasm) the browser.
 //!
-//! What lives here is pure and portable: the Intel-HEX parser ([`hex`]), the
-//! board catalogue + USB detection ([`BoardConfig`]), the supported board /
-//! protocol enums, and the error type. The actual bootloader **I/O
-//! orchestration** (DTR/RTS reset timing, sync-retry loops, baud fallback,
-//! `read_exact`) is deliberately *not* here — it is timing-critical, transport-
-//! coupled, and (for AVR109) involves USB re-enumeration that the browser's Web
-//! Serial API models very differently. That orchestration stays per-platform.
+//! - The bootloader protocols, as sans-IO [`FlashDriver`]s: [`stk500v1`] (Uno,
+//!   Nano), [`stk500v2`] (Mega), [`avr109`] (Leonardo, Micro). A driver owns
+//!   the protocol: the bytes, the reset sequence, the sync retries and baud
+//!   fallback, the timeouts, when to give up. [`new_driver`] picks the one for
+//!   a board.
+//! - The Intel-HEX parser ([`hex`]), the embedded `StandardFirmata` images
+//!   ([`firmware`]), the board catalogue and USB identification
+//!   ([`BoardConfig`]), and the error type ([`FlashError`]).
 //!
-//! The desktop `flasher` module re-exports these types so it keeps a single
-//! definition; the browser parses hex and detects boards through the same code.
+//! A host is an **executor**: it carries a driver's [`FlashStep`]s out on its
+//! serial transport and feeds back what the board answered. There are two,
+//! the desktop's (blocking, `serialport`; `src-tauri/src/flasher/executor.rs`)
+//! and the browser's (async, Web Serial; `apps/web/src/board/web-serial.ts`).
+//! What an executor owns is what differs per machine: opening and closing the
+//! port, and finding a board again after AVR109's USB re-enumeration.
+//!
+//! The drivers are tested against modelled bootloaders (`sim`, test-only).
 
 pub mod avr109;
 pub mod driver;
 pub mod firmware;
 pub mod hex;
+#[cfg(any(test, feature = "sim-board"))]
+pub mod sim;
 pub mod stk500v1;
 pub mod stk500v2;
 
@@ -86,7 +95,7 @@ impl BoardType {
 }
 
 /// Errors that can occur during flashing.
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FlashError {
     /// Failed to open serial port
     PortOpen(String),
@@ -133,6 +142,13 @@ impl std::fmt::Display for FlashError {
 }
 
 impl std::error::Error for FlashError {}
+
+/// On the wire an error is its text: what a host shows the user.
+impl Serialize for FlashError {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
 
 impl From<FlashError> for String {
     fn from(err: FlashError) -> Self {
@@ -387,6 +403,15 @@ impl UsbMatch {
     }
 }
 
+/// AVR flash is programmed in 16-bit words, and the bootloaders take a page
+/// as a count of bytes that must be even: an odd image gets one erased byte.
+fn word_aligned(mut flash: Vec<u8>) -> Vec<u8> {
+    if flash.len() % 2 != 0 {
+        flash.push(0xFF);
+    }
+    flash
+}
+
 /// Build the bootloader driver for a board, given the raw flash image to write.
 /// Selects the protocol from the board's [`BoardConfig`].
 #[must_use]
@@ -399,5 +424,7 @@ pub fn new_driver(board_type: BoardType, flash: Vec<u8>) -> Box<dyn FlashDriver>
     }
 }
 
+#[cfg(test)]
+mod driver_tests;
 #[cfg(test)]
 mod tests;

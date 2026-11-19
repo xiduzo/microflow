@@ -85,31 +85,30 @@ impl Piezo {
         }
     }
 
-    fn buzz(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        self.stop(ctx)?;
-        if self.config.r#type != PiezoType::Buzz { return Ok(()); }
-        let steps = vec![Step {
+    /// The one-tone sequence of a buzz: the base frequency for `duration`.
+    /// A buzz of 0 ms sounds nothing, so it has no step — on the board too,
+    /// where `tone()` without a duration would sound until `noTone()`.
+    fn buzz_steps(&self) -> Vec<Step> {
+        if self.config.duration == 0 {
+            return Vec::new();
+        }
+        vec![Step {
             half_period_us: hz_to_half_period_us(self.config.frequency as u16),
             duration_ms: u64::from(self.config.duration),
             is_tone: true,
-        }];
-        self.start_playback(steps, ctx)
+        }]
+    }
+
+    fn buzz(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        let steps = self.buzz_steps();
+        self.restart(steps, ctx)
     }
 
     fn play(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        self.stop(ctx)?;
-
-        if self.config.r#type != PiezoType::Song {
-            return Ok(());
-        }
         if self.config.song.is_empty() {
             // Empty song falls back to a single buzz, matching the desktop.
-            let steps = vec![Step {
-                half_period_us: hz_to_half_period_us(self.config.frequency as u16),
-                duration_ms: u64::from(self.config.duration),
-                is_tone: true,
-            }];
-            return self.start_playback(steps, ctx);
+            let steps = self.buzz_steps();
+            return self.restart(steps, ctx);
         }
 
         let frequencies = note_frequencies();
@@ -133,6 +132,18 @@ impl Piezo {
             })
             .collect();
 
+        self.restart(steps, ctx)
+    }
+
+    /// Play `steps` from the start, cutting off whatever is sounding. A
+    /// Piezo triggered while it sounds keeps sounding, so `value` stays true
+    /// and is not emitted again — as on the board, where a new `tone()`
+    /// replaces the one playing. With nothing to play it falls silent.
+    fn restart(&mut self, steps: Vec<Step>, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
+        ctx.cancel_wakeup("_note");
+        if steps.is_empty() {
+            return self.handle_auto_stop(ctx);
+        }
         self.start_playback(steps, ctx)
     }
 
@@ -140,9 +151,6 @@ impl Piezo {
     /// first `_note` wakeup immediately (delay 0). The runtime delivers it as
     /// `dispatch_internal("note", …)` next turn, which plays the step and chains.
     fn start_playback(&mut self, steps: Vec<Step>, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        if steps.is_empty() {
-            return Ok(());
-        }
         self.steps = steps;
         self.cursor = 0;
         self.is_playing = true;
@@ -183,9 +191,7 @@ impl Piezo {
     }
 
     fn stop(&mut self, ctx: &mut RuntimeContext) -> Result<(), RuntimeError> {
-        // Cancel any outstanding note wakeup so a re-trigger starts clean.
-        ctx.cancel_wakeup("_note");
-        self.handle_auto_stop(ctx)
+        self.restart(Vec::new(), ctx)
     }
 }
 

@@ -23,7 +23,7 @@ Microflow lets people give microcontrollers behavior by drawing a flow on a canv
 2. **Local-first, one engine everywhere** — Microflow Studio runs on the maker's machine, in a browser tab or as a desktop app, and talks to the board over the local serial port. Both hosts run the same sans-IO Rust engine (native on desktop, WebAssembly in the browser), so a flow behaves the same on each. The cloud is not a dependency for the core loop.
 3. **Visual flow over text code** — The canvas is the program. Dropping into a code editor is never the price of admission for common behavior.
 4. **Single source of truth for components** — The Component Catalog (`apps/web/node-components.json`) drives both the UI registry and the Rust runtime registry. UI and runtime cannot drift.
-5. **Domain language is enforced** — Code, docs, and conversations use the terms in `CONTEXT.md` (Component, Port, Wiring, BoardHandle, Hardware Callback, …). Generic words like "node" or "handler" are not substitutes.
+5. **Domain language is enforced** — Code, docs, and conversations use the terms in `CONTEXT.md` (Component, Port, Wiring, BoardWriter, Hardware Callback, …). Generic words like "node" or "handler" are not substitutes.
 
 ## Strategic Goals
 
@@ -38,10 +38,10 @@ Microflow lets people give microcontrollers behavior by drawing a flow on a canv
 | --- | --- | --- |
 | Flow Authoring | The canvas the maker draws on; ReactFlow nodes; Yjs document of the flow | Flow, Node, Edge, Host Adapter, Component Catalog (UI side) |
 | Flow Runtime | Execution of the authored flow in the sans-IO engine (`crates/microflow-core`), hosted natively by the desktop app and as WebAssembly in the browser | FlowRuntime, Component (trait), ComponentRegistry, FlowRouter, Effects, Runtime Host |
-| Hardware IO | Single-owner serial connection to the Firmata board (native serial or Web Serial) | BoardHandle, Board IO Loop, BoardConnection, BoardCommand, Hardware Callback |
-| Firmware Flashing | Putting Firmata firmware onto a board from either host during bring-up | Board Bring-Up, Flasher |
+| Hardware IO | Single-owner serial connection to the Firmata board (native serial or Web Serial) | Board Link, Board Session, BoardWriter, Pin Profile, Hardware Callback |
+| Firmware Flashing | Putting Firmata firmware onto a board from either host during bring-up | Board Bring-Up, Flash driver, Flash executor |
 | Sketch Generation | Exporting a flow as a standalone Arduino sketch (Uno, Nano, ESP32) | Sketch Wiring, board target |
-| Design-Tool Bridge | Figma and Penpot plugins that push design state into a flow via MQTT | `@microflow/mqtt`, Microflow Hardware Bridge plugin |
+| Design-Tool Bridge | Figma and Penpot plugins that push design state into a flow via MQTT | `@microflow/design-bridge`, the Figma and Penpot plugins |
 | LLM Integration | Pluggable LLM providers consumed by the `Llm` flow component and by Ask AI, which edits the flow | LLM Provider, Turn Runner, Flow Tool Server |
 | Collaboration | Real-time multi-user editing and persistence of flows | Yjs Doc, `@microflow/collab`, collab server |
 | Identity & Billing | Accounts and subscriptions | better-auth, Polar, `@microflow/auth` |

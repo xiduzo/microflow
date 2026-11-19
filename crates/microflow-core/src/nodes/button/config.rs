@@ -12,7 +12,7 @@ pub(crate) struct ButtonConfig {
     pub(crate) is_pullup: bool,
     #[serde(default)]
     pub(crate) is_pulldown: bool,
-    #[serde(default = "default_holdtime")]
+    #[serde(default = "default_holdtime", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) holdtime: u64,
     // `invert` is gone: neither the runtime nor the sketch ever read it and no
     // editor control set it. A stored `"invert"` key is ignored on read (serde

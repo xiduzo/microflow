@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { eq } from "drizzle-orm";
 import { db } from "@microflow/db";
 import { user } from "@microflow/db/schema/auth";
 import { userSettings } from "@microflow/db/schema/user-settings";
 import { protectedProcedure, router } from "../index";
+import { collabIdentity } from "./flow-library";
 
 // Animal icons from Lucide
 export const COLLAB_ICONS = [
@@ -43,7 +45,7 @@ export const profileRouter = router({
     });
 
     if (!profile) {
-      throw new Error("User not found");
+      throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
     }
 
     let settings = await db.query.userSettings.findFirst({
@@ -64,10 +66,7 @@ export const profileRouter = router({
 
     return {
       ...profile,
-      settings: {
-        collabColor: settings?.collabColor ?? "#4338ca",
-        collabIcon: settings?.collabIcon ?? "Cat",
-      },
+      settings: collabIdentity(settings),
     };
   }),
 

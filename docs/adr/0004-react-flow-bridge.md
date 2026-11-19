@@ -1,6 +1,6 @@
 # ADR-0004 — `ReactFlowBridge` class extraction, with named invariants and `useSyncExternalStore`
 
-- **Status:** accepted
+- **Status:** accepted; amended (2026-11-13, 2026-11-19)
 - **Date:** 2026-05-23
 - **Deciders:** sander
 
@@ -252,7 +252,7 @@ id in one frame keeps the node.
 through the bridge or a flow tool removes its edges in the same transaction
 (`removeNodesWithEdges` in `session/flow-edits.ts`). Two peers can still race —
 one deletes a node while the other wires an edge to it — and no single client
-can prevent that beforehand. So an Editor's bridge starts
+can prevent that beforehand. So a writable session starts
 `FlowDocument.startEdgePruning()`, which deletes any edge whose endpoint the
 document has seen deleted (a Yjs tombstone), after any transaction that could
 have left one. The prune uses origin `"prune"`, outside the undo manager, and is
@@ -262,3 +262,29 @@ upgrade must keep `schema.prune.test.ts` passing.
 
 Tests: `react-flow-bridge-reconcile.test.ts`, `flow-edits.test.ts`,
 `packages/collab/src/schema.prune.test.ts`.
+
+---
+
+## Amendment (2026-11-19): the session owns both prunes
+
+Repairing the document is the session's job, not the bridge's. `makeSession`
+(`session/flow-session.ts`) runs `pruneWhileWritable` for as long as the session
+may write, so an Editor's document repairs itself whether or not a canvas is
+mounted, a Viewer never prunes, and a demotion stops it. Two repairs run side
+by side:
+
+- **dangling edges** — `FlowDocument.startEdgePruning()`, as described in the
+  amendment above: an edge whose endpoint node the document has seen deleted.
+- **vanished handles** — `startHandlePruning` (`session/handle-pruning.ts`): when
+  a settings change takes a handle off a node, the edges at that handle are
+  removed. The rules are in
+  [ADR-0032](0032-live-handle-set-and-handle-pruning.md).
+
+Both write with `PRUNE_ORIGIN`, outside the undo history, with one exception:
+a handle prune that follows the user's own edit is written as `"local"`, so
+undo restores the edges together with the setting. The bridge needs no
+knowledge of either: a pruned edge reaches it as a doc change like any other
+and is rebased under its pending intent.
+
+Tests: `session/flow-session.test.ts`, `session/handle-pruning.test.ts`,
+`nodes/handle-pruning.test.ts`.

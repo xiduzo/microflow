@@ -49,14 +49,16 @@ pub(crate) fn request_topic(uid: &str) -> String {
 
 /// The bridge uid a topic belongs to, or `None` for topics outside the protocol.
 /// Studio announces itself only for these uids, never for an arbitrary
-/// `microflow/…` topic.
+/// `microflow/…` topic. A topic filter whose uid level holds a wildcard
+/// (`microflow/+/figma/status`) names no Bridge ID: Studio would publish its
+/// status on a wildcard topic, which no broker takes.
 pub(crate) fn bridge_uid(topic: &str) -> Option<&str> {
     let parts: Vec<&str> = topic.split('/').collect();
     let (&root, &uid, &client, rest) = match parts.as_slice() {
         [root, uid, client, rest @ ..] => (root, uid, client, rest),
         _ => return None,
     };
-    if root != ROOT || uid.is_empty() || client.is_empty() {
+    if root != ROOT || uid.is_empty() || uid.contains(['+', '#']) || client.is_empty() {
         return None;
     }
     let known = matches!(

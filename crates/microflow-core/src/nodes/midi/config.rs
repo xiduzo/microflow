@@ -6,6 +6,7 @@
 //! against the host's MIDI port names ("" = every device); it is meaningless
 //! on-device (codegen targets the serial MIDI jack instead).
 
+use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 /// One song step: note name (`Some("C4")`, sharps only) or `None` for a rest,
@@ -44,26 +45,33 @@ pub(crate) struct MidiConfig {
     #[serde(default)]
     pub(crate) device_name: String,
     /// 1-16; 0 = omni (in-direction accepts every channel; out clamps to 1).
-    #[serde(default)]
+    #[serde(default, deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) channel: u8,
     #[serde(default)]
     pub(crate) mode: MidiMode,
     /// CC number to listen for / send on (cc mode only).
-    #[serde(default = "default_control")]
+    #[serde(default = "default_control", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) control: u8,
     /// Note number to play (out + note mode only).
-    #[serde(default = "default_note")]
+    #[serde(default = "default_note", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) note: u8,
     /// Note-on velocity (out + note/song mode only).
-    #[serde(default = "default_velocity")]
+    #[serde(default = "default_velocity", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) velocity: u8,
     /// Note sequence for song mode (out + song only); each note carries its
     /// own velocity. `velocity` above is the fallback default for new notes.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_song")]
     pub(crate) song: Vec<SongNote>,
     /// Playback tempo in BPM for song mode.
-    #[serde(default = "default_tempo")]
+    #[serde(default = "default_tempo", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) tempo: u32,
+}
+
+/// The song, each note's velocity read as a whole-number setting (a velocity
+/// the editor stored with a fraction is rounded, like every other number).
+fn deserialize_song<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<SongNote>, D::Error> {
+    let notes = Vec::<(Option<String>, f64, serde_utils::Whole<u8>)>::deserialize(deserializer)?;
+    Ok(notes.into_iter().map(|(name, beats, velocity)| (name, beats, velocity.0)).collect())
 }
 
 impl Default for MidiConfig {

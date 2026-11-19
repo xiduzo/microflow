@@ -5,13 +5,16 @@
 //!
 //! Three kinds, one discipline — a component *describes* what it needs as a value;
 //! the runtime *acts* (CONTEXT.md § Wiring):
-//! - [`ListenerWiring`] — sync in-process listeners (pin / I2C address / hotkey).
+//! - [`ListenerWiring`] — sync in-process listeners (pin / I2C address / hotkey /
+//!   MIDI input).
 //! - [`BoardWiring`] — board-wide reconcile votes (sampling interval, I2C
 //!   read-delay, one continuous read). Gathered and reconciled centrally by
 //!   `FlowRuntime::update_flow` via [`crate::runtime::reconcile`].
 //! - [`SubscriberWiring`] — async broker subscriptions.
 
-/// Hardware listener a component registers once constructed.
+/// An input a component listens for once constructed: board input the runtime
+/// decodes itself (pin, I2C), or host input a **Runtime Host** hands over
+/// (hotkey, MIDI — see [`crate::runtime::host_input`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ListenerWiring {
     /// Digital pin reporting. Component receives `on_pin_change` on bool transitions.
@@ -25,6 +28,12 @@ pub enum ListenerWiring {
     I2cAddress { address: u8, register: u8 },
     /// Keyboard hotkey. Stored lowercased to match dispatch lookup.
     HotKey { accelerator: String },
+    /// Host MIDI input. `device_name` filters the host's port names (a
+    /// case-insensitive substring, "" = every device); the component receives
+    /// each raw message from a port that passes it via `receive_raw_message`.
+    /// No one-owner-per-port reconcile: several components listening to one
+    /// device all receive its messages (unlike a broker topic).
+    MidiInput { device_name: String },
 }
 
 /// A single I2C continuous-read the board should stream: `(address, register,

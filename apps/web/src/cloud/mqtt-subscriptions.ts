@@ -28,22 +28,27 @@ export function subKey(brokerId: string, topic: string): string {
 }
 
 /**
- * Diff desired against live: `subscribe` is new or owner/kind-changed topics,
- * `unsubscribe` is topics gone from desired. Identical entries are untouched
- * (so moving a node — which leaves its wiring identical — is zero broker churn).
+ * Diff desired against a current set: `subscribe` is new or owner/kind-changed
+ * topics, `unsubscribe` is topics gone from desired. Identical entries are
+ * untouched (so moving a node — which leaves its wiring identical — is zero
+ * broker churn).
+ *
+ * The performer takes `unsubscribe` against what it last asked the brokers for,
+ * and `subscribe` against what they hold — so a topic a broker does not hold
+ * yet is in `subscribe` again at every reconcile.
  */
 export function diffSubscriptions(
   desired: Map<string, ActiveSub>,
-  live: Map<string, ActiveSub>,
+  current: Map<string, ActiveSub>,
 ): { subscribe: ActiveSub[]; unsubscribe: ActiveSub[] } {
   const subscribe: ActiveSub[] = [];
   const unsubscribe: ActiveSub[] = [];
   for (const [key, d] of desired) {
-    const l = live.get(key);
-    if (!l || l.nodeId !== d.nodeId || l.kind !== d.kind) subscribe.push(d);
+    const c = current.get(key);
+    if (!c || c.nodeId !== d.nodeId || c.kind !== d.kind) subscribe.push(d);
   }
-  for (const [key, l] of live) {
-    if (!desired.has(key)) unsubscribe.push(l);
+  for (const [key, c] of current) {
+    if (!desired.has(key)) unsubscribe.push(c);
   }
   return { subscribe, unsubscribe };
 }
@@ -52,13 +57,18 @@ export function diffSubscriptions(
  * uid → brokerId over design-bridge topics — the Figma lifecycle key set
  * (announce `connected` / request variables when a uid appears, `disconnected`
  * when it goes). Other `microflow/…` topics (e.g. a generic Mqtt node's) do not
- * count. First broker seen per uid wins (matches the desktop).
+ * count. A uid that is on several brokers keeps its `current` broker while one
+ * of its topics is there; otherwise the first broker seen wins.
  */
-export function uidBrokers(subs: Iterable<ActiveSub>): Map<string, string> {
+export function uidBrokers(
+  subs: Iterable<ActiveSub>,
+  current: ReadonlyMap<string, string> = new Map(),
+): Map<string, string> {
   const out = new Map<string, string>();
   for (const sub of subs) {
     const uid = bridgeUid(sub.topic);
-    if (uid !== undefined && !out.has(uid)) out.set(uid, sub.brokerId);
+    if (uid === undefined) continue;
+    if (!out.has(uid) || current.get(uid) === sub.brokerId) out.set(uid, sub.brokerId);
   }
   return out;
 }

@@ -28,7 +28,7 @@ import {
   type FirmataSession,
   type FlashSession,
 } from "./wasm";
-import { realClock } from "./clock";
+import { realClock, type Clock } from "./clock";
 import {
   browserSerial,
   watchConnectivity,
@@ -44,8 +44,6 @@ import { probeBoard, type BoardConnection, type ProbeEnv, type ProbeHooks } from
 export type { BoardConnection, LinkLoss, ProbeHooks } from "./board-link";
 export { pumpReader } from "./board-link";
 export type { WebSerialPort } from "./serial-port";
-
-const sleep = (ms: number) => realClock.sleep(ms);
 
 // --- Connection -------------------------------------------------------------
 
@@ -189,18 +187,32 @@ export async function flashPort(
   const flash = await parseHex(hex);
   const session = await createFlashSession(board, flash);
   const baud = (await flashBaud(board)) ?? 57600;
-  await runFlash(serial, port, baud, session, opts.onProgress);
+  await runFlash({ serial, clock: realClock }, port, baud, session, opts.onProgress);
   return board;
 }
 
-/** Drive a `FlashSession` step machine against the Web Serial port. */
-async function runFlash(
-  serial: WebSerial,
+/** What a flash needs of the browser besides its port: where a bootloader that
+ *  re-enumerated is found again, and the time its waits run on. */
+export interface FlashEnv {
+  serial: Pick<WebSerial, "getPorts" | "requestPort">;
+  clock: Clock;
+}
+
+/**
+ * The browser's executor of the core flash drivers: carry out a `FlashSession`'s
+ * steps on a Web Serial port, opened at `baud`, and feed back what the board
+ * answered (the contract is in `microflow_core::flasher::driver`). Rejects with
+ * the driver's error; the port is closed either way.
+ */
+export async function runFlash(
+  env: FlashEnv,
   initialPort: WebSerialPort,
   baud: number,
   session: FlashSession,
   onProgress?: FlashProgress,
 ): Promise<void> {
+  const { serial, clock } = env;
+  const sleep = (ms: number) => clock.sleep(ms);
   let port = initialPort;
   let buffer: Uint8Array<ArrayBufferLike> = new Uint8Array(0);
   let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
@@ -263,10 +275,13 @@ async function runFlash(
     await startIo();
   };
 
+  // A transact's read: `n` bytes or whatever is in when `timeoutMs` has
+  // passed. One deadline for the step, which bytes coming in do not extend:
+  // the drivers' bounds on how long a flash takes rest on it.
   const readExact = async (n: number, timeoutMs: number): Promise<Uint8Array> => {
     if (n === 0) return new Uint8Array(0);
-    const deadline = Date.now() + timeoutMs;
-    while (buffer.length < n && Date.now() < deadline) {
+    const deadline = clock.now() + timeoutMs;
+    while (buffer.length < n && clock.now() < deadline) {
       await sleep(10);
     }
     const take = Math.min(n, buffer.length);
@@ -317,10 +332,13 @@ async function runFlash(
           break;
         case "transact": {
           // Bootloaders are strict request→response: discard any stale input
-          // (reset noise, a still-running sketch's output) before each command,
+          // (reset noise, a still-running sketch's output) before a command,
           // mirroring the desktop flasher's `clear(ClearBuffer::Input)`. Without
           // this the first `readExact` returns boot garbage and sync never aligns.
-          buffer = new Uint8Array(0);
+          // A step that says `keepInput` reads on in the buffer as it is: an
+          // answer that came in late is in it, and the driver knows what to
+          // make of it.
+          if (!step.keepInput) buffer = new Uint8Array(0);
           if (step.write.length > 0) await writer!.write(Uint8Array.from(step.write));
           input = await readExact(step.readLen, step.timeoutMs);
           // Log the protocol commands (not the bulk page writes) so a failing
@@ -366,7 +384,7 @@ async function runFlash(
  * re-enumerates as a new USB device; prefer an already-granted port, else prompt
  * (which needs a user gesture and may fail mid-flash on some setups).
  */
-async function reacquirePort(serial: WebSerial): Promise<WebSerialPort> {
+async function reacquirePort(serial: FlashEnv["serial"]): Promise<WebSerialPort> {
   const ports = await serial.getPorts();
   if (ports.length > 0) {
     return ports[ports.length - 1];

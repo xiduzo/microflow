@@ -10,7 +10,7 @@ use crate::runtime::{
     RuntimeError,
 };
 
-use super::config::PixelConfig;
+use super::config::{ColorOrder, PixelConfig};
 
 // Firmata sysex command for pixel operations (matches ws2812.h)
 const PIXEL_COMMAND: u8 = 0x51;
@@ -85,10 +85,10 @@ impl Pixel {
     }
 
     fn color_order_byte(&self) -> u8 {
-        match self.config.color_order.as_str() {
-            "RGB" => PIXEL_COLOUR_RGB,
-            "BRG" => PIXEL_COLOUR_BRG,
-            _ => PIXEL_COLOUR_GRB, // default
+        match self.config.color_order {
+            ColorOrder::Grb => PIXEL_COLOUR_GRB,
+            ColorOrder::Rgb => PIXEL_COLOUR_RGB,
+            ColorOrder::Brg => PIXEL_COLOUR_BRG,
         }
     }
 
@@ -351,6 +351,44 @@ mod sim_tests {
         assert_eq!((s.pin, s.color_order, s.shown.len()), (6, ColorOrder::Rgb, 4));
         assert_eq!(shown(&rig), vec![0; 4]);
         assert!(rig.board.refused_sysex().is_empty(), "{:?}", rig.board.refused_sysex());
+    }
+
+    /// A strip that names no colour order is configured as GRB, the order of
+    /// a WS2812 / `NeoPixel` strip; one that names its order keeps it.
+    #[test]
+    fn a_strip_is_grb_unless_it_names_another_order() {
+        let order = |data| strip(data).board.pixel_strip().expect("configured").color_order;
+        assert_eq!(order(json!({ "pin": 6, "length": 4 })), ColorOrder::Grb);
+        assert_eq!(order(json!({ "pin": 6, "length": 4, "color_order": "BRG" })), ColorOrder::Brg);
+        assert_eq!(order(json!({ "pin": 6, "length": 4, "color_order": "GRB" })), ColorOrder::Grb);
+    }
+
+    /// The live strip and the sketch read a colour order alike, whatever its
+    /// case: `rgb` is RGB on both. An order neither knows is GRB on both.
+    #[test]
+    fn the_runtime_and_the_sketch_read_a_colour_order_alike_in_any_case() {
+        use crate::codegen::wire::NodeInputs;
+
+        let cases = [
+            ("GRB", ColorOrder::Grb, "NEO_GRB"),
+            ("grb", ColorOrder::Grb, "NEO_GRB"),
+            ("RGB", ColorOrder::Rgb, "NEO_RGB"),
+            ("rgb", ColorOrder::Rgb, "NEO_RGB"),
+            ("Rgb", ColorOrder::Rgb, "NEO_RGB"),
+            ("BRG", ColorOrder::Brg, "NEO_BRG"),
+            ("brg", ColorOrder::Brg, "NEO_BRG"),
+            ("bRg", ColorOrder::Brg, "NEO_BRG"),
+            ("RBG", ColorOrder::Grb, "NEO_GRB"),
+            ("", ColorOrder::Grb, "NEO_GRB"),
+        ];
+        for (stored, live, flag) in cases {
+            let data = json!({ "pin": 6, "length": 4, "color_order": stored });
+            let rig = strip(data.clone());
+            assert_eq!(rig.board.pixel_strip().expect("configured").color_order, live, "live `{stored}`");
+            let e = super::super::codegen::emit(&node("strip", "Pixel", data), &NodeInputs::default()).unwrap();
+            let strip = e.declarations.iter().find(|d| d.contains("Adafruit_NeoPixel")).expect("the strip");
+            assert!(strip.contains(&format!("{flag} + NEO_KHZ800")), "sketch `{stored}`: {strip}");
+        }
     }
 
     #[test]

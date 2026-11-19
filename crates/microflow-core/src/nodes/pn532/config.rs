@@ -1,6 +1,7 @@
 //! PN532 NFC reader config — the single source for the live runtime and any
 //! future codegen emitter. Behind `runtime` until that emitter exists (`mod.rs`).
 
+use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,12 +11,12 @@ use serde::{Deserialize, Serialize};
 pub(crate) struct Pn532Config {
     /// 7-bit I2C address. The Aideepen V3 module answers on `0x24` when its DIP
     /// switches select I2C (not SPI/HSU).
-    #[serde(default = "default_address")]
+    #[serde(default = "default_address", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) address: u8,
     /// How often (ms) a fresh `InListPassiveTarget` is issued while sensing for a
     /// card. Effectively floored by the board's global sampling interval when the
     /// PN532 shares a bus with streaming sensors.
-    #[serde(default = "default_poll_interval_ms")]
+    #[serde(default = "default_poll_interval_ms", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) poll_interval_ms: u32,
 }
 

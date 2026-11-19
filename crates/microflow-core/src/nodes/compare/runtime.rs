@@ -44,7 +44,7 @@ impl Compare {
                 match self.config.sub_validator.as_str() {
                     "greater than" => n > self.config.number,
                     "less than" => n < self.config.number,
-                    _ => (n - self.config.number).abs() < f64::EPSILON,
+                    _ => self.config.equals(n),
                 }
             }
             CompareValidator::Range => {

@@ -18,3 +18,8 @@ export const FLOW_COLORS = [
   "#f9a8d4", // pink-300
   "#fda4af", // rose-300
 ] as const;
+
+/** A colour for a flow that is created without the user choosing one. */
+export function randomFlowColor(): (typeof FLOW_COLORS)[number] {
+  return FLOW_COLORS[Math.floor(Math.random() * FLOW_COLORS.length)];
+}

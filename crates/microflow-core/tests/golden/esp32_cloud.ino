@@ -25,11 +25,13 @@ const char* figma_figma_1_plugin_topic = "microflow//figma/variable/1-2";
 const char* figma_figma_1_app_topic = "microflow//app/variable/1-2";
 const char* figma_figma_1_set_topic = "microflow//app/variable/1-2/set";
 String figma_figma_1_value;
+bool figma_figma_1_received = false;
 void figma_figma_1_on_message(char* topic, byte* payload, unsigned int length) {
   figma_figma_1_value = String();
   for (unsigned int i = 0; i < length; i++) {
     figma_figma_1_value += (char)payload[i];
   }
+  figma_figma_1_received = true;
 }
 void figma_figma_1_ensure_connected() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -85,7 +87,6 @@ void llm_llm_1_request() {
   }
   http.end();
 }
-double llm_llm_1_trigger_prev0 = 0.0;
 // node monitor-1 (Monitor)
 #warning "Monitor Node monitor_monitor_1: missing network credentials — using REPLACE_ME placeholder; set WiFi SSID and broker before flashing"
 const char* monitor_monitor_1_broker = "REPLACE_ME";
@@ -94,6 +95,9 @@ const char* monitor_monitor_1_client_id = "microflow-monitor_monitor_1";
 WiFiClient monitor_monitor_1_wifi_client;
 PubSubClient monitor_monitor_1_client(monitor_monitor_1_wifi_client);
 const char* monitor_monitor_1_topic = "microflow//monitor/monitor_1";
+double monitor_monitor_1_shown = 0.0;
+bool monitor_monitor_1_moved = false;
+bool monitor_monitor_1_seen = false;
 String monitor_monitor_1_last_published;
 void monitor_monitor_1_ensure_connected() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -133,11 +137,13 @@ const char* mqtt_mqtt_sub_client_id = "microflow-mqtt_sub";
 WiFiClient mqtt_mqtt_sub_wifi_client;
 PubSubClient mqtt_mqtt_sub_client(mqtt_mqtt_sub_wifi_client);
 String mqtt_mqtt_sub_value;
+bool mqtt_mqtt_sub_received = false;
 void mqtt_mqtt_sub_on_message(char* topic, byte* payload, unsigned int length) {
   mqtt_mqtt_sub_value = String();
   for (unsigned int i = 0; i < length; i++) {
     mqtt_mqtt_sub_value += (char)payload[i];
   }
+  mqtt_mqtt_sub_received = true;
 }
 void mqtt_mqtt_sub_ensure_connected() {
   if (WiFi.status() != WL_CONNECTED) {
@@ -179,13 +185,11 @@ void loop() {
   if (currentMillis - previousMillis >= interval) {
     previousMillis = currentMillis;
     // --- Scheduled tasks ---
+    figma_figma_1_received = false;
     figma_figma_1_ensure_connected();
     figma_figma_1_client.loop();
     // Figma Node figma_1 has no wired input — subscribe-only, nothing to publish
-    double llm_llm_1_trigger_now0 = ((double)(figma_figma_1_value.toFloat()));
-    bool llm_llm_1_trigger_fired0 = (llm_llm_1_trigger_now0 != llm_llm_1_trigger_prev0);
-    llm_llm_1_trigger_prev0 = llm_llm_1_trigger_now0;
-    if ((llm_llm_1_trigger_fired0)) {
+    if ((figma_figma_1_received)) {
       llm_llm_1_request();
     }
     mqtt_mqtt_pub_ensure_connected();
@@ -196,15 +200,22 @@ void loop() {
     if (mqtt_mqtt_pub_trigger_fired0 && mqtt_mqtt_pub_client.connected()) {
       mqtt_mqtt_pub_client.publish(mqtt_mqtt_pub_topic, ((llm_llm_1_value)).c_str());
     }
+    mqtt_mqtt_sub_received = false;
     mqtt_mqtt_sub_ensure_connected();
     mqtt_mqtt_sub_client.loop();
     monitor_monitor_1_ensure_connected();
     monitor_monitor_1_client.loop();
-    if (monitor_monitor_1_client.connected()) {
-      String monitor_monitor_1_next = String(mqtt_mqtt_sub_value.toFloat());
-      if (monitor_monitor_1_next != monitor_monitor_1_last_published) {
-        monitor_monitor_1_client.publish(monitor_monitor_1_topic, monitor_monitor_1_next.c_str());
-        monitor_monitor_1_last_published = monitor_monitor_1_next;
+    monitor_monitor_1_moved = false;
+    if (mqtt_mqtt_sub_received) {
+      double monitor_monitor_1_next = ((double)(mqtt_mqtt_sub_value.toFloat()));
+      monitor_monitor_1_moved = monitor_monitor_1_next != monitor_monitor_1_shown;
+      monitor_monitor_1_shown = monitor_monitor_1_next; monitor_monitor_1_seen = true;
+    }
+    if (monitor_monitor_1_seen && monitor_monitor_1_client.connected()) {
+      String monitor_monitor_1_text = String(monitor_monitor_1_shown);
+      if (monitor_monitor_1_text != monitor_monitor_1_last_published) {
+        monitor_monitor_1_client.publish(monitor_monitor_1_topic, monitor_monitor_1_text.c_str());
+        monitor_monitor_1_last_published = monitor_monitor_1_text;
       }
     }
   }

@@ -7,6 +7,14 @@
  * separate `rename_all_fields` is essential — it camelCases the *fields inside*
  * the struct variants (`delay_ms` → `delayMs`, `read_len` → `readLen`, …). Without
  * it those multi-word fields serialize `snake_case` and arrive `undefined` in the
- * JS executor (which reads `delayMs`/`readLen`/`timeoutMs`/`waitMs`).
+ * JS executor (which reads `delayMs`/`readLen`/`timeoutMs`/`keepInput`/`waitMs`).
  */
-export type FlashStep = { "kind": "reset", dtr: boolean, rts: boolean, delayMs: number, } | { "kind": "setBaud", baud: number, } | { "kind": "flushInput" } | { "kind": "transact", write: Array<number>, readLen: number, timeoutMs: number, } | { "kind": "delay", ms: number, } | { "kind": "reacquirePort", waitMs: number, baud: number, } | { "kind": "progress", done: number, total: number, } | { "kind": "done" } | { "kind": "error", message: string, };
+export type FlashStep = { "kind": "reset", dtr: boolean, rts: boolean, delayMs: number, } | { "kind": "setBaud", baud: number, } | { "kind": "flushInput" } | { "kind": "transact", write: Array<number>, readLen: number, 
+/**
+ * How long after the write the step's read may last, in all.
+ */
+timeoutMs: number, 
+/**
+ * Read on in the input as it is, instead of discarding it first.
+ */
+keepInput: boolean, } | { "kind": "delay", ms: number, } | { "kind": "reacquirePort", waitMs: number, baud: number, } | { "kind": "progress", done: number, total: number, } | { "kind": "done" } | { "kind": "error", message: string, };

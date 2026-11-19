@@ -11,14 +11,7 @@ export function Interval(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <NodeHandles
-        instance="Interval"
-        portOverrides={{
-          start: { handleType: "command", offset: -0.5 },
-          stop: { handleType: "command", offset: 0.5 },
-        }}
-        emitOverrides={{ event: { handleType: "event" } }}
-      />
+      <NodeHandles />
     </NodeContainer>
   );
 }

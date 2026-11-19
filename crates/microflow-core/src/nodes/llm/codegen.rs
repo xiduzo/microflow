@@ -43,6 +43,7 @@ use super::config::LlmConfig;
 use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Sentinel emitted in place of a missing credential so the sketch never
@@ -71,20 +72,19 @@ fn includes() -> Vec<String> {
 /// The endpoint and API key come from the generate-time `credentials` surface
 /// when supplied there (the same fields `Credentials::missing_for` asks the
 /// Author for), falling back to the Node's own `data` otherwise.
-#[must_use]
 #[allow(clippy::too_many_lines)]
 pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
-) -> NodeEmission {
+) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
 
     let endpoint = supplied_or(
         credentials.map_or("", |c| c.llm_endpoint.as_str()),
         str_first_non_empty(node, &["endpoint", "baseUrl"], ""),
     );
-    let config: LlmConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<LlmConfig>(&node.data)?;
     let model = config.model;
     let prompt = config.prompt;
     let system = config.system;
@@ -214,13 +214,13 @@ pub(crate) fn emit(
         loop_body.push("}".to_string());
     }
 
-    NodeEmission {
+    Ok(NodeEmission {
         includes: includes(),
         declarations,
         setup,
         loop_body,
         ..NodeEmission::default()
-    }
+    })
 }
 
 /// What downstream Nodes read from an Llm Node: the latest assistant text as
@@ -251,7 +251,7 @@ mod tests {
     /// Test-local default: emit with no generate-time credentials (shadows the
     /// glob-imported `emit`, keeping the node-data call sites unchanged).
     fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-        super::emit(node, inputs, None)
+        super::emit(node, inputs, None).unwrap()
     }
 
     fn joined(lines: &[String]) -> String {
@@ -320,7 +320,7 @@ mod tests {
 
     /// Scenario: a wired trigger fires the request edge-triggered.
     #[test]
-    fn wired_trigger_fires_request_on_rising_edge() {
+    fn wired_trigger_fires_request_when_its_source_fires() {
         let e = emit(&full("l-1"), &trigger_input("button_b_1_state"));
         let body = joined(&e.loop_body);
         assert!(body.contains("button_b_1_state"), "uses the wired trigger expression");
@@ -393,7 +393,7 @@ mod tests {
             &llm("l-1", json!({ "endpoint": "https://stale.example.com", "model": "m", "prompt": "p" })),
             &NodeInputs::default(),
             Some(&creds),
-        );
+        ).unwrap();
         let decls = joined(&e.declarations);
         assert!(decls.contains("\"https://surface.example.com\""), "surface endpoint wins: {decls}");
         assert!(!decls.contains("stale.example.com"), "node-data endpoint superseded");
@@ -407,7 +407,7 @@ mod tests {
     fn empty_surface_credentials_fall_back_to_node_data() {
         let n = full("l-1");
         let with_empty =
-            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default()));
+            super::emit(&n, &NodeInputs::default(), Some(&Credentials::default())).unwrap();
         assert_eq!(with_empty, emit(&n, &NodeInputs::default()), "empty surface == no surface");
     }
 

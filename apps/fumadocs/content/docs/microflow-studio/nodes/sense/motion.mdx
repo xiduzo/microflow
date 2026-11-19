@@ -7,6 +7,19 @@ A Motion node detects when something moves in its field of view. It's commonly u
 
 **How it works:** The sensor detects infrared radiation (heat) from moving objects. On the physical sensor component, you can usually adjust how sensitive it is and how long it stays active after detecting motion.
 
+## Outputs
+
+- **event** — fires every time the sensor changes, with `true` for motion and `false` for no motion
+- **true** — fires when motion is detected
+- **false** — fires when motion stops
+
+## Settings
+
+Open the settings panel to configure:
+
+- **pin** — which digital pin on your Arduino the sensor is connected to
+- **controller** — the model of your sensor: HCSR501 (the default), GP2Y0D810Z0F, or GP2Y0D815Z0F
+
 ## Hardware configuration
 On the breakout board, you can control the _sensitivity and delay time_ of the sensor as well as the _mode of operation_.
 

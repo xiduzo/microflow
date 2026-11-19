@@ -19,27 +19,25 @@ Common driver boards: **A4988**, **DRV8825**, **TMC2209**, **EasyDriver**, **TB6
 
 ## Inputs
 
-- **Value** — relative move: number of steps to move. Positive values move clockwise, negative values move counter-clockwise
-- **To** — absolute move: move to a specific step position (relative to the zero point)
-- **Stop** — stop the motor. If acceleration is set, the motor decelerates to a stop
-- **Zero** — reset the position counter to zero without moving the motor
+- **value** — relative move: number of steps to move. Positive values move clockwise, negative values move counter-clockwise
+- **to** — absolute move: move to a specific step position (relative to the zero point)
+- **stop** — stop the motor. If acceleration is set, the motor decelerates to a stop
+- **zero** — reset the position counter to zero without moving the motor
+- **enable** — `true` holds the motor in place, `false` releases it
 
-## Outputs
-
-- **Position** — the current position in steps after a move completes
-- **Complete** — fires an event when a move finishes
+The Stepper node has no outputs.
 
 ## Settings
 
 Open the settings panel to configure:
 
-- **Interface** — choose between "Step/Dir driver" (for A4988, DRV8825, etc.) or "4-wire (H-bridge)" (for L293D, L298N, or similar dual H-bridge boards)
-- **Step pin** (driver mode) — the digital pin connected to the driver's STEP input
-- **Dir pin** (driver mode) — the digital pin connected to the driver's DIR (direction) input
-- **IN1–IN4** (4-wire mode) — the four digital pins connected to the H-bridge inputs controlling the two motor coils
-- **Steps/rev** — steps per full revolution of your motor. Most standard stepper motors are 200 steps/rev (1.8° per step). If your driver is set to microstepping, multiply accordingly (e.g. 1/16 microstepping on a 200-step motor = 3200)
-- **Speed** — maximum speed in steps per second
-- **Acceleration** — acceleration and deceleration rate in steps per second squared. Set to 0 for instant speed changes (no ramping)
+- **interface** — **driver** (a step/dir driver such as A4988 or DRV8825, the default) or **four_wire** (an L293D, L298N, or similar dual H-bridge board)
+- **step pin** (driver) — the digital pin connected to the driver's STEP input. The default is pin 2
+- **dir pin** (driver) — the digital pin connected to the driver's DIR (direction) input. The default is pin 3
+- **IN1–IN4** (four_wire) — the four digital pins connected to the H-bridge inputs controlling the two motor coils. The defaults are pins 4 to 7
+- **steps/rev** — steps per full revolution of your motor. Most standard stepper motors are 200 steps/rev (1.8° per step), the default. If your driver is set to microstepping, multiply accordingly (e.g. 1/16 microstepping on a 200-step motor = 3200)
+- **speed (steps/s)** *(motion)* — maximum speed in steps per second. The default is 200
+- **accel (steps/s²)** *(motion)* — acceleration and deceleration rate in steps per second squared. Set to 0 for instant speed changes (no ramping). The default is 100
 
 ## Wiring
 
@@ -61,7 +59,7 @@ Connect the power supply ground to both the driver board GND and the Arduino GND
 
 ### 4-wire H-bridge wiring (L293D, L298N)
 
-If you are using a dual H-bridge board with IN1–IN4 inputs, select "4-wire (H-bridge)" in the interface setting.
+If you are using a dual H-bridge board with IN1–IN4 inputs, select **four_wire** in the **interface** setting.
 
 | Connection | From | To |
 | --- | --- | --- |

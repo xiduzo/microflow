@@ -2,6 +2,10 @@
 
 use serde::{Deserialize, Serialize};
 
+/// How often, in ms, a running Oscillator samples its wave and hands the
+/// sample on (~60 per second), counted from its start — live and on the board.
+pub(crate) const SAMPLE_MS: u64 = 1000 / 60;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub(crate) enum Waveform {
@@ -41,17 +45,4 @@ fn default_amplitude() -> f64 {
 }
 fn default_auto_start() -> bool {
     true
-}
-
-impl Default for OscillatorConfig {
-    fn default() -> Self {
-        Self {
-            waveform: Waveform::default(),
-            period: default_period(),
-            amplitude: default_amplitude(),
-            phase: 0.0,
-            shift: 0.0,
-            auto_start: default_auto_start(),
-        }
-    }
 }

@@ -24,6 +24,7 @@
 //! re-parsing the node JSON field-by-field with its own duplicated defaults —
 //! which drifted (see `nodes/i2c_device/codegen.rs`).
 
+use crate::config::serde_utils;
 use serde::{Deserialize, Serialize};
 
 /// How the raw I2C reply bytes are decoded into a value.
@@ -121,15 +122,18 @@ pub(crate) fn fold_bytes(sign_extend: bool, data: &[u8]) -> f64 {
 // `Default` values, with no per-field `default = "fn"` copies to keep in sync.
 #[serde(rename_all = "camelCase", default)]
 pub(crate) struct I2cDeviceConfig {
+    #[serde(deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) address: u8,
+    #[serde(deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) register: u8,
+    #[serde(deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) read_length: u8,
     /// Board sampling-interval **period in milliseconds** for this device's
     /// continuous read — NOT a frequency, despite the name older flows persist.
     /// Reconciled to the MAX across all I2C nodes via `Component::board_wiring`.
     /// The web still writes the key `freq`, so the wire name is kept via
     /// `serde(rename)` for doc compatibility.
-    #[serde(rename = "freq")]
+    #[serde(rename = "freq", deserialize_with = "serde_utils::deserialize_whole")]
     pub(crate) sample_interval_ms: u32,
     pub(crate) device: String,
     pub(crate) output: OutputFormat,

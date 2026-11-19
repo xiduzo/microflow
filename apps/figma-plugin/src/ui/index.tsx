@@ -1,33 +1,19 @@
 /** @jsxImportSource preact */
 import { render } from "@create-figma-plugin/ui";
-import {
-  useAppStore,
-  useDesignBridge,
-  useMqttAutoConnect,
-  useNavigation,
-  usePluginStartup,
-} from "@microflow/design-bridge/react";
+import { useAppStore, useNavigation } from "@microflow/design-bridge/react";
 import { useEffect } from "preact/hooks";
-import { channel, settingsStorage, showToast } from "./channel";
 import { Home } from "./pages/Home";
 import { MqttSettings } from "./pages/MqttSettings";
 import { Variables } from "./pages/Variables";
 
-function onInvalid(name: string, payload: string) {
-  showToast(`Received invalid value (${payload}) for variable (${name})`, { error: true });
-}
-
 function Plugin() {
-  usePluginStartup(channel, settingsStorage);
-  useMqttAutoConnect("figma");
   useDarkMode();
-  const entries = useDesignBridge("figma", channel, { onInvalid });
   const { page } = useNavigation();
 
   return (
     <div>
       {page === "mqtt" && <MqttSettings />}
-      {page === "variables" && <Variables entries={entries} />}
+      {page === "variables" && <Variables />}
       {page === "home" && <Home />}
     </div>
   );

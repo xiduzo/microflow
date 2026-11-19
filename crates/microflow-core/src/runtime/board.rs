@@ -7,13 +7,9 @@
 //! drains the buffer to the wire when it applies `Effects`. One-to-one with the
 //! desktop `BoardConnection` encode bodies, minus all I/O.
 
-use crate::firmata::{FirmataClient, FirmwareFeature, PinProfile};
+use crate::firmata::{FirmataClient, FirmwareFeature, PinProfile, ANALOG_WRITE_ON_THRESHOLD};
 use crate::runtime::error::{HardwareError, RuntimeError};
 use crate::runtime::pin_mode;
-
-/// Arduino's `analogWrite` on a pin without PWM drives it fully on from this
-/// value up, and off below it (`wiring_analog.c`).
-pub const ANALOG_WRITE_ON_THRESHOLD: u8 = 128;
 
 /// Write `value` the way `analogWrite(pin, value)` does on the board: a PWM duty
 /// where the pin has PWM, otherwise on/off at [`ANALOG_WRITE_ON_THRESHOLD`] —

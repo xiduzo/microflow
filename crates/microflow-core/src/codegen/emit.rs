@@ -3,10 +3,11 @@
 //! Each supported core hardware-IO Node contributes C++ fragments into the
 //! sketch regions produced by the skeleton (Task 1): the include block, the
 //! global declarations region, `setup()`, and `loop()`. An emitter is a pure
-//! function of a single [`FlowNode`] — it reads the Node's `data` field (the
-//! same `data` the live runtime deserializes into its `*Config`) and returns a
-//! [`NodeEmission`]. No clock, no hashmap iteration, no board IO: identical
-//! input always yields identical output.
+//! function of a single [`FlowNode`] — it reads the Node's `data` into the
+//! Node's config through [`crate::config::resolve`], the same step the live
+//! runtime builds the Node through, and returns a [`NodeEmission`], or the
+//! `UnreadableConfig` when `data` cannot be read. No clock, no hashmap
+//! iteration, no board IO: identical input always yields identical output.
 
 use crate::codegen::board::BoardTarget;
 use crate::codegen::wire::{bind_pulses, PulseBinding, SourceExpr};
@@ -57,6 +58,30 @@ impl NodeEmission {
         binding
     }
 
+    /// The one rule every transform (Compare, Gate, Calculate, Function,
+    /// Smooth, `RangeMap`) runs by: its `step` runs on the loop iterations
+    /// one of `sources` fires, and on no other — the live Node computes once
+    /// per value it is sent, and not before the first. Declares
+    /// `{prefix}_fired`, true on exactly those iterations, and returns its
+    /// name: the transform's own emission tick. With no source the step never
+    /// runs and the flag stays false. Several sources (an aggregating Node)
+    /// run the step once on an iteration any of them fires, reading every
+    /// source's current value, as the live snapshot does.
+    pub fn transform(&mut self, prefix: &str, sources: &[SourceExpr], step: Vec<String>) -> String {
+        let fired = format!("{prefix}_fired");
+        self.declarations.push(format!("bool {fired} = false;"));
+        if sources.is_empty() {
+            return fired;
+        }
+        let binding = self.bind_port(&format!("{prefix}_in"), sources);
+        let any = binding.any_fired().expect("a binding of one source or more");
+        self.loop_body.push(format!("{fired} = {any};"));
+        self.loop_body.push(format!("if ({fired}) {{"));
+        self.loop_body.extend(step.into_iter().map(|line| format!("  {line}")));
+        self.loop_body.push("}".to_string());
+        fired
+    }
+
     /// True when the Node produced no C++ at all (unsupported / skipped).
     #[must_use]
     pub fn is_empty(&self) -> bool {
@@ -101,22 +126,6 @@ impl NodeToken for FlowNode {
     }
 }
 
-/// The pin an analog-reading Node (Sensor family, Proximity) names in
-/// `data.pin`: an analog channel label (`"A0"`, the default) or a pin number
-/// (`15`, `"15"` — what the editor stores once a pin is picked). The live
-/// runtime reads the same label (`firmata::PinLabel`).
-#[must_use]
-pub fn analog_label(node: &FlowNode) -> PinLabel {
-    match node.data.get("pin") {
-        Some(serde_json::Value::String(s)) => PinLabel::parse(s),
-        Some(serde_json::Value::Number(n)) => {
-            n.as_u64().and_then(|n| u8::try_from(n).ok()).map(PinLabel::Pin)
-        }
-        _ => None,
-    }
-    .unwrap_or(PinLabel::Analog(0))
-}
-
 /// Where an analog label lands on `target`, resolved the way the live runtime
 /// resolves it against the board: `A<n>` is the board's `n`-th analog input; a
 /// number is that pin. Returns `(pin, analog index)` — the pin is `None` for an
@@ -157,29 +166,56 @@ pub fn analog_pin_declaration(label: PinLabel, target: &BoardTarget, pin_var: &s
     }
 }
 
-/// Read a pin from a Node's `data`, accepting either a JSON number (`13`) or a
-/// numeric/`"A0"`-style string, mirroring the live runtime's lenient pin
-/// deserialization. Returns `default` when the field is missing or unparseable
-/// so emission never produces uncompilable code for a malformed Node.
+/// The C++ that keeps `state` (a declared `bool`) at the debounced level of
+/// `raw` (a `bool` expression read each tick), settling contact bounce the
+/// way the live Button and Switch do ([`crate::config::DEBOUNCE_MS`]): the
+/// first read and an edge on a quiet line are taken at once; an edge within
+/// the window of the previous one waits until the line has held quiet for the
+/// window, then the level it holds is taken. `changed` (a declared `bool`) is
+/// true on exactly the ticks `state` takes a new level — the ticks the live
+/// Node emits `event` and `true` or `false` — and `on_change` runs on them.
+/// Returns `(declarations, loop lines)`; `prefix` namespaces the variables.
 #[must_use]
-pub fn pin_or_default(node: &FlowNode, default: u8) -> u8 {
-    let Some(value) = node.data.get("pin") else {
-        return default;
-    };
-    if let Some(n) = value.as_u64() {
-        return u8::try_from(n).unwrap_or(default);
-    }
-    if let Some(s) = value.as_str() {
-        let digits = s.strip_prefix(['A', 'a']).unwrap_or(s);
-        return digits.parse().unwrap_or(default);
-    }
-    default
-}
-
-/// Read a boolean flag from a Node's `data`, defaulting to `false`.
-#[must_use]
-pub fn bool_flag(node: &FlowNode, key: &str) -> bool {
-    node.data.get(key).and_then(serde_json::Value::as_bool).unwrap_or(false)
+pub fn debounced_read(
+    prefix: &str,
+    raw: &str,
+    state: &str,
+    changed: &str,
+    on_change: &[String],
+) -> (Vec<String>, Vec<String>) {
+    let window = crate::config::DEBOUNCE_MS;
+    let (line, seen, pending, edge_at, now, settle) = (
+        format!("{prefix}_line"),
+        format!("{prefix}_seen"),
+        format!("{prefix}_pending"),
+        format!("{prefix}_edge_at"),
+        format!("{prefix}_now"),
+        format!("{prefix}_settle"),
+    );
+    let declarations = vec![
+        format!("bool {line} = false;"),
+        format!("bool {seen} = false;"),
+        format!("bool {pending} = false;"),
+        format!("unsigned long {edge_at} = 0;"),
+    ];
+    let mut lines = vec![
+        format!("{changed} = false;"),
+        format!("bool {now} = {raw};"),
+        format!("bool {settle} = false;"),
+        format!("if (!{seen} || {now} != {line}) {{"),
+        format!("  {settle} = !{seen} || millis() - {edge_at} >= {window}UL;"),
+        format!("  {pending} = !{settle};"),
+        format!("  {line} = {now}; {seen} = true; {edge_at} = millis();"),
+        format!("}} else if ({pending} && millis() - {edge_at} >= {window}UL) {{"),
+        format!("  {pending} = false; {settle} = true;"),
+        "}".to_string(),
+        format!("if ({settle} && {line} != {state}) {{"),
+        format!("  {state} = {line};"),
+        format!("  {changed} = true;"),
+    ];
+    lines.extend(on_change.iter().map(|l| format!("  {l}")));
+    lines.push("}".to_string());
+    (declarations, lines)
 }
 
 /// Read a `u16` from a Node's `data`, falling back to `default`.
@@ -192,36 +228,8 @@ pub fn u16_or_default(node: &FlowNode, key: &str, default: u16) -> u16 {
         .unwrap_or(default)
 }
 
-/// Read a `u64` from a Node's `data`, falling back to `default`. Used for
-/// millisecond durations (Delay/Interval) which the runtime stores as `u64`.
-#[must_use]
-pub fn u64_or_default(node: &FlowNode, key: &str, default: u64) -> u64 {
-    node.data
-        .get(key)
-        .and_then(serde_json::Value::as_u64)
-        .unwrap_or(default)
-}
-
-/// Read an `f64` from a Node's `data`, falling back to `default`. Accepts a
-/// JSON number or a numeric string, mirroring the runtime's lenient config
-/// deserialization.
-#[must_use]
-pub fn f64_or_default(node: &FlowNode, key: &str, default: f64) -> f64 {
-    let Some(value) = node.data.get(key) else {
-        return default;
-    };
-    if let Some(n) = value.as_f64() {
-        return n;
-    }
-    if let Some(s) = value.as_str() {
-        return s.parse().unwrap_or(default);
-    }
-    default
-}
-
 /// Read a string from a Node's `data`, falling back to `default`.
-#[must_use]
-pub fn str_or_default(node: &FlowNode, key: &str, default: &str) -> String {
+fn str_or_default(node: &FlowNode, key: &str, default: &str) -> String {
     node.data
         .get(key)
         .and_then(serde_json::Value::as_str)
@@ -310,11 +318,6 @@ mod tests {
     }
 
     #[test]
-    fn pin_reads_numeric_value() {
-        assert_eq!(pin_or_default(&node_with(json!({ "pin": 9 })), 13), 9);
-    }
-
-    #[test]
     fn string_literal_escapes_quote_backslash_and_newlines() {
         assert_eq!(cpp_string_literal("a\"b\\c"), "\"a\\\"b\\\\c\"");
         assert_eq!(cpp_string_literal("a\nb\rc"), "\"a\\nb\\rc\"");
@@ -343,22 +346,6 @@ mod tests {
     }
 
     #[test]
-    fn pin_reads_string_value() {
-        assert_eq!(pin_or_default(&node_with(json!({ "pin": "14" })), 0), 14);
-    }
-
-    #[test]
-    fn pin_reads_legacy_analog_string() {
-        assert_eq!(pin_or_default(&node_with(json!({ "pin": "A0" })), 99), 0);
-    }
-
-    #[test]
-    fn pin_falls_back_when_missing_or_invalid() {
-        assert_eq!(pin_or_default(&node_with(json!({})), 13), 13);
-        assert_eq!(pin_or_default(&node_with(json!({ "pin": "xyz" })), 7), 7);
-    }
-
-    #[test]
     fn id_token_sanitizes_punctuation() {
         let n = node_with(json!({}));
         let mut hyphenated = n.clone();
@@ -369,14 +356,6 @@ mod tests {
     #[test]
     fn empty_emission_is_empty() {
         assert!(NodeEmission::default().is_empty());
-    }
-
-    #[test]
-    fn f64_reads_number_string_and_default() {
-        assert!((f64_or_default(&node_with(json!({ "n": 2.5 })), "n", 0.0) - 2.5).abs() < f64::EPSILON);
-        assert!((f64_or_default(&node_with(json!({ "n": "3.5" })), "n", 0.0) - 3.5).abs() < f64::EPSILON);
-        assert!((f64_or_default(&node_with(json!({})), "n", 9.0) - 9.0).abs() < f64::EPSILON);
-        assert!((f64_or_default(&node_with(json!({ "n": "xyz" })), "n", 1.0) - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]

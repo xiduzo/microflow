@@ -10,8 +10,9 @@
 //!   window that drops the oldest sample once full).
 //!
 //! Per the Feature's stateful-Node approach, the generated Sketch keeps a
-//! module-level state variable updated each loop iteration rather than
-//! recomputing from a full history. Exponential smoothing persists a single
+//! module-level state variable, updated once per value its source hands on
+//! (the ticks its source fires, as the runtime smooths each value it is sent),
+//! rather than recomputing from a full history. Exponential smoothing persists a single
 //! running `double`; the moving average persists a fixed-size ring buffer plus
 //! its fill count, reproducing the same rolling mean on-device. The output
 //! `double` is read by downstream Nodes.
@@ -19,6 +20,7 @@
 use super::config::{SmoothConfig, SmoothType};
 use crate::codegen::emit::{cpp_double, NodeEmission, NodeToken};
 use crate::codegen::wire::{extra_sources_note, NodeInputs};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `double` variable holding this Smooth Node's latest output.
@@ -33,11 +35,10 @@ pub(crate) fn value_var(node: &FlowNode) -> String {
 ///
 /// Deserializes the shared [`SmoothConfig`] from `node.data`, so the fields and
 /// defaults are exactly the ones the live runtime uses — no re-typed literals.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let var = value_var(node);
-    let config: SmoothConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<SmoothConfig>(&node.data)?;
 
     let sources = inputs.on("value");
     let driver = sources.first().map(|s| s.value.as_double());
@@ -50,7 +51,11 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     if let Some(note) = extra_sources_note("value", sources) {
         e.declarations.push(note);
     }
-    e
+    // One sample per value the source hands on, as the runtime smooths each
+    // value it is sent — not one per loop tick.
+    let step = std::mem::take(&mut e.loop_body);
+    e.transform(&format!("smooth_{token}"), &sources[..sources.len().min(1)], step);
+    Ok(e)
 }
 
 /// Exponential smoothing: a single persistent running value.
@@ -135,7 +140,7 @@ mod tests {
         let e = emit(
             &smooth("s-1", json!({ "type": "smooth", "attenuation": 0.9 })),
             &value_input(CppExpr::number("v")),
-        );
+        ).unwrap();
         // Decl is a single persistent double; loop updates it from itself.
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_value")));
         assert!(e.loop_body.iter().any(|l| l.contains("0.9") && l.contains("smooth_s_1_value")));
@@ -146,7 +151,7 @@ mod tests {
         let e = emit(
             &smooth("s-1", json!({ "type": "movingAverage", "windowSize": 5 })),
             &value_input(CppExpr::number("v")),
-        );
+        ).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_window[5]")));
         assert!(e.loop_body.iter().any(|l| l.contains("% 5")));
         assert!(e.loop_body.iter().any(|l| l.contains("sum")));
@@ -157,19 +162,19 @@ mod tests {
         let e = emit(
             &smooth("s-1", json!({ "type": "movingAverage", "windowSize": 0 })),
             &value_input(CppExpr::number("v")),
-        );
+        ).unwrap();
         assert!(e.declarations.iter().any(|d| d.contains("smooth_s_1_window[1]")));
     }
 
     #[test]
     fn default_type_is_exponential() {
-        let e = emit(&smooth("s-1", json!({})), &value_input(CppExpr::number("v")));
+        let e = emit(&smooth("s-1", json!({})), &value_input(CppExpr::number("v"))).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("0.995")));
     }
 
     #[test]
     fn no_input_emits_no_loop_body() {
-        let e = emit(&smooth("s-1", json!({})), &NodeInputs::default());
+        let e = emit(&smooth("s-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("= 0.0;")));
     }
@@ -178,6 +183,6 @@ mod tests {
     fn emits_deterministically() {
         let n = smooth("s-1", json!({ "type": "movingAverage", "windowSize": 3 }));
         let inputs = value_input(CppExpr::number("v"));
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

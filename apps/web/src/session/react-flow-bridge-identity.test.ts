@@ -29,7 +29,9 @@ const mkNode = (id: string, overrides: Partial<FlowNode> = {}): FlowNode => ({
 const mkEdge = (id: string, overrides: Partial<FlowEdge> = {}): FlowEdge => ({
   id,
   source: "a",
+  sourceHandle: "out",
   target: "b",
+  targetHandle: "in",
   ...overrides,
 });
 

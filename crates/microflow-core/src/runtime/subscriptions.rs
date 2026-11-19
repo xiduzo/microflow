@@ -5,14 +5,15 @@
 //! callback per topic. Collapsing the wirings to one **desired** subscription per
 //! topic — and picking a *deterministic* winner when they collide — is policy
 //! BOTH hosts must apply identically, or the desktop and browser would disagree
-//! on which node owns a topic. It previously lived in two languages (desktop
-//! `commands.rs` `DesiredSub::beats`, browser `mqtt-subscriptions.ts`
-//! `beats`/`reconcileDesired`), kept in lockstep only by a comment. This is the
-//! single source.
+//! on which node owns a topic. This is the single source: the desktop
+//! `CloudPerformer` (`apps/web/src-tauri/src/runtime/cloud_performer.rs`) calls
+//! [`reconcile_desired`] directly, the browser one
+//! (`apps/web/src/cloud/cloud-performer.ts`) through the wasm
+//! `reconcileSubscriptions()` binding.
 //!
 //! Each host still owns the *diff against its own live set* and the broker I/O —
-//! those are irreducibly per-platform (`rumqttc` vs `mqtt.js`) and operate on
-//! host-local state, so they are not policy this module centralizes.
+//! those are irreducibly per-platform (`mqtt-endpoint-tokio` vs `mqtt.js`) and
+//! operate on host-local state, so they are not policy this module centralizes.
 
 use crate::design_bridge as protocol;
 use crate::runtime::wiring::SubscriberWiring;
@@ -113,21 +114,6 @@ pub fn reconcile_desired(wirings: &[(String, SubscriberWiring)]) -> Vec<DesiredS
     out
 }
 
-/// One MIDI listener a host must feed: route every message from ports whose
-/// name contains `device_name` (case-insensitive; "" = every port) to `node_id`
-/// via `deliver_message`. No reconcile/winner-selection on purpose — several
-/// nodes listening to one device ALL receive its messages (unlike a broker
-/// topic, which keeps exactly one callback). Serializes to the
-/// `{ nodeId, deviceName }` shape the browser host consumes via the wasm
-/// `midiListeners()` binding.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export, rename_all = "camelCase")]
-pub struct MidiListener {
-    pub node_id: String,
-    pub device_name: String,
-}
-
 /// One Figma plugin-handshake publish a host must make over MQTT when the set of
 /// live Figma plugin uids changes. The handshake **protocol** — topic shape,
 /// payloads, retain flags — lives here once; the host owns only the publish I/O.
@@ -148,13 +134,19 @@ pub struct FigmaPublish {
 
 /// The Figma plugin-handshake publishes when the live plugin-uid set moves from
 /// `prev` to `next` (each a `uid -> broker_id` map the host extracts from its
-/// reconciled subscriptions). A uid that vanished announces `disconnected`; a uid
-/// that appeared announces `connected` (retained) **and** requests its current
-/// variable values. Pure policy over the uid delta — the symmetric counterpart of
+/// reconciled subscriptions). A uid that left a broker announces `disconnected`
+/// there; a uid that arrived on a broker announces `connected` (retained)
+/// **and** requests its current variable values there. A uid whose broker
+/// changed did both: it left the old broker and arrived on the new one. Pure
+/// policy over the uid delta — the symmetric counterpart of
 /// [`reconcile_desired`] for the Figma side — so both hosts emit byte-identical
-/// publishes from one source instead of mirroring the protocol. Disconnects come
-/// first, then appearances; `BTreeMap` ordering makes the result deterministic
-/// (and so testable).
+/// publishes from one source instead of mirroring the protocol.
+///
+/// Every departure comes before every arrival. Two broker ids can name one
+/// server, where the two status publishes of a move land on the same retained
+/// topic: the later one has to be `connected`, for a Studio that is still
+/// there. `BTreeMap` ordering makes the rest of the order deterministic (and so
+/// testable).
 #[must_use]
 pub fn figma_announce_actions(
     prev: &BTreeMap<String, String>,
@@ -162,9 +154,9 @@ pub fn figma_announce_actions(
 ) -> Vec<FigmaPublish> {
     let status_topic = |uid: &str| protocol::status_topic(uid, protocol::STUDIO);
     let mut out = Vec::new();
-    // Vanished uids → disconnected (retained).
+    // Left its broker (vanished, or is on another one now) → disconnected (retained).
     for (uid, broker) in prev {
-        if !next.contains_key(uid) {
+        if next.get(uid) != Some(broker) {
             out.push(FigmaPublish {
                 broker_id: broker.clone(),
                 topic: status_topic(uid),
@@ -173,9 +165,10 @@ pub fn figma_announce_actions(
             });
         }
     }
-    // Newly appeared uids → connected (retained) + a variable-values request.
+    // Arrived on its broker (new, or from another one) → connected (retained)
+    // + a variable-values request.
     for (uid, broker) in next {
-        if prev.contains_key(uid) {
+        if prev.get(uid) == Some(broker) {
             continue;
         }
         out.push(FigmaPublish {
@@ -284,40 +277,34 @@ mod tests {
         pairs.iter().map(|(u, b)| ((*u).to_string(), (*b).to_string())).collect()
     }
 
+    fn status(broker: &str, uid: &str, payload: &str) -> FigmaPublish {
+        FigmaPublish {
+            broker_id: broker.into(),
+            topic: format!("microflow/{uid}/app/status"),
+            payload: payload.into(),
+            retain: true,
+        }
+    }
+
+    fn request(broker: &str, uid: &str) -> FigmaPublish {
+        FigmaPublish {
+            broker_id: broker.into(),
+            topic: format!("microflow/{uid}/app/variables/request"),
+            payload: String::new(),
+            retain: false,
+        }
+    }
+
     #[test]
     fn appeared_uid_announces_connected_and_requests_variables() {
         let actions = figma_announce_actions(&uids(&[]), &uids(&[("u1", "b")]));
-        assert_eq!(
-            actions,
-            vec![
-                FigmaPublish {
-                    broker_id: "b".into(),
-                    topic: "microflow/u1/app/status".into(),
-                    payload: "connected".into(),
-                    retain: true,
-                },
-                FigmaPublish {
-                    broker_id: "b".into(),
-                    topic: "microflow/u1/app/variables/request".into(),
-                    payload: String::new(),
-                    retain: false,
-                },
-            ]
-        );
+        assert_eq!(actions, vec![status("b", "u1", "connected"), request("b", "u1")]);
     }
 
     #[test]
     fn vanished_uid_announces_disconnected_retained() {
         let actions = figma_announce_actions(&uids(&[("u1", "b")]), &uids(&[]));
-        assert_eq!(
-            actions,
-            vec![FigmaPublish {
-                broker_id: "b".into(),
-                topic: "microflow/u1/app/status".into(),
-                payload: "disconnected".into(),
-                retain: true,
-            }]
-        );
+        assert_eq!(actions, vec![status("b", "u1", "disconnected")]);
     }
 
     #[test]
@@ -327,13 +314,32 @@ mod tests {
     }
 
     #[test]
-    fn disconnects_precede_connects_in_one_delta() {
-        // A flip (u1 leaves, u2 joins) emits the disconnect before the connect so
-        // a broker re-keying the same logical slot settles in the right order.
-        let actions = figma_announce_actions(&uids(&[("u1", "b")]), &uids(&[("u2", "b")]));
-        assert_eq!(actions[0].payload, "disconnected");
-        assert_eq!(actions[0].topic, "microflow/u1/app/status");
-        assert_eq!(actions[1].payload, "connected");
-        assert_eq!(actions[2].topic, "microflow/u2/app/variables/request");
+    fn a_uid_that_moves_to_another_broker_leaves_the_old_one_and_arrives_on_the_new_one() {
+        let actions = figma_announce_actions(&uids(&[("u1", "b2")]), &uids(&[("u1", "b1")]));
+        assert_eq!(
+            actions,
+            vec![status("b2", "u1", "disconnected"), status("b1", "u1", "connected"), request("b1", "u1")],
+            "the old broker must not keep a retained `connected`, and the new one must be told",
+        );
+    }
+
+    #[test]
+    fn every_departure_precedes_every_arrival() {
+        // u1 moves, u2 vanishes, u3 appears, u4 stays. The two broker ids of a
+        // move may name one server, where both publishes land on one retained
+        // status topic: `connected` must be the one that is left there.
+        let prev = uids(&[("u1", "b2"), ("u2", "b1"), ("u4", "b1")]);
+        let next = uids(&[("u1", "b1"), ("u3", "b2"), ("u4", "b1")]);
+        assert_eq!(
+            figma_announce_actions(&prev, &next),
+            vec![
+                status("b2", "u1", "disconnected"),
+                status("b1", "u2", "disconnected"),
+                status("b1", "u1", "connected"),
+                request("b1", "u1"),
+                status("b2", "u3", "connected"),
+                request("b2", "u3"),
+            ],
+        );
     }
 }

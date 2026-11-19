@@ -6,12 +6,18 @@
       "inputs": [
         "node-components.json",
         "wire-interface.generated.json",
-        "src/nodes/*/*.adapter.ts"
+        "src/nodes/*/*.adapter.ts",
+        "src/nodes/*/*.schema.ts",
+        "src/nodes/*/*.constants.ts",
+        "scripts/codegen-node-registry.ts",
+        "scripts/node-defaults.ts",
+        "$TURBO_ROOT$/packages/design-bridge/src/**"
       ],
       "outputs": [
         "src/nodes/component-types.generated.ts",
         "src/nodes/catalog.generated.ts",
-        "src/nodes/node-types.generated.ts"
+        "src/nodes/node-types.generated.ts",
+        "node-defaults.generated.json"
       ]
     },
     "build": {

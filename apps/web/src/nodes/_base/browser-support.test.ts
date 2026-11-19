@@ -5,7 +5,7 @@ mock.module("@/platform/platform", () => ({ isDesktop }));
 const isWebSerialSupported = mock(() => true);
 mock.module("@/board/web-serial", () => ({ isWebSerialSupported }));
 
-const { hostLimitation, isBrowserReachableBroker } = await import("./browser-support");
+const { hostLimitation } = await import("./browser-support");
 
 afterEach(() => {
   isDesktop.mockReturnValue(false);
@@ -112,26 +112,5 @@ describe("hostLimitation: provider", () => {
   it("never limits an HTTP provider — its failures are reachability", () => {
     expect(on(http, "ask-ai")).toBeUndefined();
     expect(hostLimitation({ kind: "provider", provider: undefined, surface: "ask-ai" })).toBeUndefined();
-  });
-});
-
-describe("isBrowserReachableBroker", () => {
-  it("accepts only MQTT-over-WebSocket URLs", () => {
-    expect(isBrowserReachableBroker("ws://localhost:9001")).toBe(true);
-    expect(isBrowserReachableBroker(" WSS://broker.example/mqtt ")).toBe(true);
-    expect(isBrowserReachableBroker("mqtt://broker.example:1883")).toBe(false);
-    expect(isBrowserReachableBroker("broker.example")).toBe(false);
-  });
-});
-
-describe("isBrowserReachableBroker", () => {
-  it("rejects the half-typed URLs the config field produces per keystroke", () => {
-    // mqtt.connect throws "Missing protocol" on these, so every connect site
-    // must ask first.
-    for (const url of ["", " ", "w", "wss:/", "broker.example.com", "mqtt://host"]) {
-      expect(isBrowserReachableBroker(url)).toBe(false);
-    }
-    expect(isBrowserReachableBroker(" wss://broker.example.com:8883/mqtt ")).toBe(true);
-    expect(isBrowserReachableBroker("ws://localhost:9001")).toBe(true);
   });
 });

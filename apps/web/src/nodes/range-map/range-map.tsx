@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"RangeMap">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { type Data, type Value, dataSchema, defaults } from "./range-map.schema";
 import { ActivityIcon } from "lucide-react";
@@ -15,8 +13,7 @@ export function RangeMap(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="target" position="left" id="value" handleType="value" />
-      <Handle type="source" position="right" id="to" handleType="value" />
+      <NodeHandles />
     </NodeContainer>
   );
 }

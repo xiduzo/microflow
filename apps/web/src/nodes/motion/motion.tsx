@@ -1,7 +1,5 @@
 import { useNodeValue } from "@/nodes/live/node-data";
-import { Handle as BaseHandle } from "../_base/handle";
-
-const Handle = BaseHandle<"Motion">;
+import { NodeHandles } from "../_base/node-handles";
 import { NodeContainer, useNodeControls, useNodeData, type BaseNode } from "../_base/_base";
 import { EyeClosedIcon, EyeIcon } from "lucide-react";
 import { MODES, usePins } from "@/board/board-store";
@@ -14,9 +12,7 @@ export function Motion(props: Props) {
     <NodeContainer {...props}>
       <Value />
       <Settings />
-      <Handle type="source" position="right" id="event" handleType="event" offset={-1} />
-      <Handle type="source" position="right" id="true" handleType="state" />
-      <Handle type="source" position="right" id="false" handleType="state" offset={1} />
+      <NodeHandles />
     </NodeContainer>
   );
 }

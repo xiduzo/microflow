@@ -7,18 +7,28 @@
 //! `nor` ⇢ `== 0`, `xor` ⇢ `== 1`, `xnor` ⇢ `!= 1`.
 //!
 //! The generated C++ reproduces exactly that: a truthy count over every wired
-//! source expression compared per the gate, stored into a `bool` variable that
-//! downstream Nodes read.
+//! source's value (a boolean source's state, as the live snapshot reads its
+//! stored value) compared per the gate, stored into a `bool` variable that
+//! downstream Nodes read. It checks on each tick one of its sources fires, and
+//! on no other ([`NodeEmission::transform`]); that check is when the live Gate
+//! emits `true` or `false`.
 
 use super::config::{GateConfig, GateType};
 use crate::codegen::emit::{NodeEmission, NodeToken};
 use crate::codegen::wire::NodeInputs;
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// The C++ `bool` variable holding this Gate Node's latest outcome.
 #[must_use]
 pub(crate) fn state_var(node: &FlowNode) -> String {
     format!("gate_{}_result", node.id_token())
+}
+
+/// The C++ `bool` that is true on the ticks this Gate checks.
+#[must_use]
+pub(crate) fn fired_var(node: &FlowNode) -> String {
+    format!("gate_{}_fired", node.id_token())
 }
 
 /// The comparison of the truthy count `tc` against `total` for the configured
@@ -35,13 +45,12 @@ fn gate_comparison(gate: GateType, tc: &str, total: usize) -> String {
 }
 
 /// Emit C++ for a Gate Node over everything wired into its `value` port. With
-/// nothing connected the result stays `false` (the runtime skips `check` for
-/// an empty input set).
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
+/// nothing connected the result stays `false` and it never checks (the
+/// runtime skips `check` for an empty input set).
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
     let token = node.id_token();
     let var = state_var(node);
-    let config: GateConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+    let config = resolve::<GateConfig>(&node.data)?;
 
     let mut e = NodeEmission {
         declarations: vec![format!("bool {var} = false;")],
@@ -49,22 +58,16 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
     };
 
     let sources = inputs.on("value");
-    if sources.is_empty() {
-        return e;
+    let mut step = Vec::new();
+    if !sources.is_empty() {
+        let count_terms: Vec<String> =
+            sources.iter().map(|s| format!("({} ? 1 : 0)", s.value.as_bool())).collect();
+        let tc = format!("gate_{token}_true_count");
+        step.push(format!("int {tc} = {};", count_terms.join(" + ")));
+        step.push(format!("{var} = {};", gate_comparison(config.gate, &tc, sources.len())));
     }
-
-    let count_terms: Vec<String> = sources
-        .iter()
-        .map(|s| format!("({} ? 1 : 0)", s.value.as_bool()))
-        .collect();
-    let tc = format!("gate_{token}_true_count");
-    e.loop_body
-        .push(format!("int {tc} = {};", count_terms.join(" + ")));
-    e.loop_body.push(format!(
-        "{var} = {};",
-        gate_comparison(config.gate, &tc, sources.len())
-    ));
-    e
+    e.transform(&format!("gate_{token}"), sources, step);
+    Ok(e)
 }
 
 #[cfg(test)]
@@ -96,7 +99,7 @@ mod tests {
         let e = emit(
             &gate("g-1", json!({ "gate": "and" })),
             &wired(&[CppExpr::boolean("a"), CppExpr::boolean("b")]),
-        );
+        ).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("((a) ? 1 : 0) + ((b) ? 1 : 0)"), "got: {body}");
         assert!(body.contains("== 2"), "and compares count to total: {body}");
@@ -105,18 +108,18 @@ mod tests {
     #[test]
     fn or_nor_compare_against_zero() {
         let inputs = wired(&[CppExpr::boolean("a"), CppExpr::boolean("b")]);
-        let or = emit(&gate("g-1", json!({ "gate": "or" })), &inputs);
+        let or = emit(&gate("g-1", json!({ "gate": "or" })), &inputs).unwrap();
         assert!(or.loop_body.iter().any(|l| l.contains("> 0")));
-        let nor = emit(&gate("g-1", json!({ "gate": "nor" })), &inputs);
+        let nor = emit(&gate("g-1", json!({ "gate": "nor" })), &inputs).unwrap();
         assert!(nor.loop_body.iter().any(|l| l.contains("== 0")));
     }
 
     #[test]
     fn xor_xnor_compare_against_one() {
         let inputs = wired(&[CppExpr::boolean("a"), CppExpr::boolean("b"), CppExpr::boolean("c")]);
-        let one_hot = emit(&gate("g-1", json!({ "gate": "xor" })), &inputs);
+        let one_hot = emit(&gate("g-1", json!({ "gate": "xor" })), &inputs).unwrap();
         assert!(one_hot.loop_body.iter().any(|l| l.contains("== 1")));
-        let not_one_hot = emit(&gate("g-1", json!({ "gate": "xnor" })), &inputs);
+        let not_one_hot = emit(&gate("g-1", json!({ "gate": "xnor" })), &inputs).unwrap();
         assert!(not_one_hot.loop_body.iter().any(|l| l.contains("!= 1")));
     }
 
@@ -125,7 +128,7 @@ mod tests {
         let e = emit(
             &gate("g-1", json!({ "gate": "nand" })),
             &wired(&[CppExpr::boolean("x")]),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("!= 1")), "single-input nand is a NOT");
     }
 
@@ -134,13 +137,13 @@ mod tests {
         let e = emit(
             &gate("g-1", json!({ "gate": "and" })),
             &wired(&[CppExpr::number("sensor_v")]),
-        );
+        ).unwrap();
         assert!(e.loop_body.iter().any(|l| l.contains("(sensor_v) != 0.0")));
     }
 
     #[test]
     fn no_input_leaves_false() {
-        let e = emit(&gate("g-1", json!({ "gate": "and" })), &NodeInputs::default());
+        let e = emit(&gate("g-1", json!({ "gate": "and" })), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
         assert!(e.declarations.iter().any(|d| d.contains("= false;")));
     }
@@ -149,6 +152,6 @@ mod tests {
     fn emits_deterministically() {
         let n = gate("g-1", json!({ "gate": "nand" }));
         let inputs = wired(&[CppExpr::boolean("x")]);
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }

@@ -131,7 +131,7 @@ It imports every node's UI. The architecture guard allows runtime imports of it 
 
 - **Missing catalog or map entry:** `NODE_CATALOG` and `NODE_TYPES` are both checked against `Record<ComponentType, …>`, so every type has metadata and a component.
 
-- **Unknown handle:** `NodeHandles` and `Handle<"Button">` accept only ids in `PortOf<T>` / `EmitOf<T>`. A port renamed in Rust is a compile error in the UI after `bun run catalog:sync`.
+- **Unknown handle:** a node's `<node>.handles.ts` accepts only ids in `PortOf<T>` / `EmitOf<T>` (`PortSpec<T>` / `EmitSpec<T>` in `nodes/_base/handle-rule.ts`), open ports aside. A port renamed in Rust is a compile error in the UI after `bun run catalog:sync`.
 
 ### Runtime Validation
 

@@ -36,12 +36,13 @@ pub enum RuntimeError {
     #[error("Lock poisoned: {0}")]
     LockPoisoned(String),
 
-    /// Component config failed to deserialize against the expected `Config` type.
+    /// The Node's `data` could not be read into its config (see
+    /// [`crate::config::resolve`]).
     #[error("Component '{component}' has invalid config: {source}")]
     ConfigDeserialize {
         component: String,
         #[source]
-        source: serde_json::Error,
+        source: crate::config::UnreadableConfig,
     },
 
     /// Generic component error (for component-specific failures).

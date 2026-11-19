@@ -1,6 +1,6 @@
 # ADR-0010 — Subscription diff stays per-host; only winner-selection is core policy
 
-- **Status:** accepted (2026-06-26) — records a deliberate non-change
+- **Status:** accepted (2026-06-26) — records a deliberate non-change; amended (2026-11-19)
 - **Date:** 2026-06-26
 - **Deciders:** sander
 
@@ -8,8 +8,9 @@
 > policy, shared by both **Runtime Host**s. The desired→live subscription diff
 > and the broker I/O stay per-host. An architecture review proposed hoisting the
 > diff into core too; **rejected** — it operates on host-local state and the gain
-> is marginal. The rationale already lives at `subscriptions.rs:13`; this ADR
-> records it so future reviews don't re-suggest the hoist.
+> is marginal. The rationale already lives in the module docs of
+> `subscriptions.rs`; this ADR records it so future reviews don't re-suggest the
+> hoist.
 
 ## Context
 
@@ -41,14 +42,13 @@ both hosts apply — so each host shrinks to a thin applier, mirroring how
 - **Winner-selection → core** (`reconcile_desired`). Shared, because divergence
   between hosts is a correctness bug.
 - **Diff-against-live + broker I/O → per-host.** The diff operates on each host's
-  *live* subscription set, which lives inside its broker client (`rumqttc` on the
-  desktop, `mqtt.js` in the browser) — host-local state core does not, and should
-  not, hold. Centralizing the diff would marshal that live set across the wasm
+  *live* subscription set, which each host's CloudPerformer keeps (see the
+  amendment below) — host-local state core does not, and should not, hold. Centralizing the diff would marshal that live set across the wasm
   boundary on every `flow_update` to run a ~10-line set difference. The
   determinism that made part 1 worth sharing has no analogue in a set diff.
 
-This is already the documented rationale at
-`crates/microflow-core/src/runtime/subscriptions.rs:13`; this ADR promotes that
+This is already the documented rationale in the module docs of
+`crates/microflow-core/src/runtime/subscriptions.rs`; this ADR promotes that
 comment to a recorded decision.
 
 ## Consequences
@@ -61,7 +61,7 @@ comment to a recorded decision.
 
 **Negative**
 
-- A ~10-line set-diff exists in both languages (`commands.rs` desktop,
+- A ~10-line set-diff exists in both languages (`cloud_performer.rs` desktop,
   `mqtt-subscriptions.ts` browser). Accepted: low risk, no determinism concern,
   no cross-host contract to break if they diverge superficially.
 
@@ -72,8 +72,33 @@ comment to a recorded decision.
 
 ## References
 
-- `crates/microflow-core/src/runtime/subscriptions.rs:13` — the in-code rationale this ADR formalizes.
-- `apps/web/src-tauri/src/runtime/commands.rs` — desktop diff-against-live (`rumqttc`).
-- `apps/web/src/cloud/mqtt-subscriptions.ts` — browser diff-against-live (`mqtt.js`).
+- `crates/microflow-core/src/runtime/subscriptions.rs` — the module docs hold the in-code rationale this ADR formalizes.
+- `apps/web/src-tauri/src/runtime/cloud_performer.rs` — desktop diff-against-live (`Subscriptions::reconcile`).
+- `apps/web/src/cloud/mqtt-subscriptions.ts` — browser diff-against-live (`diffSubscriptions`), called by `cloud-performer.ts`.
 - [ADR-0008](0008-effects-apply-policy.md) — the policy-in-core / primitives-per-host pattern that deliberately does **not** extend to the subscription diff.
 - [ADR-0009](0009-cloud-sans-io-capability.md) — single-sourced `reconcile_desired`.
+
+---
+
+## Amendment (2026-11-19): each host's CloudPerformer holds the live set
+
+The split stands: winner-selection is core's `reconcile_desired`, and the diff
+against the live set stays per-host. What the live set *is* differs from the
+Decision's wording. It is not state inside a broker client. Each host's
+CloudPerformer holds it, as a mirror of what the brokers hold:
+
+- **Desktop** — one task in `CloudPerformer` owns the set, keyed on
+  `(broker_id, topic)` and tagged with the broker session that holds each
+  entry. An entry is recorded when the SUBSCRIBE went out and dropped when the
+  UNSUBSCRIBE went out or the session ended
+  ([ADR-0035](0035-desktop-cloud-performer-owns-subscriptions.md)).
+- **Browser** — `CloudPerformer` keeps `wanted` and `live`; `live` follows the
+  broker's SUBACK through `BrokerConnections`, and `mqtt.js` is created with
+  `resubscribe: false` so it keeps no copy of its own
+  ([ADR-0036](0036-browser-host-owns-subscription-state.md)).
+
+So the diff is more than a set difference on each host: it also decides what to
+retry, and when. That strengthens the reason to keep it per-host. The retry
+triggers are host facts with no shared shape: a broker pool's change signal on
+the desktop, the stored broker settings and the client's `connect` event in the
+browser. The "Revisit if" condition is unchanged.

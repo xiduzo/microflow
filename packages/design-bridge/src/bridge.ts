@@ -1,7 +1,8 @@
 /**
  * The plugin side of the bridge: publishes a design tool's variables and their
- * values, and applies the values Studio sets. Framework-free; each plugin feeds
- * it snapshots from its sandbox and gives it a `write` callback.
+ * values, and applies the values Studio sets. Framework-free; the plugin bridge
+ * session (`session.ts`) runs one per broker connection, feeds it the sandbox's
+ * snapshots and gives it a `write` callback.
  */
 import { coerce, decodePayload, encodeValue } from "./codec";
 import {
@@ -14,10 +15,13 @@ import {
   topics,
 } from "./protocol";
 
-/** The MQTT operations the bridge needs. `@microflow/mqtt`'s store fits after a small adapter. */
+/**
+ * The MQTT operations the bridge needs. A filter may have several subscribers;
+ * each `subscribe` returns the function that ends that one subscription.
+ */
 export interface BridgeMqtt {
-  publish(topic: string, payload: string, options?: { retain?: boolean }): void;
-  subscribe(topic: string, onMessage: (topic: string, payload: string) => void): () => void;
+  publish(topic: string, payload: string, options?: { retain?: boolean; qos?: 0 | 1 | 2 }): void;
+  subscribe(filter: string, onMessage: (topic: string, payload: string) => void): () => void;
 }
 
 /** One variable and its current value, as read from the design tool. */

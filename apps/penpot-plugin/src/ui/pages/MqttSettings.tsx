@@ -1,13 +1,8 @@
-import {
-  DEFAULT_BROKER_URL,
-  storedMqttConfig,
-  useAppStore,
-  useMqttSettingsForm,
-} from "@microflow/design-bridge/react";
-import type { MqttConfig } from "@microflow/mqtt";
+import { useBridgeSettingsForm } from "@microflow/design-bridge/react";
+import { DEFAULT_BROKER_URL } from "@microflow/design-bridge/session";
 import { Dices, Info } from "lucide-react";
-import { type ReactNode, useCallback } from "react";
-import { storage } from "../channel";
+import type { ReactNode } from "react";
+import { session } from "../channel";
 import { PageContent, PageHeader } from "../components/PageLayout";
 import { toast } from "../components/Toast";
 
@@ -27,23 +22,13 @@ function Field(props: { label: string; htmlFor: string; error?: string; hint?: R
   );
 }
 
+function onSaved(stored: boolean) {
+  if (stored) toast("Broker settings saved");
+  else toast("Connected, but the settings could not be stored", { error: true });
+}
+
 export function MqttSettings() {
-  const { setMqttConfig } = useAppStore();
-
-  const save = useCallback(
-    (config: MqttConfig) => {
-      setMqttConfig(config);
-      try {
-        storage.save(storedMqttConfig(config));
-        toast("Broker settings saved");
-      } catch {
-        toast("Connected, but the settings could not be stored", { error: true });
-      }
-    },
-    [setMqttConfig],
-  );
-
-  const { fields, errors, setField, randomizeId, submit } = useMqttSettingsForm(save);
+  const { fields, errors, setField, randomizeId, submit } = useBridgeSettingsForm(session, onSaved);
 
   return (
     <>
@@ -58,14 +43,14 @@ export function MqttSettings() {
           <Field
             label="Bridge ID"
             htmlFor="bridge-id"
-            error={errors.uniqueId}
+            error={errors.bridgeId}
             hint="Must match the Bridge ID shown in Microflow Studio."
           >
             <input
               id="bridge-id"
               type="text"
-              value={fields.uniqueId}
-              onChange={(event) => setField("uniqueId", event.target.value)}
+              value={fields.bridgeId}
+              onChange={(event) => setField("bridgeId", event.target.value)}
               placeholder="calm_lynx_4821"
               autoComplete="off"
               spellCheck={false}

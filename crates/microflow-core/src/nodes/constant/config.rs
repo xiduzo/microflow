@@ -11,9 +11,3 @@ pub(crate) struct ConstantConfig {
 fn default_value() -> f64 {
     1337.0
 }
-
-impl Default for ConstantConfig {
-    fn default() -> Self {
-        Self { value: default_value() }
-    }
-}

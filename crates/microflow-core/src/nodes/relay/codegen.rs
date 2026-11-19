@@ -6,26 +6,31 @@
 //! "close" writes LOW; for a Normally-Closed (NC) relay the signal is
 //! inverted. The generated sketch emits the OUTPUT setup and binds each wired
 //! port as a pulse, tracking the open/closed state so `toggle` flips from the
-//! last written state exactly like the runtime's `is_open`.
+//! last written state exactly like the runtime's `is_open`. That state is
+//! also what the Relay emits on `value`: whether it is open.
 
 use super::config::{RelayConfig, RelayType};
 use crate::codegen::emit::{NodeEmission, NodeToken};
-use crate::codegen::wire::NodeInputs;
+use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
+
+/// What the Relay emits on `value`: whether it is open, as the runtime's
+/// `set_value(Bool(is_open))`.
+#[must_use]
+pub(crate) fn output(node: &FlowNode) -> SourceExpr {
+    SourceExpr::level(CppExpr::boolean(format!("relay_{}_open", node.id_token())))
+}
 
 /// The pin this Relay is emitted on — the same resolution `emit` uses, exposed
 /// so validation can never drift from emission.
-#[must_use]
-pub(crate) fn pin(node: &FlowNode) -> u8 {
-    serde_json::from_value::<RelayConfig>(node.data.clone())
-        .unwrap_or_default()
-        .pin
+pub(crate) fn pin(node: &FlowNode) -> Result<u8, UnreadableConfig> {
+    Ok(resolve::<RelayConfig>(&node.data)?.pin)
 }
 
 /// Emit C++ for a Relay Node. An unwired relay stays initialized-closed.
-#[must_use]
-pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
-    let config: RelayConfig = serde_json::from_value(node.data.clone()).unwrap_or_default();
+pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission, UnreadableConfig> {
+    let config = resolve::<RelayConfig>(&node.data)?;
     let pin = config.pin;
     let token = node.id_token();
     let var = format!("relay_{token}_pin");
@@ -68,7 +73,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> NodeEmission {
         ));
     }
 
-    e
+    Ok(e)
 }
 
 /// The digital level written when the relay is closed, per relay type.
@@ -104,7 +109,7 @@ mod tests {
 
     #[test]
     fn relay_sets_output_and_starts_closed_no() {
-        let e = emit(&relay("r-1", json!({ "pin": 10 })), &NodeInputs::default());
+        let e = emit(&relay("r-1", json!({ "pin": 10 })), &NodeInputs::default()).unwrap();
         assert!(e.setup.iter().any(|s| s.contains("OUTPUT")));
         // NO relay closed => LOW.
         assert!(e.setup.iter().any(|s| s.contains("digitalWrite") && s.contains("LOW")));
@@ -112,7 +117,7 @@ mod tests {
 
     #[test]
     fn relay_nc_inverts_closed_level() {
-        let e = emit(&relay("r-1", json!({ "pin": 10, "type": "NC" })), &NodeInputs::default());
+        let e = emit(&relay("r-1", json!({ "pin": 10, "type": "NC" })), &NodeInputs::default()).unwrap();
         // NC relay closed => HIGH.
         assert!(e.setup.iter().any(|s| s.contains("digitalWrite") && s.contains("HIGH")));
     }
@@ -122,7 +127,7 @@ mod tests {
         let mut inputs = NodeInputs::default();
         inputs.add("true", SourceExpr::level(CppExpr::boolean("a")));
         inputs.add("false", SourceExpr::level(CppExpr::boolean("b")));
-        let e = emit(&relay("r-1", json!({ "pin": 10 })), &inputs);
+        let e = emit(&relay("r-1", json!({ "pin": 10 })), &inputs).unwrap();
         let body = e.loop_body.join("\n");
         assert!(body.contains("digitalWrite(relay_r_1_pin, HIGH); relay_r_1_open = true"), "{body}");
         assert!(body.contains("digitalWrite(relay_r_1_pin, LOW); relay_r_1_open = false"), "{body}");
@@ -130,7 +135,7 @@ mod tests {
 
     #[test]
     fn nc_relay_swaps_open_and_closed_levels() {
-        let e = emit(&relay("r-1", json!({ "type": "NC" })), &on("true", CppExpr::boolean("a")));
+        let e = emit(&relay("r-1", json!({ "type": "NC" })), &on("true", CppExpr::boolean("a"))).unwrap();
         assert!(
             e.loop_body.iter().any(|l| l.contains("digitalWrite(relay_r_1_pin, LOW); relay_r_1_open = true")),
             "NC open writes LOW"
@@ -139,7 +144,7 @@ mod tests {
 
     #[test]
     fn toggle_flips_tracked_state() {
-        let e = emit(&relay("r-1", json!({})), &on("toggle", CppExpr::boolean("btn")));
+        let e = emit(&relay("r-1", json!({})), &on("toggle", CppExpr::boolean("btn"))).unwrap();
         assert!(
             e.loop_body.iter().any(|l| l.contains("relay_r_1_open = !relay_r_1_open")),
             "toggle flips is_open"
@@ -148,7 +153,7 @@ mod tests {
 
     #[test]
     fn unwired_relay_does_no_loop_work() {
-        let e = emit(&relay("r-1", json!({})), &NodeInputs::default());
+        let e = emit(&relay("r-1", json!({})), &NodeInputs::default()).unwrap();
         assert!(e.loop_body.is_empty(), "{:?}", e.loop_body);
     }
 
@@ -156,6 +161,6 @@ mod tests {
     fn relay_emits_deterministically() {
         let n = relay("r-1", json!({ "pin": 10, "type": "NC" }));
         let inputs = on("toggle", CppExpr::boolean("x"));
-        assert_eq!(emit(&n, &inputs), emit(&n, &inputs));
+        assert_eq!(emit(&n, &inputs).unwrap(), emit(&n, &inputs).unwrap());
     }
 }
