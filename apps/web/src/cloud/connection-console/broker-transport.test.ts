@@ -5,6 +5,7 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 import { useMqttBrokerStore, type MqttBrokerConfig } from "@/cloud/mqtt-broker";
+import { MQTT5_REQUIRED } from "@/cloud/mqtt-refusal";
 
 import type { BrokerMessage } from "./broker-console-session";
 
@@ -45,7 +46,7 @@ const status = () => useMqttBrokerStore.getState().statuses.b1;
 beforeEach(() => {
   calls.length = 0;
   fakeClient.connected = true;
-  useMqttBrokerStore.setState({ brokers: [broker], statuses: {} });
+  useMqttBrokerStore.setState({ brokers: [broker], statuses: {}, problems: {} });
 });
 
 describe("the browser broker transport", () => {
@@ -73,6 +74,29 @@ describe("the browser broker transport", () => {
     expect(status()).toBe("connected");
     handlers.error?.();
     expect(status()).toBe("error");
+    handlers.close?.();
+    expect(status()).toBe("disconnected");
+  });
+
+  it("says why a broker refused the connection for its protocol version, until it connects", () => {
+    const problem = () => useMqttBrokerStore.getState().problems.b1;
+    hostBrokerTransport().open(broker, () => {});
+
+    // A broker that speaks only MQTT 3.1.1 answers with its own CONNACK, which
+    // `mqtt.js` emits like this (`mqtt-refusal.test.ts` has the real one), and
+    // closes the connection.
+    handlers.error?.(
+      Object.assign(new Error("Connection refused: Unacceptable protocol version"), { code: 1 }),
+    );
+    handlers.close?.();
+    expect([status(), problem()]).toEqual(["error", MQTT5_REQUIRED]);
+
+    handlers.connect?.();
+    expect([status(), problem()]).toEqual(["connected", undefined]);
+
+    // Any other failure is an error with nothing more to say.
+    handlers.error?.(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
+    expect([status(), problem()]).toEqual(["error", undefined]);
     handlers.close?.();
     expect(status()).toBe("disconnected");
   });

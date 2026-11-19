@@ -174,9 +174,10 @@ async fn a_broker_that_answers_is_waited_for_and_the_update_resolves_subscribed(
 
     rig.update(flow, &[settings("ok", &broker)], AN_HOUR).await.expect("the flow applied");
 
-    // In place now: a message published at this moment reaches the node. Had
-    // the update resolved first and subscribed after, the client would have
-    // no subscription to route it to.
+    // In place now: the SUBSCRIBE was written before the update resolved, and
+    // a message the broker forwards for it once it has read it reaches the
+    // node.
+    wait_until_saw(&broker, &subscribed(1, "t")).await;
     broker.publish("t", b"21");
     assert_eq!(rig.wait_for_deliveries(1).await, vec![("n1".to_string(), "t".to_string())]);
     assert_eq!(rig.applied(), vec![vec!["n1".to_string()]]);
@@ -199,7 +200,10 @@ async fn a_broker_that_does_not_answer_gets_its_grace_and_then_the_flow_goes_ahe
 
     // The flow is applied, whole, and the healthy broker's subscription is in
     // place at this moment.
+    // (The SUBSCRIBE is written; the broker forwards to it once it has read
+    // it.)
     assert_eq!(rig.applied(), vec![vec!["n1".to_string(), "n2".to_string()]]);
+    wait_until_saw(&healthy, &subscribed(1, "t/ok")).await;
     healthy.publish("t/ok", b"21");
     assert_eq!(rig.wait_for_deliveries(1).await, vec![("n2".to_string(), "t/ok".to_string())]);
     assert!(late.seen().is_empty(), "the late broker has answered nothing yet");
@@ -232,7 +236,7 @@ async fn brokers_that_do_not_answer_are_waited_for_together() {
     first.wait_until_waiting(1).await;
     second.wait_until_waiting(1).await;
     assert!(!update.is_finished(), "the one grace is still running");
-    assert!(rig.applied().is_empty());
+    assert_eq!(rig.applied(), [] as [Vec<String>; 0]);
 
     // Both answer within the grace: the update resolves with both subscribed.
     first.answer_again();

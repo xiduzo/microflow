@@ -22,6 +22,7 @@ import {
   probeBroker,
   probeLlmProvider,
   probeStatus,
+  type BrokerProbe,
   type LlmProbeOutcome,
 } from "./browser-cloud-probe";
 import type { HostSnapshot } from "@/runtime/flow-update-dispatcher";
@@ -38,22 +39,33 @@ function toStatusMap(statuses: BrokerStatusPayload[]): Record<string, Connection
   return map;
 }
 
+/** The problems the host gave, by broker id: the brokers it gave none for
+ *  have none. */
+function toProblemMap(statuses: BrokerStatusPayload[]): Record<string, string> {
+  const map: Record<string, string> = {};
+  for (const status of statuses) {
+    if (status.problem !== null) map[status.id] = status.problem;
+  }
+  return map;
+}
+
 /**
- * The status dots of the desktop's brokers, from the snapshots the host
- * sends two ways — the answer to `mqtt_sync_brokers` and the
- * `mqtt-broker-status` event — which arrive in either order: a fast broker is
- * connected before the answer that says it is connecting gets here. Every
- * snapshot carries a number, higher for a later state; one older than the
- * newest applied is dropped. Returns what to hand each snapshot to.
+ * The status dots of the desktop's brokers, and why a broker is in error when
+ * the host knows, from the snapshots the host sends two ways — the answer to
+ * `mqtt_sync_brokers` and the `mqtt-broker-status` event — which arrive in
+ * either order: a fast broker is connected before the answer that says it is
+ * connecting gets here. Every snapshot carries a number, higher for a later
+ * state; one older than the newest applied is dropped. Returns what to hand
+ * each snapshot to.
  */
 export function brokerStatusFeed(
-  setStatuses: (statuses: Record<string, ConnectionStatus>) => void,
+  setStatuses: (statuses: Record<string, ConnectionStatus>, problems: Record<string, string>) => void,
 ): (snapshot: BrokerStatuses) => void {
   let newest = -1;
   return (snapshot) => {
     if (snapshot.seq < newest) return;
     newest = snapshot.seq;
-    setStatuses(toStatusMap(snapshot.brokers));
+    setStatuses(toStatusMap(snapshot.brokers), toProblemMap(snapshot.brokers));
   };
 }
 
@@ -96,7 +108,9 @@ const tauriBrokerIpc: DesktopBrokerIpc = {
  * ({@link brokerStatusFeed}).
  */
 export function desktopBrokerCapability(ipc: DesktopBrokerIpc): CloudCapability {
-  const show = brokerStatusFeed((statuses) => useMqttBrokerStore.getState().setStatuses(statuses));
+  const show = brokerStatusFeed((statuses, problems) =>
+    useMqttBrokerStore.getState().setStatuses(statuses, problems),
+  );
   return {
     name: "mqtt",
     sync: {
@@ -184,19 +198,19 @@ export const CLOUD_CAPABILITIES: readonly CloudCapability[] = [mqtt, llm, figma]
  * `probe` is {@link probeBroker}; a test passes its own.
  */
 export function probeBrokerStatuses(
-  probe: (broker: MqttBrokerConfig) => Promise<ConnectionStatus> = probeBroker,
+  probe: (broker: MqttBrokerConfig) => Promise<BrokerProbe> = probeBroker,
 ): void {
   const { brokers, setStatus } = useMqttBrokerStore.getState();
   for (const broker of brokers) {
     setStatus(broker.id, "connecting");
-    void probe(broker).then((status) => {
+    void probe(broker).then(({ status, problem }) => {
       const now = resolveStoredBroker(broker.id);
       const asProbed =
         now !== undefined &&
         now.url === broker.url &&
         now.username === broker.username &&
         now.password === broker.password;
-      if (asProbed) setStatus(broker.id, status);
+      if (asProbed) setStatus(broker.id, status, problem);
     });
   }
 }

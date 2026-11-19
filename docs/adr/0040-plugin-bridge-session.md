@@ -1,6 +1,6 @@
 # ADR-0040 — One plugin bridge session owns a plugin UI's settings, connection and presence
 
-- **Status:** accepted (2026-11-19)
+- **Status:** accepted (2026-11-19); amended (2026-11-19)
 - **Date:** 2026-11-19
 - **Deciders:** sander
 
@@ -60,7 +60,8 @@ connection but not the settings form.
 through a `BrokerConnector` (`broker.ts`). `mqttBroker` (`mqtt-broker.ts`) is
 mqtt.js over the platform WebSocket: it turns mqtt.js's own resubscribe off and
 sends every filter in one SUBSCRIBE on each connect, lets a filter have several
-subscribers, and drops a publish while the connection is down.
+subscribers, and drops a publish while the connection is down, and one on a
+topic that is not a topic name (`isTopicName`).
 `createMemoryBroker` (`memory-broker.ts`) is the test adapter: retained
 messages, last wills, per-level wildcards, and delivery in the order one
 connection sent. The mqtt.js adapter is tested against `startPacketBroker`
@@ -69,10 +70,11 @@ connection sent. The mqtt.js adapter is tested against `startPacketBroker`
 **D3 — The plugins' MQTT client is part of design-bridge.** The package
 depends on `mqtt` directly. The broker URL grammar is `parseBrokerUrl`
 (`broker-url.ts`), the topic matcher is `topicMatches` (`topic-filter.ts`),
-which all three brokers in the package route by. It is the package's own
-matcher, checked against its own cases (`topic-filter.test.ts`), not against
-the shared table Studio's two hosts route by
-(`apps/web/src/cloud/fixtures/topic-filter.json`).
+which all three brokers in the package route by. It is held to the case table
+Studio's two hosts route by, which lives next to it
+(`packages/design-bridge/fixtures/topic-filter.json`), and Studio's browser
+host imports this same matcher
+([ADR-0048](0048-routing-overlapping-subscriptions.md)).
 The session is exported on its own subpath, `@microflow/design-bridge/session`;
 the package root exports the protocol, the codec, the engine, the messages,
 the sandbox routing and the pairing rule, none of which import mqtt.js, so
@@ -119,12 +121,9 @@ can do (storage, toasts, links, resizing).
   retained will from an earlier window, a late will, a second editor.
 - `packages/design-bridge` carries mqtt.js and two test brokers. The repo has
   two MQTT clients, this one and Studio's (`apps/web/src/cloud/mqtt-client.ts`),
-  and a fix to one does not reach the other. The same holds for the topic
-  matcher: the design-bridge `topicMatches` disagrees with 18 of the 95 cases
-  in the shared table (`$`-topics, invalid filters and topic names, `$share`
-  filters). The plugins subscribe only to `microflow/{bridgeId}/…` filters
-  built from a validated Bridge ID, so none of those cases arises on their own
-  subscriptions.
+  and a fix to one does not reach the other. The topic matcher is shared:
+  the plugins and Studio's browser host route by one `topicMatches`, held to
+  one table.
 - The in-memory broker is a model. Where it differs from a real broker, the
   session tests prove the wrong thing; the packet broker covers the mqtt.js
   adapter only.

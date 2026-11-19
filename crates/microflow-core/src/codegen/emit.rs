@@ -291,11 +291,16 @@ pub fn cpp_comment_text(s: &str) -> String {
 
 /// Format an `f64` as a C++ `double` literal that round-trips deterministically.
 /// Integer-valued numbers gain a trailing `.0` so the literal is unambiguously
-/// floating point.
+/// floating point; a whole number of 1e15 or more is written with an exponent
+/// (`1e21`), never as an integer literal, which past `long long` does not
+/// compile.
 #[must_use]
 pub fn cpp_double(value: f64) -> String {
     if value.is_finite() && value.fract() == 0.0 && value.abs() < 1e15 {
         format!("{value:.1}")
+    } else if value.is_finite() && value.fract() == 0.0 {
+        // `{:e}` on f64 yields the shortest round-tripping digits.
+        format!("{value:e}")
     } else {
         // `{}` on f64 yields the shortest round-tripping representation.
         format!("{value}")
@@ -370,5 +375,18 @@ mod tests {
         assert_eq!(cpp_double(0.0), "0.0");
         assert_eq!(cpp_double(-3.0), "-3.0");
         assert_eq!(cpp_double(2.5), "2.5");
+    }
+
+    /// A whole number too large for an integer literal is still a `double`.
+    #[test]
+    fn cpp_double_writes_a_large_whole_number_with_an_exponent() {
+        assert_eq!(cpp_double(1e21), "1e21");
+        assert_eq!(cpp_double(-9.3e18), "-9.3e18");
+        assert_eq!(cpp_double(f64::MAX), "1.7976931348623157e308");
+        assert_eq!(cpp_double(1e15), "1e15");
+        assert_eq!(cpp_double(999_999_999_999_999.0), "999999999999999.0");
+        for value in [1e21, -9.3e18, f64::MAX, 1e15, 123_456_789_012_345_680_000.0] {
+            assert_eq!(cpp_double(value).parse::<f64>().ok(), Some(value), "{value} round-trips");
+        }
     }
 }

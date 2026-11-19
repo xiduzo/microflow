@@ -31,6 +31,10 @@ pub struct MqttMessage {
 pub struct BrokerStatus {
     pub id: String,
     pub status: ConnectionStatus,
+    /// Why `status` is `error`, when the user can act on it: the words to show
+    /// them ([`MQTT5_REQUIRED`](super::broker::MQTT5_REQUIRED)). `null` with
+    /// any other status, and for a failure nothing more is known about.
+    pub problem: Option<String>,
 }
 
 /// Every broker's status at one moment, numbered: what `mqtt_sync_brokers`
@@ -47,7 +51,7 @@ pub struct BrokerStatuses {
 
 impl From<&StatusSnapshot> for BrokerStatuses {
     fn from(snapshot: &StatusSnapshot) -> Self {
-        Self { seq: snapshot.seq, brokers: broker_statuses(&snapshot.statuses) }
+        Self { seq: snapshot.seq, brokers: broker_statuses(snapshot) }
     }
 }
 
@@ -202,12 +206,24 @@ pub async fn mqtt_sync_brokers(
 /// Get status of all known brokers
 #[tauri::command]
 pub async fn mqtt_all_statuses(state: State<'_, AppState>) -> Result<Vec<BrokerStatus>, String> {
-    Ok(broker_statuses(&state.mqtt_manager.status_snapshot().await.statuses))
+    Ok(broker_statuses(&state.mqtt_manager.status_snapshot().await))
 }
 
-/// The pool's statuses, as the frontend takes them.
-fn broker_statuses(statuses: &[(String, ConnectionStatus)]) -> Vec<BrokerStatus> {
-    statuses.iter().map(|(id, status)| BrokerStatus { id: id.clone(), status: *status }).collect()
+/// The pool's statuses, each with its problem, as the frontend takes them.
+fn broker_statuses(snapshot: &StatusSnapshot) -> Vec<BrokerStatus> {
+    snapshot
+        .statuses
+        .iter()
+        .map(|(id, status)| BrokerStatus {
+            id: id.clone(),
+            status: *status,
+            problem: snapshot
+                .problems
+                .iter()
+                .find(|(broker, _)| broker == id)
+                .map(|(_, problem)| (*problem).to_string()),
+        })
+        .collect()
 }
 
 /// The webview event that carries the status of every broker the pool knows,

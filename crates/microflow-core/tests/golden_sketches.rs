@@ -351,6 +351,29 @@ fn corpus() -> Vec<Golden> {
             }),
             expect_problems: false,
         },
+        // Function Nodes translated to C++ with JavaScript's semantics: a
+        // numeric body calling every helper, and a boolean one on a Button.
+        Golden::plain(
+            "uno_function",
+            vec![
+                node("sensor-1", "Sensor", json!({ "pin": "A0" })),
+                node(
+                    "fn-1",
+                    "Function",
+                    json!({ "code": "const v = input / 1023 * 10;\nconst r = Math.round(Math.min(v, Math.max(1, 9)));\nreturn (r % 4 || toNumber(v ** 2, 1)) + ensureRange(Math.pow(v, 0.5), 0, 2);" }),
+                ),
+                node("led-1", "Led", json!({ "pin": 9 })),
+                node("btn-1", "Button", json!({ "pin": 2 })),
+                node("fn-2", "Function", json!({ "code": "return !input && isValid(input);" })),
+                node("led-2", "Led", json!({ "pin": 13 })),
+            ],
+            vec![
+                edge("sensor-1", "value", "fn-1", "trigger"),
+                edge("fn-1", "value", "led-1", "value"),
+                edge("btn-1", "value", "fn-2", "trigger"),
+                edge("fn-2", "value", "led-2", "toggle"),
+            ],
+        ),
         // Kitchen sink on the Uno: warnings (Cloud Node without networking,
         // unknown Node placeholder) ride alongside a still-emitted sketch.
         Golden {

@@ -11,6 +11,7 @@ import { listen } from "@tauri-apps/api/event";
 import mqtt from "mqtt";
 
 import { isBrowserReachableBroker } from "@/cloud/broker-url";
+import { brokerProblem } from "@/cloud/mqtt-refusal";
 import {
   useMqttBrokerStore,
   type ConnectionStatus,
@@ -77,14 +78,18 @@ const browserBrokerTransport: BrokerTransport = {
     const client = connect(broker);
     if (!client) return undefined;
 
-    const setStatus = (status: ConnectionStatus) =>
-      useMqttBrokerStore.getState().setStatus(broker.id, status);
+    const setStatus = (status: ConnectionStatus, problem?: string) =>
+      useMqttBrokerStore.getState().setStatus(broker.id, status, problem);
 
     setStatus("connecting");
 
     client.on("connect", () => setStatus("connected"));
-    client.on("error", () => setStatus("error"));
-    client.on("close", () => setStatus("disconnected"));
+    client.on("error", (error) => setStatus("error", brokerProblem(error)));
+    // A broker closes the connection it refused: the status keeps saying why,
+    // until a later attempt connects or fails another way.
+    client.on("close", () => {
+      if (useMqttBrokerStore.getState().problems[broker.id] === undefined) setStatus("disconnected");
+    });
     client.on("message", (topic, payload) =>
       onMessage({ brokerId: broker.id, topic, payload: new TextDecoder().decode(payload) }),
     );
@@ -110,6 +115,9 @@ const browserBrokerTransport: BrokerTransport = {
 function connect(broker: MqttBrokerConfig) {
   try {
     return mqtt.connect(broker.url, {
+      // As the flow's connections speak (`cloud/mqtt-client.ts`), so the
+      // status dot says whether a flow can reach the broker.
+      protocolVersion: 5,
       clientId: `microflow-test-${Math.random().toString(16).slice(2, 10)}`,
       username: broker.username || undefined,
       password: broker.password || undefined,

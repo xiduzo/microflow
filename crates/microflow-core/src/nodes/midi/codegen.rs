@@ -147,11 +147,13 @@ fn emit_out(node: &FlowNode, config: &MidiConfig, inputs: &NodeInputs, e: &mut N
     }
     for (fired, source) in binding.fired.iter().zip(sources) {
         match config.mode {
-            // CC: round the firing sample and clamp it to 0-127, mirror of `Midi::encode`.
+            // CC: round the firing sample and clamp it to 0-127, mirror of
+            // `Midi::encode` — in a double, so a value past an `int` (16 bits
+            // on the AVR) clamps instead of overflowing, and NaN sends 0.
             MidiMode::Cc => e.loop_body.push(format!(
-                "if ({fired}) {{ MIDI.sendControlChange({}, (byte)constrain((int)round({}), 0, 127), {channel}); }}",
-                config.control,
+                "if ({fired}) {{ double midi_{token}_cc = round({}); MIDI.sendControlChange({}, (byte)(midi_{token}_cc > 0.0 ? (midi_{token}_cc < 127.0 ? midi_{token}_cc : 127.0) : 0.0), {channel}); }}",
                 source.value.as_double_or("0.0"),
+                config.control,
             )),
             // Note (and the song degrade): truthy sample → note-on at the
             // configured velocity, falsy → note-off.
@@ -184,10 +186,8 @@ pub(crate) fn output(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
         (MidiMode::Note, "velocity") => {
             Some(SourceExpr::event(CppExpr::number(format!("(double)midi_{token}_velocity")), message))
         }
-        // The runtime keeps `value` = the latest velocity in note mode.
-        (MidiMode::Note, "value") => {
-            Some(SourceExpr::level(CppExpr::number(format!("(double)midi_{token}_velocity"))))
-        }
+        // No `value` in note mode: the live node keeps the velocity as its
+        // value but never emits it there, and the editor does not draw it.
         // `on` and `off` each carry `true`.
         (MidiMode::Note, "on") => {
             Some(SourceExpr::event(CppExpr::boolean(format!("midi_{token}_gate")), format!("midi_{token}_on")))
@@ -273,9 +273,12 @@ mod tests {
             &send_input("pot_p_1_value"),
         ).unwrap();
         let body = e.loop_body.join("\n");
-        assert!(body.contains("sendControlChange(7, (byte)constrain((int)round("), "rounded, clamped CC send: {body}");
+        assert!(body.contains("double midi_m_1_cc = round("), "rounded CC send: {body}");
         assert!(body.contains("pot_p_1_value"), "sends the wired sample: {body}");
-        assert!(body.contains(", 0, 127), 2)"), "clamps to 0-127 on channel 2: {body}");
+        assert!(
+            body.contains("sendControlChange(7, (byte)(midi_m_1_cc > 0.0 ? (midi_m_1_cc < 127.0 ? midi_m_1_cc : 127.0) : 0.0), 2)"),
+            "clamps to 0-127 in a double, on channel 2: {body}"
+        );
         assert!(body.contains("!= midi_m_1_send_prev0"), "sends once per new sample: {body}");
         assert!(e.shared_loop.is_empty(), "out-nodes do not arm the pump");
     }
@@ -301,6 +304,7 @@ mod tests {
         );
         assert_eq!(output(&note_in, "on").map(|s| s.value.code), Some("midi_m_1_gate".into()));
         assert_eq!(output(&note_in, "off").map(|s| s.value.code), Some("!midi_m_1_gate".into()));
+        assert_eq!(output(&note_in, "value"), None, "the live node emits no value in note mode");
 
         let cc_in = midi("m-1", json!({ "direction": "in", "mode": "cc" }));
         assert_eq!(output(&cc_in, "value").map(|s| s.value.code), Some("(double)midi_m_1_value".into()));

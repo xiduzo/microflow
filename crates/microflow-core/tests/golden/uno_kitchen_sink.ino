@@ -12,6 +12,185 @@
 // WiFi credentials (Cloud Nodes)
 const char* wifi_ssid = "";
 const char* wifi_password = "";
+// shared across nodes (deduplicated)
+// x (not negative) as d.ddd...e+x with `precision` digits after the point:
+// its digits into `digits`, its decimal exponent returned.
+int mf_scientific(double x, int precision, char* digits) {
+  char text[64];
+  snprintf(text, sizeof text, "%.*e", precision, x);
+  const char* p = text;
+  int count = 0;
+  for (; *p != 'e'; p++) {
+    if (*p != '.') {
+      digits[count++] = *p;
+    }
+  }
+  return atoi(p + 1);
+}
+double mf_decimal(const char* digits, int count, int exponent) {
+  char text[40];
+  snprintf(text, sizeof text, "%c.%.*se%d", digits[0], count - 1, digits + 1, exponent);
+  return strtod(text, 0);
+}
+// One unit up in the last of `count` digits; the new exponent.
+int mf_step_up(char* digits, int count, int exponent) {
+  int i = count - 1;
+  while (i >= 0 && digits[i] == '9') {
+    digits[i--] = '0';
+  }
+  if (i >= 0) {
+    digits[i]++;
+    return exponent;
+  }
+  digits[0] = '1';
+  return exponent + 1;
+}
+// The live runtime's text of a number (Rust's f64 Display): the fewest
+// digits that read back as the same double, laid out without an exponent.
+String mf_number_text(double x) {
+  if (x != x) {
+    return String("NaN");
+  }
+  if (x - x != x - x) {
+    return String(x < 0 ? "-inf" : "inf");
+  }
+  // The longest text: "-0." and 323 zeros before the 5 of 5e-324.
+  char text[330];
+  int length = 0;
+  if (x < 0 || (x == 0 && 1.0 / x < 0)) {
+    text[length++] = '-';
+    x = -x;
+  }
+  char digits[48];
+  int count = 0;
+  int exponent = 0;
+  // 17 digits always read back: the last pass is the last resort.
+  for (int precision = 0; precision <= 16; precision++) {
+    count = precision + 1;
+    exponent = mf_scientific(x, precision, digits);
+    double read = mf_decimal(digits, count, exponent);
+    if (read == x) {
+      // printf rounds a tie to the even digit; Display writes the upper of
+      // two decimals as near. A tie is x itself ending in that 5.
+      char longer[48];
+      int longer_exponent = mf_scientific(x, precision + 25, longer);
+      bool tie = longer_exponent == exponent && memcmp(longer, digits, count) == 0 && longer[count] == '5';
+      for (int i = count + 1; tie && i < count + 25; i++) {
+        tie = longer[i] == '0';
+      }
+      if (tie) {
+        char up[24];
+        memcpy(up, digits, count);
+        int up_exponent = mf_step_up(up, count, exponent);
+        if (mf_decimal(up, count, up_exponent) == x) {
+          memcpy(digits, up, count);
+          exponent = up_exponent;
+        }
+      }
+      break;
+    }
+    // Next to a power of two the doubles below lie closer together than
+    // those above, so the decimal one step up can read back where the
+    // nearest one does not.
+    if (read < x) {
+      char up[24];
+      memcpy(up, digits, count);
+      int up_exponent = mf_step_up(up, count, exponent);
+      if (mf_decimal(up, count, up_exponent) == x) {
+        memcpy(digits, up, count);
+        exponent = up_exponent;
+        break;
+      }
+    }
+  }
+  while (count > 1 && digits[count - 1] == '0') {
+    count--;
+  }
+  int point = exponent + 1;
+  if (point <= 0) {
+    text[length++] = '0';
+    text[length++] = '.';
+    for (int i = point; i < 0; i++) {
+      text[length++] = '0';
+    }
+    for (int i = 0; i < count; i++) {
+      text[length++] = digits[i];
+    }
+  } else {
+    for (int i = 0; i < count || i < point; i++) {
+      if (i == point) {
+        text[length++] = '.';
+      }
+      text[length++] = i < count ? digits[i] : '0';
+    }
+  }
+  text[length] = '\0';
+  return String(text);
+}
+bool mf_is_digit(char c) {
+  return c >= '0' && c <= '9';
+}
+// `word` in any case.
+bool mf_is_word(const char* text, const char* word) {
+  for (; *word != '\0'; text++, word++) {
+    char c = (*text >= 'A' && *text <= 'Z') ? (char)(*text + 32) : *text;
+    if (c != *word) {
+      return false;
+    }
+  }
+  return *text == '\0';
+}
+// Rust's str::parse::<f64> over the whole text: a decimal, inf, infinity or
+// nan, with an optional sign.
+bool mf_parse_number(const char* text, double& out) {
+  const char* p = text;
+  if (*p == '+' || *p == '-') {
+    p++;
+  }
+  if (!mf_is_word(p, "inf") && !mf_is_word(p, "infinity") && !mf_is_word(p, "nan")) {
+    bool digits = false;
+    for (; mf_is_digit(*p); p++) {
+      digits = true;
+    }
+    if (*p == '.') {
+      for (p++; mf_is_digit(*p); p++) {
+        digits = true;
+      }
+    }
+    if (!digits) {
+      return false;
+    }
+    if (*p == 'e' || *p == 'E') {
+      p++;
+      if (*p == '+' || *p == '-') {
+        p++;
+      }
+      if (!mf_is_digit(*p)) {
+        return false;
+      }
+      while (mf_is_digit(*p)) {
+        p++;
+      }
+    }
+    if (*p != '\0') {
+      return false;
+    }
+  }
+  out = strtod(text, 0);
+  return true;
+}
+// A received Mqtt payload as a number, as the live node reads it: a number,
+// or true (1) or false (0). Any other text carries no number (0).
+double mf_payload_number(const String& payload) {
+  double number = 0.0;
+  if (mf_parse_number(payload.c_str(), number)) {
+    return number;
+  }
+  if (strcmp(payload.c_str(), "true") == 0) {
+    return 1.0;
+  }
+  return 0.0;
+}
 // node btn-1 (Button)
 const uint8_t button_btn_1_pin = 4;
 bool button_btn_1_state = false;
@@ -92,7 +271,7 @@ void loop() {
     mqtt_mqtt_1_ensure_connected();
     mqtt_mqtt_1_client.loop();
     if ((button_btn_1_changed && button_btn_1_state) && mqtt_mqtt_1_client.connected()) {
-      mqtt_mqtt_1_client.publish(mqtt_mqtt_1_topic, (((button_btn_1_state) ? String("true") : String("false"))).c_str());
+      mqtt_mqtt_1_client.publish(mqtt_mqtt_1_topic, ((button_btn_1_state) ? String("true") : String("false")).c_str());
     }
   }
 }

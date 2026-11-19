@@ -65,6 +65,9 @@ export type ConsoleConnection = {
   /** The endpoint, shown under the name. Empty means "not configured yet". */
   subtitle: string;
   status: ConnectionStatusTone;
+  /** Why the status is `error`, when the host knows something the user can
+   *  act on: shown with the status. */
+  problem?: string;
   isDefault?: boolean;
   /** A chip beside the name — a limitation worth seeing before selecting. */
   badge?: ReactNode;
@@ -250,7 +253,7 @@ export function ConnectionConsole({
               >
                 <span
                   className={cn("size-2 rounded-full mt-1.5 shrink-0", STATUS_DOT[connection.status])}
-                  title={STATUS_LABEL[connection.status]}
+                  title={connection.problem ?? STATUS_LABEL[connection.status]}
                 />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1">
@@ -302,6 +305,12 @@ export function ConnectionConsole({
             </IconButton>
           </div>
         </div>
+
+        {selected?.problem && (
+          <p role="status" className="shrink-0 border-b px-4 py-2 text-xs text-destructive">
+            {selected.problem}
+          </p>
+        )}
 
         {showFilter && (
           <div className="shrink-0 border-b px-4 py-2 flex items-center gap-2">

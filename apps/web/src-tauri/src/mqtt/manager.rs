@@ -33,9 +33,10 @@
 //! without every caller of `connect` / `disconnect` having to tell it.
 
 use super::broker::{
-    hold, BrokerConfig, ConnectionStatus, LastWord, MessageCallback, MqttBroker, ReconnectConfig, Subscriber,
-    Subscriptions,
+    problem_of, BrokerConfig, ConnectionStatus, LastWord, MessageCallback, MqttBroker, ReconnectConfig,
+    Subscriber, Subscriptions,
 };
+use super::will_links::WillLinks;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -83,6 +84,9 @@ struct BrokerEntry {
     link: Arc<AtomicU64>,
     /// What to publish before the session is ended on purpose.
     last_words: Vec<LastWord>,
+    /// The links that leave the last words after the first with the broker
+    /// as their wills ([`MqttManager::set_last_words`]).
+    will_links: WillLinks,
 }
 
 /// The pool's clients, by broker id.
@@ -100,30 +104,41 @@ struct Ended(Arc<tokio::sync::Mutex<BrokerEntry>>);
 pub const QUIT_GRACE: Duration = Duration::from_millis(2500);
 
 impl Ended {
-    /// Say the session's last words, if its link is up, and close its client.
+    /// Say the session's last words, if its link is up, and close its client;
+    /// and close its will links, at the same time. Each will link that is up
+    /// says its own goodbye before its DISCONNECT ([`super::will_links`]);
+    /// the main link says the others.
     async fn close(self) {
-        let entry = self.0.lock().await;
-        if !entry.last_words.is_empty() {
-            let client = entry.broker.read().await;
-            if client.status().await == ConnectionStatus::Connected {
-                let saying = async {
-                    for word in &entry.last_words {
-                        client.publish(&word.topic, &word.payload, word.retain).await?;
-                    }
-                    Ok::<(), String>(())
-                };
-                match tokio::time::timeout(LAST_WORDS_TIMEOUT, saying).await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => log::warn!("[MQTT Manager] Broker {} did not take its last words: {e}", entry.config.id),
-                    Err(_) => {
-                        log::warn!("[MQTT Manager] Broker {} took too long over its last words", entry.config.id);
-                        // No DISCONNECT is waited for on it either.
-                        client.link_stalled().await;
+        let mut entry = self.0.lock().await;
+        let (will_links, saying) = entry.will_links.take_all();
+        let words: Vec<LastWord> =
+            entry.last_words.iter().filter(|word| !saying.contains(&word.topic)).cloned().collect();
+        let main = async {
+            if !words.is_empty() {
+                let client = entry.broker.read().await;
+                if client.status().await == ConnectionStatus::Connected {
+                    let saying = async {
+                        for word in &words {
+                            client.publish(&word.topic, &word.payload, word.retain).await?;
+                        }
+                        Ok::<(), String>(())
+                    };
+                    match tokio::time::timeout(LAST_WORDS_TIMEOUT, saying).await {
+                        Ok(Ok(())) => {}
+                        Ok(Err(e)) => {
+                            log::warn!("[MQTT Manager] Broker {} did not take its last words: {e}", entry.config.id);
+                        }
+                        Err(_) => {
+                            log::warn!("[MQTT Manager] Broker {} took too long over its last words", entry.config.id);
+                            // No DISCONNECT is waited for on it either.
+                            client.link_stalled().await;
+                        }
                     }
                 }
             }
-        }
-        entry.broker.write().await.retire().await;
+            entry.broker.write().await.retire().await;
+        };
+        tokio::join!(main, will_links.close());
     }
 }
 
@@ -133,6 +148,9 @@ impl Ended {
 pub struct StatusSnapshot {
     pub seq: u64,
     pub statuses: Vec<(String, ConnectionStatus)>,
+    /// Why a broker's status is `Error`, for the brokers whose failure the
+    /// user can act on ([`problem_of`]), ordered by broker id.
+    pub problems: Vec<(String, &'static str)>,
 }
 
 /// How a connection attempt ended; `None` while it runs.
@@ -151,6 +169,8 @@ struct Wanted {
     /// The last attempt for these settings ended without the broker being
     /// connected, and none has been started since.
     failed: bool,
+    /// Why that attempt failed, when the user can act on it ([`problem_of`]).
+    problem: Option<&'static str>,
     /// What [`MqttManager::stretch`] answers: renewed each time the broker
     /// comes up with these settings.
     stretch: u64,
@@ -202,6 +222,8 @@ struct InFlight {
     /// Whether the attempt left the broker connected. An attempt that is
     /// dropped unfinished did not.
     connected: bool,
+    /// Why it failed, when the user can act on it ([`problem_of`]).
+    problem: Option<&'static str>,
     status_changes: watch::Sender<u64>,
 }
 
@@ -212,6 +234,7 @@ impl Drop for InFlight {
             if wanted.dialing.as_ref().is_some_and(|dialing| dialing.token == self.token) {
                 wanted.dialing = None;
                 wanted.failed = !self.connected;
+                wanted.problem = if self.connected { None } else { self.problem };
             }
         }
         drop(settings);
@@ -409,7 +432,8 @@ impl MqttManager {
         let generation = settings.issue();
         // Replacing the record drops the attempt of the old settings, which
         // gives it up.
-        let wanted = Wanted { generation, config: config.clone(), dialing: None, failed: false, stretch: generation };
+        let wanted =
+            Wanted { generation, config: config.clone(), dialing: None, failed: false, problem: None, stretch: generation };
         settings.brokers.insert(config.id.clone(), wanted);
         drop(settings);
         Self::changed(&self.status_changes);
@@ -473,6 +497,7 @@ impl MqttManager {
             Some(Attempt::Own(outcome, given_up, mut in_flight)) => {
                 let result = self.open_session(config, generation, given_up).await;
                 in_flight.connected = result.is_ok();
+                in_flight.problem = result.as_ref().err().and_then(|e| problem_of(e));
                 // Off its settings before anybody is told how it ended: who
                 // asks for the status then finds the outcome, not the attempt.
                 drop(in_flight);
@@ -495,6 +520,7 @@ impl MqttManager {
         let (stand, given_up) = oneshot::channel();
         wanted.dialing = Some(Dialing { token, outcome: theirs, _given_up: stand });
         wanted.failed = false;
+        wanted.problem = None;
         drop(settings);
         Self::changed(&self.status_changes);
         let in_flight = InFlight {
@@ -502,6 +528,7 @@ impl MqttManager {
             broker_id: broker_id.to_string(),
             token,
             connected: false,
+            problem: None,
             status_changes: self.status_changes.clone(),
         };
         Some(Attempt::Own(outcome, given_up, in_flight))
@@ -595,18 +622,26 @@ impl MqttManager {
         let mut session = self.next_session.fetch_add(1, Ordering::Relaxed);
         let mut held = Subscriptions::new();
         let mut last_words = Vec::new();
+        let mut will_links = WillLinks::default();
         if let Some(old) = brokers.remove(&config.id) {
             let mut old_guard = old.lock().await;
             let retired = old_guard.broker.write().await.retire().await;
             if same_connection(&old_guard.config, &config) {
+                // The will links are links of their own: they go on as they
+                // are, with the session.
                 session = old_guard.session;
                 held = retired;
                 last_words = std::mem::take(&mut old_guard.last_words);
+                will_links = std::mem::take(&mut old_guard.will_links);
+            } else {
+                // A session that ended without its main link's last words:
+                // the will links say theirs.
+                tokio::spawn(old_guard.will_links.take_all().0.close());
             }
         }
         if let Some(topics) = self.console().get(&config.id) {
             for (topic, callback) in topics {
-                hold(&mut held, topic, Subscriber::Console, Arc::clone(callback));
+                held.hold(topic, Subscriber::Console, Arc::clone(callback));
             }
         }
         // Held by the client before the SUBSCRIBEs go out: should one fail,
@@ -622,7 +657,7 @@ impl MqttManager {
         }
 
         link.store(self.links.fetch_add(1, Ordering::SeqCst) + 1, Ordering::SeqCst);
-        let entry = BrokerEntry { config, broker, session, link, last_words };
+        let entry = BrokerEntry { config, broker, session, link, last_words, will_links };
         brokers.insert(entry.config.id.clone(), Arc::new(tokio::sync::Mutex::new(entry)));
         drop(brokers);
 
@@ -752,14 +787,21 @@ impl MqttManager {
     /// repaired link. Saying them is bounded ([`LAST_WORDS_TIMEOUT`]) and
     /// happens with the pool unlocked.
     ///
-    /// **The first of them is also the session's will**: every link of the
-    /// session leaves it with the broker, which publishes it should the link
-    /// end without a goodbye — the app crashed or ran out of its
+    /// **Each of them is also a will**: the broker publishes it should the
+    /// session end without a goodbye — the app crashed or ran out of its
     /// [`QUIT_GRACE`], the machine lost power, the network went. MQTT gives
-    /// a link one will, and fixes it when the link is opened: a link that is
-    /// up and carries another one is replaced by one that carries this
-    /// ([`MqttBroker::renew_link`]), on a task of its own, without the
-    /// session ending or its link going down.
+    /// a link one will, and fixes it when the link is opened.
+    ///
+    /// - **The first** is the will of every link of the session. A link that
+    ///   is up and carries another one is replaced by one that carries this
+    ///   ([`MqttBroker::renew_link`]), on a task of its own, without the
+    ///   session ending or its link going down.
+    /// - **Every further one** is the will of a *will link* of its own: an
+    ///   idle link, opened for it now, that is no part of the session's
+    ///   status ([`super::will_links`]). A will link whose goodbye is no
+    ///   longer left says DISCONNECT — once the main link carries it, when
+    ///   that is where it went — and one whose goodbye changed is replaced
+    ///   before it does.
     pub async fn set_last_words(&self, broker_id: &str, session: u64, words: Vec<LastWord>) {
         let brokers = self.brokers.read().await;
         let Some(entry) = brokers.get(broker_id) else { return };
@@ -768,10 +810,18 @@ impl MqttManager {
             return;
         }
         let will = words.first().cloned();
+        let config = entry_guard.config.clone();
+        let retired = entry_guard.will_links.hold(&words, &config, &self.reconnect);
         entry_guard.last_words = words;
         let client = Arc::clone(&entry_guard.broker);
-        if client.read().await.set_will(will).await {
-            tokio::spawn(MqttBroker::renew_link(client));
+        let renew = client.read().await.set_will(will).await;
+        if renew || !retired.is_empty() {
+            tokio::spawn(async move {
+                if renew {
+                    MqttBroker::renew_link(client).await;
+                }
+                retired.close().await;
+            });
         }
     }
 
@@ -839,23 +889,33 @@ impl MqttManager {
 
     /// [`Self::status`], with the pool locked by the caller.
     async fn status_in(&self, brokers: &Brokers, broker_id: &str) -> ConnectionStatus {
-        // `(an attempt is in flight, the last one failed)`, for a broker that
-        // has settings.
-        let wanted = self.settings().brokers.get(broker_id).map(|wanted| (wanted.dialing.is_some(), wanted.failed));
-        if let Some((true, _)) = wanted {
-            return ConnectionStatus::Connecting;
+        self.report_in(brokers, broker_id).await.0
+    }
+
+    /// [`Self::status`], and why it is `Error` when the user can act on it
+    /// ([`problem_of`]), with the pool locked by the caller.
+    async fn report_in(&self, brokers: &Brokers, broker_id: &str) -> (ConnectionStatus, Option<&'static str>) {
+        // `(an attempt is in flight, the last one failed, why)`, for a broker
+        // that has settings.
+        let wanted = self
+            .settings()
+            .brokers
+            .get(broker_id)
+            .map(|wanted| (wanted.dialing.is_some(), wanted.failed, wanted.problem));
+        if let Some((true, _, _)) = wanted {
+            return (ConnectionStatus::Connecting, None);
         }
         if let Some(entry) = brokers.get(broker_id) {
             let entry_guard = entry.lock().await;
             let broker_guard = entry_guard.broker.read().await;
-            return broker_guard.status().await;
+            return (broker_guard.status().await, broker_guard.problem().await);
         }
         match wanted {
-            Some((_, true)) => ConnectionStatus::Error,
+            Some((_, true, problem)) => (ConnectionStatus::Error, problem),
             // Settings, and nothing tried for them yet: a `connect` is on its
             // way to.
-            Some((_, false)) => ConnectionStatus::Connecting,
-            None => ConnectionStatus::Disconnected,
+            Some((_, false, _)) => (ConnectionStatus::Connecting, None),
+            None => (ConnectionStatus::Disconnected, None),
         }
     }
 
@@ -896,12 +956,27 @@ impl MqttManager {
     /// either order — keeps the one with the highest number.
     pub async fn status_snapshot(&self) -> StatusSnapshot {
         let mut last = self.snapshots.lock().await;
-        let statuses = self.all_statuses().await;
-        if statuses != last.statuses {
+        let reports = self.all_reports().await;
+        let statuses: Vec<(String, ConnectionStatus)> =
+            reports.iter().map(|(id, status, _)| (id.clone(), *status)).collect();
+        let problems: Vec<(String, &'static str)> =
+            reports.into_iter().filter_map(|(id, _, problem)| problem.map(|problem| (id, problem))).collect();
+        if statuses != last.statuses || problems != last.problems {
             last.seq += 1;
             last.statuses = statuses;
+            last.problems = problems;
         }
         last.clone()
+    }
+
+    /// How many will links ([`Self::set_last_words`]) `broker_id`'s session
+    /// has up right now. For diagnostics and tests: it is no part of the
+    /// broker's status.
+    pub async fn will_links_up(&self, broker_id: &str) -> usize {
+        let brokers = self.brokers.read().await;
+        let Some(entry) = brokers.get(broker_id) else { return 0 };
+        let up = entry.lock().await.will_links.up();
+        up
     }
 
     /// The broker's session in the pool, or `None` when the pool holds no
@@ -949,18 +1024,24 @@ impl MqttManager {
     /// The [status](Self::status) of every broker the pool has settings or a
     /// client for, ordered by broker id.
     pub async fn all_statuses(&self) -> Vec<(String, ConnectionStatus)> {
+        self.all_reports().await.into_iter().map(|(id, status, _)| (id, status)).collect()
+    }
+
+    /// [Every broker's status](Self::all_statuses), each with why it is
+    /// `Error` when the user can act on it ([`problem_of`]).
+    async fn all_reports(&self) -> Vec<(String, ConnectionStatus, Option<&'static str>)> {
         let brokers = self.brokers.read().await;
         let mut ids: Vec<String> = self.settings().brokers.keys().cloned().collect();
         ids.extend(brokers.keys().cloned());
         ids.sort();
         ids.dedup();
 
-        let mut statuses = Vec::with_capacity(ids.len());
+        let mut reports = Vec::with_capacity(ids.len());
         for id in ids {
-            let status = self.status_in(&brokers, &id).await;
-            statuses.push((id, status));
+            let (status, problem) = self.report_in(&brokers, &id).await;
+            reports.push((id, status, problem));
         }
-        statuses
+        reports
     }
 
     /// Subscribe `subscriber` to a topic filter on a broker, with its own

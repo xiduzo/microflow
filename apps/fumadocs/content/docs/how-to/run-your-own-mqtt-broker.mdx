@@ -12,7 +12,7 @@ The Figma and Penpot plugins start on a free public MQTT broker, `test.mosquitto
 
 ## Pick a broker
 
-Any broker that speaks MQTT 3.1.1 or 5.0 and offers a WebSocket listener works. The most common picks:
+Studio connects with MQTT 5.0 and the plugins with MQTT 3.1.1, so the broker must speak both and offer a WebSocket listener. These do:
 
 - **[Mosquitto](https://mosquitto.org/)** — small, free, available on every OS. The standard default.
 - **[HiveMQ Community Edition](https://www.hivemq.com/developers/community-edition/)** — Java-based, more features, free for self-hosting.

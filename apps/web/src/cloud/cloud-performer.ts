@@ -54,14 +54,19 @@
 // The announce itself publishes on the connections as they are; only `reach`
 // opens, replaces or closes one.
 //
-// **The first goodbye is the link's will.** A tab that crashes or is killed,
-// a network that goes, a page frozen past the keep-alive says no goodbye. So
-// the first of the goodbyes a broker is to hear (`farewells`) is left with it
-// as the will of the connection's links (`BrokerConnections.setWill`), and the
-// broker publishes it when a link ends without a DISCONNECT. A goodbye said on
-// purpose ends with a DISCONNECT, which drops the will. MQTT gives a link one
-// will: with several Bridge IDs on one broker, only the first (in uid order)
-// is covered. The desktop host leaves the same will (`set_last_words`).
+// **Every goodbye is a will.** A tab that crashes or is killed, a network that
+// goes, a page frozen past the keep-alive says no goodbye. So the goodbyes a
+// broker is to hear (`farewells`) are left with it as wills
+// (`BrokerConnections.setWills`), and the broker publishes them when the links
+// end without a DISCONNECT. MQTT gives a link one will: the first goodbye (in
+// uid order) is the connection link's, and each further Bridge ID announced
+// there has a will link of its own, which carries its goodbye. A goodbye said
+// on purpose ends with a DISCONNECT, which drops the will: the connection's
+// link says the first goodbye, and each will link says its own and then
+// DISCONNECT, on one connection, so the broker cannot drop the will before it
+// has the goodbye. A page that goes away (`pagehide`) says every goodbye on
+// the connection's link and closes no will link: every will stays. The
+// desktop host leaves the same wills (`set_last_words`).
 //
 // **Every new link is told again.** A Bridge ID is announced again on its
 // broker, `connected` and the variables request, once a new link of the
@@ -223,9 +228,9 @@ export class CloudPerformer {
    *  the broker each was told on, and the link. */
   private announced = new Map<string, Said>();
   /** Per broker, what the policy gives for the Bridge IDs announced there
-   *  vanishing: what {@link sayGoodbye} publishes there, and the first of it
-   *  the will of the broker's links. Asked for each time the announce changes
-   *  something, while the policy can still be asked. */
+   *  vanishing: what {@link sayGoodbye} publishes there, and each of it a will
+   *  there. Asked for each time the announce changes something, while the
+   *  policy can still be asked. */
   private readonly farewells = new Map<string, FigmaPublish[]>();
   /** A change to `live` is being made; the announce waits for its end. */
   private settling = false;
@@ -351,7 +356,9 @@ export class CloudPerformer {
    */
   leave(): void {
     if (this.disposed) return;
-    for (const brokerId of [...this.farewells.keys()]) this.sayGoodbye(brokerId);
+    // Every goodbye on the connection's link: a will link that said its own
+    // would close, and with it its will.
+    for (const brokerId of [...this.farewells.keys()]) this.sayGoodbye(brokerId, true);
   }
 
   /** The page came back from the back/forward cache (`pageshow`): announce
@@ -501,14 +508,16 @@ export class CloudPerformer {
    * all the same, see {@link BrokerConnections}), and the Bridge IDs are
    * announced nowhere.
    *
-   * The links keep their will: what it says is true from here on, and a
-   * connection that closes drops it with its DISCONNECT.
+   * The links keep their wills: what they say is true from here on, and a
+   * connection that closes drops them with its DISCONNECTs. A page that goes
+   * away ({@link leave}) leaves them in place, for its sockets to end
+   * without a DISCONNECT.
    */
-  private sayGoodbye(brokerId: string): void {
+  private sayGoodbye(brokerId: string, keepWills = false): void {
     const farewell = this.farewells.get(brokerId) ?? [];
     this.farewells.delete(brokerId);
     try {
-      for (const a of farewell) this.publishStatus(a);
+      for (const a of farewell) this.publishStatus(a, keepWills);
     } finally {
       for (const [uid, said] of this.announced) {
         if (said.brokerId === brokerId) this.announced.delete(uid);
@@ -645,21 +654,27 @@ export class CloudPerformer {
         this.farewells.set(a.brokerId, [...(this.farewells.get(a.brokerId) ?? []), a]);
       }
     }
-    // The first goodbye of each broker is its links' will.
+    // Every goodbye of each broker is a will there: the first its link's, each
+    // other one a will link's.
     for (const brokerId of new Set([...before, ...this.farewells.keys()])) {
-      const first = this.farewells.get(brokerId)?.[0];
-      const will: Will | undefined = first && {
-        topic: first.topic,
-        payload: first.payload,
-        retain: first.retain,
-      };
-      this.brokers.setWill(brokerId, will);
+      const wills: Will[] = (this.farewells.get(brokerId) ?? []).map(({ topic, payload, retain }) => ({
+        topic,
+        payload,
+        retain,
+      }));
+      this.brokers.setWills(brokerId, wills);
     }
   }
 
-  /** Hand one publish of the design-tool handshake to its broker's connection.
-   *  It waits there for a link that is down (see the rule at the top). */
-  private publishStatus(a: FigmaPublish): Published {
+  /** Hand one publish of the design-tool handshake to its broker's
+   *  connection. It waits there for a link that is down (see the rule at the
+   *  top). A goodbye that a will link carries is said by that link, which then
+   *  closes (`BrokerConnections.farewell`), unless the wills are to stay
+   *  (`keepWills`): then every goodbye goes out on the connection's link. */
+  private publishStatus(a: FigmaPublish, keepWills = false): Published {
+    if (!keepWills) {
+      return this.brokers.farewell(a.brokerId, { topic: a.topic, payload: a.payload, retain: a.retain });
+    }
     return this.brokers.publish(a.brokerId, a.topic, new TextEncoder().encode(a.payload), {
       retain: a.retain,
       whenDown: "keep",

@@ -37,7 +37,7 @@ If you make a new ID with the dice button in the plugin, type the same ID into S
 - Use `wss://` for a broker on another computer. The plugin runs inside Figma's HTTPS page, and browsers block unencrypted `ws://` connections from such pages.
 - If you leave out the protocol, the plugin uses `wss://`. If you leave out the port, it uses `8883` for `wss://` and `1883` for `ws://`. If you leave out the path, it uses `/mqtt`.
 
-Studio must connect to the same broker. Add it in Studio under **Configuration → MQTT**. The simplest setup uses the same URL in both tools. Studio in the browser also needs a `ws://` or `wss://` URL.
+Studio must connect to the same broker. Add it in Studio under **Configuration → MQTT**. Studio needs a broker that speaks MQTT 5, while the plugin also works with MQTT 3.1.1. Pick a broker that speaks MQTT 5 (see [the MQTT node](/docs/microflow-studio/nodes/sense/mqtt)). The simplest setup uses the same URL in both tools. Studio in the browser also needs a `ws://` or `wss://` URL.
 
 ## The default broker
 

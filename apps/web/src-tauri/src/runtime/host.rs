@@ -1439,12 +1439,12 @@ mod tests {
         // its topics — the design-tool plugins, told Studio is there — is told
         // it is not, without asking the runtime that panicked for anything.
         let mut rig = Rig::connected();
-        let design = node("fig", "Figma", serde_json::json!({ "brokerId": "b", "uniqueId": "u1" }));
+        let design = node("fig", "Figma", serde_json::json!({ "brokerId": "b", "uniqueId": "uid_1" }));
         rig.send_flow(vec![node("p", "Panicker", serde_json::json!({})), design]).expect("replied").expect("applied");
         assert!(!rig.subscriptions().is_empty(), "the design node's topics are subscribed");
         let status = |rig: &Rig| {
             let published = rig.brokers.published();
-            let last = published.iter().rev().find(|publish| publish.topic == "microflow/u1/app/status");
+            let last = published.iter().rev().find(|publish| publish.topic == "microflow/uid_1/app/status");
             last.map(|publish| String::from_utf8_lossy(&publish.payload).to_string())
         };
         assert_eq!(status(&rig).as_deref(), Some("connected"));
@@ -1463,7 +1463,7 @@ mod tests {
 
         // The restart runs the flow again, and Studio is back.
         assert!(rig.actor.step(ActorMsg::Restart));
-        assert!(!rig.subscriptions().is_empty());
+        assert_ne!(rig.subscriptions(), [] as [String; 0], "the restarted flow subscribes again");
         assert_eq!(status(&rig).as_deref(), Some("connected"));
     }
 

@@ -237,6 +237,38 @@ describe("the status dot the form shows", () => {
   });
 });
 
+describe("why a broker is in error", () => {
+  const problem = "This broker does not speak MQTT 5.";
+
+  test("goes with its status: replaced by the next status, and gone with the broker", () => {
+    const { state } = settings();
+
+    state().setStatus("lab", "error", problem);
+    state().setStatus("home", "error");
+    expect(state().problems).toEqual({ lab: problem });
+
+    state().setStatus("lab", "connecting");
+    expect(state().problems).toEqual({});
+
+    state().setStatuses({ lab: "error", home: "error" }, { home: problem });
+    expect(state().problems).toEqual({ home: problem });
+    state().deleteBroker("home");
+    expect(state().problems).toEqual({});
+  });
+
+  test("is not shown for a broker whose connection settings are typed, and is gone once they settle", () => {
+    const { timers, state } = settings();
+    state().setStatus("lab", "error", problem);
+
+    state().updateBroker("lab", { url: "wss://other.example" });
+    expect(brokerSettingsForm(state()).problems).toEqual({});
+    expect(state().problems).toEqual({ lab: problem });
+
+    timers.advance(BROKER_SETTINGS_SETTLE_MS);
+    expect(state().problems).toEqual({});
+  });
+});
+
 describe("the stored broker settings", () => {
   /** `localStorage`, as far as the store uses it. */
   function memoryStorage() {

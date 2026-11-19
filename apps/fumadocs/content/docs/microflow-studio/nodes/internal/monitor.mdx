@@ -24,6 +24,12 @@ Open the settings panel to configure:
 
 - **type** — **graph** (the default) plots the values over time. **raw** shows the value as it is
 
+## Arduino sketch export
+
+A board has no Studio to show values in. When you export a flow as an Arduino sketch for an ESP32, the Monitor publishes what it shows to the MQTT broker instead, over Wi-Fi, on a topic of its own (`microflow/{uid}/monitor/{node}`). It publishes each time the text of the value changes. The text is what Studio writes: a number as its shortest exact digits without an exponent (`1`, not `1.00`), `true` or `false`, and text as it is.
+
+The node needs a board with Wi-Fi: for a board without it, such as the Uno, generating the sketch gives a warning.
+
 ## Related
 
 - How-to: [Debug with the Monitor node](/docs/how-to/debug-with-monitor-node) — the bisection method.

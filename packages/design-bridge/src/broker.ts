@@ -31,7 +31,9 @@ export type BrokerConnectOptions = {
 
 /**
  * One connection that reconnects by itself. Subscriptions stay in effect
- * across reconnects; a publish while the connection is down is dropped.
+ * across reconnects; a publish while the connection is down is dropped, and so
+ * is one on a topic that is not a topic name (`isTopicName`): a broker would
+ * close the connection over it.
  */
 export interface BrokerConnection extends BridgeMqtt {
   /** Drop the connection without a goodbye, so the broker publishes the last will. */

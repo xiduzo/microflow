@@ -23,7 +23,7 @@ use crate::codegen::wire::{bind_pulses, NodeInputs};
 use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
-/// The C++ `long` variable name holding this device's latest decoded reading.
+/// The C++ `double` variable name holding this device's latest decoded reading.
 #[must_use]
 pub(crate) fn value_var(node: &FlowNode) -> String {
     format!("i2c_{}_value", node.id_token())
@@ -67,10 +67,15 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission,
         format!("Wire.write((uint8_t){register});"),
         format!("Wire.endTransmission({stop_tx});"),
     ];
+    // The fold runs in an unsigned 32-bit accumulator — the width of
+    // `fold_bytes`' `u32`/`i32` on every target, where a `long` is 32 bits on
+    // the AVR and the ESP32 but 64 on a host — and is read as `uint32_t`
+    // (unsigned: 4294967295 for four 0xFF) or `int32_t` (signed).
     let mut collect = vec![
         format!("Wire.requestFrom((uint8_t){addr}, (uint8_t){read_length});"),
-        format!("long {acc} = 0;"),
-        format!("for (uint8_t {i} = 0; {i} < {read_length} && Wire.available(); {i}++) {{"),
+        format!("uint32_t {acc} = 0;"),
+        format!("uint8_t {i} = 0;"),
+        format!("for (; {i} < {read_length} && Wire.available(); {i}++) {{"),
         format!("  uint8_t {b} = Wire.read();"),
     ];
     // The fold transcribed from the descriptor: big-endian shift-or, optionally
@@ -80,9 +85,9 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission,
     // kept the LAST 4 bytes of a long read; the runtime keeps the first 4.)
     let mut fold = Vec::new();
     if sign_extend {
-        fold.push(format!("if ({i} == 0 && ({b} & 0x80)) {{ {acc} = -1; }}"));
+        fold.push(format!("if ({i} == 0 && ({b} & 0x80)) {{ {acc} = 0xFFFFFFFFUL; }}"));
     }
-    fold.push(format!("{acc} = ({acc} << 8) | (long){b};"));
+    fold.push(format!("{acc} = ({acc} << 8) | {b};"));
     if usize::from(read_length) > OutputFormat::FOLD_BYTE_CAP {
         let cap = OutputFormat::FOLD_BYTE_CAP;
         fold = std::iter::once(format!("if ({i} < {cap}) {{"))
@@ -92,7 +97,10 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission,
     }
     collect.extend(fold.into_iter().map(|l| format!("  {l}")));
     collect.push("}".to_string());
-    collect.push(format!("{value} = {acc};"));
+    // A reply shorter than the read is a failed read: the live node keeps its
+    // last value (`on_i2c_reply`), so the board does too.
+    let read_as = if sign_extend { "int32_t" } else { "uint32_t" };
+    collect.push(format!("if ({i} == {read_length}) {{ {value} = (double)({read_as}){acc}; }}"));
 
     // A read is due exactly when the runtime twin would read: once per
     // sampling interval while `autoread` streams, and on any `trigger` pulse —
@@ -101,7 +109,7 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs) -> Result<NodeEmission,
     // device never reads and the value stays at its 0 default, matching the
     // runtime where no continuous read is armed and nothing calls
     // `request_read`.
-    let mut declarations = vec![format!("long {value} = 0;")];
+    let mut declarations = vec![format!("double {value} = 0.0;")];
     let mut loop_body = Vec::new();
     let mut interval_seed = None;
     let binding = bind_pulses(&format!("i2c_{token}_trigger"), inputs.on("trigger"));
@@ -353,6 +361,20 @@ mod tests {
         assert!(!e.loop_body.iter().any(|l| l.contains("< 4) {")), "no guard within the cap");
     }
 
+    /// A reply shorter than the read keeps the last value, as live; a full
+    /// one is read as a 32-bit unsigned or signed number on every target.
+    #[test]
+    fn i2c_a_short_read_keeps_the_last_value() {
+        let e = emit(&i2c("d-1", json!({ "readLength": 2 })), &NodeInputs::default()).unwrap();
+        assert!(
+            e.loop_body.iter().any(|l| l.trim() == "if (i2c_d_1_i == 2) { i2c_d_1_value = (double)(uint32_t)i2c_d_1_acc; }"),
+            "{:?}",
+            e.loop_body
+        );
+        let e = emit(&i2c("d-1", json!({ "output": "signed_int" })), &NodeInputs::default()).unwrap();
+        assert!(e.loop_body.iter().any(|l| l.contains("(double)(int32_t)i2c_d_1_acc")), "{:?}", e.loop_body);
+    }
+
     #[test]
     fn i2c_unsigned_does_not_sign_extend() {
         let e = emit(&i2c("d-1", json!({ "output": "unsigned_int" })), &NodeInputs::default()).unwrap();
@@ -407,7 +429,7 @@ mod tests {
         // runtime where nothing is armed and no trigger source exists.
         let e = emit(&i2c("d-1", json!({ "autoread": false })), &NodeInputs::default()).unwrap();
         assert!(!e.loop_body.iter().any(|l| l.contains("requestFrom")), "must not read");
-        assert_eq!(e.declarations, vec!["long i2c_d_1_value = 0;".to_string()]);
+        assert_eq!(e.declarations, vec!["double i2c_d_1_value = 0.0;".to_string()]);
     }
 
     #[test]

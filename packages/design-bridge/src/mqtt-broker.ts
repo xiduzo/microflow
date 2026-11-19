@@ -4,7 +4,7 @@
  */
 import mqtt from "mqtt";
 import type { BrokerConnector } from "./broker";
-import { topicMatches } from "./topic-filter";
+import { isTopicName, topicMatches } from "./topic-filter";
 
 type Listener = (topic: string, payload: string) => void;
 
@@ -64,6 +64,12 @@ export const mqttBroker: BrokerConnector = ({ url, clientId, username, password,
 
   return {
     publish(topic, payload, options) {
+      // A broker closes the connection of a client that publishes on a topic
+      // that is not a topic name, and every subscription on it goes with it.
+      if (!isTopicName(topic)) {
+        console.error(`[bridge] not published: '${topic}' is not a topic name`);
+        return;
+      }
       if (!live()) return;
       client.publishAsync(topic, payload, options).catch(logError("publish"));
     },

@@ -349,12 +349,15 @@ repairs it.
 `disconnected` of each Bridge ID it announced on a broker
 (`MqttBrokers::set_last_words`). The pool publishes them before the DISCONNECT
 when it ends a session on purpose, if the link is up, within
-`LAST_WORDS_TIMEOUT` (2 s) and with the pool unlocked. The first of them is also
-the session's will, which the broker publishes if the link ends without a
-goodbye. MQTT fixes a link's will when the link opens, so a changed will opens a
-new link that carries it, moves the subscriptions to it, and then disconnects
-the old link. One will per link means only the first Bridge ID on a broker is
-covered.
+`LAST_WORDS_TIMEOUT` (2 s) and with the pool unlocked. Each of them is also a
+will, which the broker publishes if Studio goes without a goodbye. MQTT gives a
+link one will and fixes it when the link opens. The first is the session's
+will, on its main link: a changed will opens a new link that carries it, moves
+the subscriptions to it, and then disconnects the old link. Each further one is
+held by a will link (`mqtt/will_links.rs`): an idle link of its own, with no
+subscriptions, that publishes its goodbye right before its DISCONNECT when its
+Bridge ID leaves or the session ends on purpose. A will link that is up says
+its own goodbye; the main link says those of the will links that are not.
 
 **Status.** The pool ticks whenever a broker's status may have changed.
 `report_broker_statuses` turns the ticks into the `mqtt-broker-status` event,
@@ -390,14 +393,17 @@ recording pool implements in tests. An inbound message returns to the runtime as
 `ActorMsg::Deliver` and is echoed to the webview as `mqtt-message`
 ([ADR-0035](adr/0035-desktop-cloud-performer-owns-subscriptions.md)).
 
-A message reaches every subscription whose filter matches its topic, once each
-(`MqttBroker::topic_matches`). When several filters match, a broker may send
-one copy per filter: further messages with the same topic and payload within
-`COPY_WINDOW` (50 ms) are taken for those copies and dropped. A retained replay
-reaches only a subscriber that has had no message on that topic since it
+The pool speaks MQTT 5. Each filter a client holds has a subscription
+identifier of its own (`Subscriptions` in `mqtt/broker.rs`), kept for as long
+as the filter is held. A message reaches the subscriptions whose identifiers it
+carries and whose filter matches its topic (`MqttBroker::topic_matches`), once
+each, whether the broker sends one copy for all of them or one per filter. A
+message with no identifier, or any message on a link whose CONNACK announced no
+subscription identifiers, reaches every filter its topic matches. A retained
+replay reaches only a subscriber that has had no message on that topic since it
 joined.
 The browser host's `topicMatches` is the same rule: both are held to one case
-table, `apps/web/src/cloud/fixtures/topic-filter.json` (`tests/mqtt_routing.rs`).
+table, `packages/design-bridge/fixtures/topic-filter.json` (`tests/mqtt_routing.rs`).
 A topic with a wildcard is never published.
 
 The Connection Console subscribes on the same pool as a separate subscriber

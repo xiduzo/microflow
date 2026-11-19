@@ -430,15 +430,16 @@ fn wire_inputs<'a>(outputs: &Outputs<'a>) -> Wiring<'a> {
 /// its output is resolved against the Flow — through any chain of Monitors —
 /// and remembered, so that every consumer and the Monitor's own declaration
 /// agree on one type. A Monitor whose chain comes back round to itself shows
-/// nothing along that path.
+/// nothing along that path. A Function's output type follows the code it
+/// runs on its input, so its input is resolved the same way.
 pub(crate) struct Outputs<'a> {
     by_id: BTreeMap<&'a str, &'a FlowNode>,
     /// Every edge as `(target, target_handle, source, source_handle)`,
     /// sorted and deduped: the order sources are wired in.
     edges: BTreeSet<(&'a str, &'a str, &'a str, &'a str)>,
-    /// Each Monitor's shown source, once resolved.
+    /// Each Monitor's shown source (each Function's input), once resolved.
     shown: RefCell<BTreeMap<&'a str, Option<SourceExpr>>>,
-    /// The Monitors being resolved, to break a chain that loops.
+    /// The Monitors and Functions being resolved, to break a chain that loops.
     resolving: RefCell<BTreeSet<&'a str>>,
 }
 
@@ -470,14 +471,25 @@ impl<'a> Outputs<'a> {
             return (handle == "value")
                 .then(|| nodes::monitor::codegen::output(node, self.shown_by(node).as_ref()));
         }
+        if node.node_type.as_deref() == Some("Function") {
+            return (handle == "value")
+                .then(|| nodes::function::codegen::output(node, self.fed_by(node, "trigger").as_ref()));
+        }
         output_expression(node, handle)
     }
 
     /// The source a Monitor shows: the first source wired into its `value`
     /// port that has an on-device value — the one the Monitor's emitter binds.
     pub(crate) fn shown_by(&self, monitor: &FlowNode) -> Option<SourceExpr> {
+        self.fed_by(monitor, "value")
+    }
+
+    /// The first source wired into `target`'s `port` that has an on-device
+    /// value, resolved once per Node (a Monitor's `value`, a Function's
+    /// `trigger`).
+    pub(crate) fn fed_by(&self, target: &FlowNode, port: &'a str) -> Option<SourceExpr> {
         // The Node as the Flow holds it, to key the maps by.
-        let &node = self.by_id.get(monitor.id.as_str())?;
+        let &node = self.by_id.get(target.id.as_str())?;
         let id: &'a str = node.id.as_str();
         if let Some(known) = self.shown.borrow().get(id) {
             return known.clone();
@@ -487,8 +499,8 @@ impl<'a> Outputs<'a> {
         }
         let shown = self
             .edges
-            .range((id, "value", "", "")..)
-            .take_while(|(target, port, _, _)| (*target, *port) == (id, "value"))
+            .range((id, port, "", "")..)
+            .take_while(|(t, p, _, _)| (*t, *p) == (id, port))
             .find_map(|&(_, _, source, handle)| self.of(self.by_id.get(source)?, handle));
         self.resolving.borrow_mut().remove(id);
         self.shown.borrow_mut().insert(id, shown.clone());
@@ -603,9 +615,6 @@ fn output_expression(node: &FlowNode, handle: &str) -> Option<SourceExpr> {
         Some("RangeMap") => nodes::range_map::codegen::output(node, handle),
         Some("Smooth") if handle == "value" => {
             Some(SourceExpr::level(CppExpr::number(nodes::smooth::codegen::value_var(node))))
-        }
-        Some("Function") if handle == "value" => {
-            Some(SourceExpr::level(CppExpr::number(nodes::function::codegen::value_var(node))))
         }
         // Delay re-emits its stored payload on `event` when the timer fires.
         Some("Delay") if handle == "event" => Some(SourceExpr::event(

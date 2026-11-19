@@ -18,4 +18,5 @@
 //! the connect logic; the `WiFi` setup itself is reused from
 //! [`crate::codegen::credentials`] rather than re-emitted here.
 
+pub mod payload;
 pub mod transport;

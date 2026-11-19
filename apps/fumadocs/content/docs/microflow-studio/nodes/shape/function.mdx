@@ -21,7 +21,7 @@ function trigger(input: unknown) {
 
 ## Output
 
-- **value** (right handle) — emits whatever your function returns
+- **value** (right handle) — emits what your function returns, each time the result differs from the value the node holds. The node starts at `0`, so a first `true` or `false` is always sent.
 
 ## Settings
 
@@ -111,6 +111,34 @@ Two limits stop runaway code from freezing the runtime:
 - **Recursion:** functions can nest at most 512 calls deep.
 
 Past a limit, your code throws an error. If your code throws an error, the node's output keeps its last successful value and nothing new is sent, so the rest of the flow keeps running.
+
+## On the board
+
+When you export a flow as an Arduino sketch, the Function node's code is translated to C++. The board runs a subset of JavaScript, with JavaScript's rules:
+
+- `const`, `let` and `var` bindings, then one `return`. Separate statements with `;` or a line break.
+- `input`, when it is a number or `true`/`false`, and any name bound before.
+- Decimal numbers (`5`, `2.5`, `.5`, `1e3`), `true` and `false`.
+- `+ - * / % **`, unary `- + !`, `> < >= <= == != === !==`, `&&`, `||`, `? :` and parentheses.
+- `Math.floor`, `ceil`, `round`, `abs`, `sqrt`, `pow`, `min` and `max`, and the helpers `toNumber`, `toBool`, `isValid` and `ensureRange`.
+
+These behave as in Studio: `&&` and `||` give back one of their operands, `%` keeps the sign of the left side, `Math.round` rounds a half up, `NaN` counts as false, `Math.min` and `Math.max` take any number of arguments, and `===` between a number and a boolean is `false`.
+
+The board does not run other code. That includes:
+
+- an `input` that is text, a colour or a list;
+- a result that is a number for some inputs and `true`/`false` for others;
+- numbers such as `010` or `0x10`;
+- `++` and `--`;
+- a name declared twice;
+- a line break right after `return`;
+- loops, objects, functions, text, block comments, `{{var}}` template variables and other calls.
+
+For such code, generating the sketch gives a warning that names the reason, and the sketch has a note in its place. On the board the node then never runs and never emits.
+
+Only the first node connected to **trigger** is used on the board. Other connections are left out, with a note in the generated code.
+
+On AVR boards, such as the Uno, a number is a 32-bit float. Results agree with Studio to about seven digits.
 
 ## Related
 

@@ -28,6 +28,7 @@ const TRAP = "unreachable executed";
 /** A broker connection whose broker accepts every topic, and what reached it. */
 class StubClient {
   connected = false;
+  readonly subscriptionIds = true;
   readonly wire: string[] = [];
   /** The will every link of this client carries. */
   constructor(readonly will: Will | undefined) {}
@@ -35,7 +36,7 @@ class StubClient {
   on(event: string, handler: () => void): void {
     if (event === "connect") this.connectListeners.push(handler);
   }
-  subscribe(topic: string, callback: (error?: Error | null) => void): void {
+  subscribe(topic: string, _id: number | undefined, callback: (error?: Error | null) => void): void {
     this.wire.push(`SUBSCRIBE ${topic}`);
     callback(null);
   }

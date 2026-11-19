@@ -38,6 +38,7 @@
 //! input yields byte-identical output (determinism invariant).
 
 use super::config::MqttConfig;
+use crate::codegen::cloud::payload::{mqtt_payload, NUMBER_TEXT};
 use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
@@ -234,8 +235,8 @@ pub(crate) fn emit(
         for (fired, source) in binding.fired.iter().zip(sources) {
             loop_body.push(format!("if ({fired} && {mqtt_client}.connected()) {{"));
             loop_body.push(format!(
-                "  {mqtt_client}.publish({topic_var}, ({}).c_str());",
-                source.value.as_string()
+                "  {mqtt_client}.publish({topic_var}, {}.c_str());",
+                mqtt_payload(&source.value)
             ));
             loop_body.push("}".to_string());
         }
@@ -243,6 +244,8 @@ pub(crate) fn emit(
 
     Ok(NodeEmission {
         includes: includes(),
+        // The live node's text of a number, for a payload sent or received.
+        shared_declarations: vec![NUMBER_TEXT.to_string()],
         declarations,
         setup,
         loop_body,
@@ -250,17 +253,17 @@ pub(crate) fn emit(
     })
 }
 
-/// What downstream Nodes read from a subscribe Mqtt Node: the latest inbound
-/// message parsed as a number (`toFloat`), mirroring the live component's
-/// numeric payload parse — the common case for sensor data over MQTT — on
-/// each tick a message arrives. Publish Nodes expose no readable value.
+/// What downstream Nodes read from a subscribe Mqtt Node, on each tick a
+/// message arrives: the latest message as a number, read as the live node
+/// reads it (`str::parse::<f64>`, then `true` 1 and `false` 0; other text
+/// carries no number, 0). Publish Nodes expose no readable value.
 #[must_use]
 pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     if resolve::<MqttConfig>(&node.data).ok()?.is_publish() {
         return None;
     }
     let token = node.id_token();
-    Some(SourceExpr::event(CppExpr::number(format!("mqtt_{token}_value.toFloat()")), received_var(&token)))
+    Some(SourceExpr::event(CppExpr::number(format!("mf_payload_number(mqtt_{token}_value)")), received_var(&token)))
 }
 
 /// True on the tick a subscribe Node's message arrived.
@@ -352,7 +355,7 @@ mod tests {
         assert!(decls.contains("mqtt_m_1_value"), "buffers the inbound message");
         assert_eq!(
             output(&n).map(|s| s.value.code),
-            Some("mqtt_m_1_value.toFloat()".to_string())
+            Some("mf_payload_number(mqtt_m_1_value)".to_string())
         );
     }
 
@@ -373,6 +376,20 @@ mod tests {
         );
         // Publish Nodes expose no readable value.
         assert!(output(&n).is_none());
+    }
+
+    /// A number goes on the wire as the live node writes it (Rust's `f64`
+    /// Display), not as Arduino's two-decimal `String(double)`.
+    #[test]
+    fn a_published_number_is_written_as_the_live_node_writes_it() {
+        let n = mqtt("m-1", json!({ "broker": "b", "topic": "t", "wifiSsid": "net", "direction": "publish" }));
+        let e = emit(&n, &trigger_input("v"));
+        assert!(
+            joined(&e.loop_body).contains("publish(mqtt_m_1_topic, mf_number_text((double)(v)).c_str())"),
+            "{:?}",
+            e.loop_body
+        );
+        assert_eq!(e.shared_declarations, [NUMBER_TEXT.to_string()]);
     }
 
     /// Scenario: the loop maintains the connection (reconnect on drop) without

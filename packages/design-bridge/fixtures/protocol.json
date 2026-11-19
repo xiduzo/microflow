@@ -29,7 +29,14 @@
     { "topic": "microflow/+/app/variable/1-2/set", "uid": null },
     { "topic": "microflow/swift+fox/figma/variables", "uid": null },
     { "topic": "microflow/#/figma/status", "uid": null },
-    { "topic": "microflow/swift_fox/+/status", "uid": "swift_fox" }
+    { "topic": "microflow/swift_fox/+/status", "uid": "swift_fox" },
+    { "topic": "microflow/abcde/figma/status", "uid": "abcde" },
+    { "topic": "microflow/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/figma/status", "uid": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
+    { "topic": "microflow/fox/figma/status", "uid": null },
+    { "topic": "microflow/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/figma/status", "uid": null },
+    { "topic": "microflow/swift fox/figma/status", "uid": null },
+    { "topic": "microflow/swift.fox/app/variable/1-2/set", "uid": null },
+    { "topic": "microflow/swift_fox\u0000/figma/status", "uid": null }
   ],
   "coerce": [
     { "type": "BOOLEAN", "payload": "true", "value": true },
@@ -88,7 +95,12 @@
     { "id": "sander boer", "valid": false },
     { "id": "a/b/c/d/e", "valid": false },
     { "id": "plus+sign", "valid": false },
-    { "id": "hash#tag1", "valid": false }
+    { "id": "hash#tag1", "valid": false },
+    { "id": "abcde", "valid": true },
+    { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": true },
+    { "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "valid": false },
+    { "id": "swift.fox", "valid": false },
+    { "id": "", "valid": false }
   ],
   "bridgeIdsFromNames": [
     { "name": "xiduzo", "id": "xiduzo" },

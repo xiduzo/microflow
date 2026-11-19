@@ -63,15 +63,25 @@ pub fn published(connection: usize, topic: &str, payload: &str, retain: bool) ->
 /// matches, flagged; a live publish goes out unflagged. A client's PUBLISH with
 /// RETAIN sets its topic's retained message, an empty one clears it.
 ///
-/// A live publish goes to every open connection, whatever it subscribed:
-/// routing by filter is the client's side, which is what these tests are
-/// about. Once a connection, at least: after
-/// [`copy_per_subscription`](Self::copy_per_subscription) a connection gets
-/// one copy for each of its filters that match the topic, as MQTT 5 §3.3.4
-/// allows and mosquitto 2 does.
+/// A live publish goes to every open connection that holds a filter matching
+/// its topic, tagged with the subscription identifiers of those filters
+/// (MQTT 5 §3.3.4) — by default one copy carrying all of them, as `HiveMQ`
+/// does; after [`copy_per_subscription`](Self::copy_per_subscription) one copy
+/// per matching filter, each carrying its own identifier, as mosquitto 2 does;
+/// after [`tag_nothing`](Self::tag_nothing) one copy carrying none, as a
+/// broker with a bug would. A retained replay carries the identifier of the
+/// filter whose SUBSCRIBE asked for it.
+///
+/// It keeps the will of every connection's CONNECT, and publishes it — notes
+/// it in [`wills_said`](Self::wills_said) — when the connection ends without a
+/// DISCONNECT.
 ///
 /// A client that publishes on a topic that is not a topic name (a wildcard in
 /// it, or empty) has its connection closed, as a broker must (MQTT 5 §4.13).
+///
+/// After [`speak_only_3_1_1`](Self::speak_only_3_1_1) it is a broker that speaks
+/// MQTT 3.1.1 only, and refuses every MQTT 5 CONNECT the way a [`Refusal`]
+/// says.
 pub struct FakeBroker {
     addr: SocketAddr,
     seen: Arc<Mutex<Vec<Seen>>>,
@@ -80,12 +90,20 @@ pub struct FakeBroker {
     cut: watch::Sender<u64>,
     /// `(topic, payload)` to send to every open connection.
     outbound: broadcast::Sender<(String, Vec<u8>)>,
-    /// While set, a live publish goes out once per matching filter.
-    copies: watch::Sender<bool>,
+    /// How a live publish is sent to a connection with matching filters.
+    copies: watch::Sender<Delivery>,
+    /// Every SUBSCRIBE: `(connection, filter, subscription identifier)`.
+    ids: SubscriptionIds,
+    /// The will of each open connection that has one.
+    wills_held: Arc<Mutex<BTreeMap<usize, Will>>>,
+    /// The wills published, by connection: each ended without a DISCONNECT.
+    wills_said: Arc<Mutex<Vec<(usize, Will)>>>,
     /// The retained message of each topic.
     retained: Arc<Mutex<BTreeMap<String, Vec<u8>>>>,
     /// While set, a CONNECT gets no answer.
     silent: watch::Sender<bool>,
+    /// While set, a CONNECT is refused this way.
+    refusal: watch::Sender<Option<Refusal>>,
     /// The connections that are answered although the broker is silent.
     let_through: watch::Sender<BTreeSet<usize>>,
     /// While set, nothing a client sends is read.
@@ -110,7 +128,13 @@ impl FakeBroker {
         let (cut, _) = watch::channel(0);
         let (outbound, _) = broadcast::channel(16);
         let (silent, _) = watch::channel(false);
-        let (copies, _) = watch::channel(false);
+        let (refusal, _) = watch::channel(None);
+        let (copies, _) = watch::channel(Delivery::OneForAll);
+        let ids = Arc::new(Mutex::new(Vec::new()));
+        let wills_held = Arc::new(Mutex::new(BTreeMap::new()));
+        let wills_said = Arc::new(Mutex::new(Vec::new()));
+        let (accept_ids, accept_wills_held, accept_wills_said) =
+            (Arc::clone(&ids), Arc::clone(&wills_held), Arc::clone(&wills_said));
         let (let_through, _) = watch::channel(BTreeSet::new());
         let (deaf, _) = watch::channel(false);
         let open = Arc::new(AtomicUsize::new(0));
@@ -121,6 +145,7 @@ impl FakeBroker {
         let (accept_cut, accept_outbound, accept_silent) = (cut.clone(), outbound.clone(), silent.clone());
         let (accept_let_through, accept_deaf, accept_copies) = (let_through.clone(), deaf.clone(), copies.clone());
         let (accept_open, accept_waiting) = (Arc::clone(&open), Arc::clone(&waiting));
+        let accept_refusal = refusal.clone();
         let (accept_held, accept_taken) = (Arc::clone(&held), Arc::clone(&taken));
         tokio::spawn(async move {
             let mut connection = 0;
@@ -135,8 +160,14 @@ impl FakeBroker {
                     cut: accept_cut.subscribe(),
                     outbound: accept_outbound.subscribe(),
                     copies: accept_copies.subscribe(),
-                    filters: BTreeSet::new(),
+                    ids: Arc::clone(&accept_ids),
+                    wills_held: Arc::clone(&accept_wills_held),
+                    wills_said: Arc::clone(&accept_wills_said),
+                    will: None,
+                    goodbye: false,
+                    filters: BTreeMap::new(),
                     silent: accept_silent.subscribe(),
+                    refusal: accept_refusal.subscribe(),
                     let_through: accept_let_through.subscribe(),
                     deaf: accept_deaf.subscribe(),
                     open: Arc::clone(&accept_open),
@@ -146,13 +177,71 @@ impl FakeBroker {
                 tokio::spawn(link.serve(stream));
             }
         });
-        Self { addr, seen, heard, cut, outbound, copies, retained, silent, let_through, deaf, open, waiting, held, taken }
+        Self {
+            addr,
+            seen,
+            heard,
+            cut,
+            outbound,
+            copies,
+            ids,
+            wills_held,
+            wills_said,
+            retained,
+            silent,
+            refusal,
+            let_through,
+            deaf,
+            open,
+            waiting,
+            held,
+            taken,
+        }
     }
 
     /// From here on, send a live publish to a connection once for each of its
-    /// filters that match the topic (and still once to one with none).
+    /// filters that match the topic, each copy tagged with that filter's
+    /// subscription identifier (mosquitto 2, EMQX).
     pub fn copy_per_subscription(&self) {
-        self.copies.send_replace(true);
+        self.copies.send_replace(Delivery::PerSubscription);
+    }
+
+    /// From here on, send a live publish to a connection once, tagged with no
+    /// subscription identifier at all.
+    pub fn tag_nothing(&self) {
+        self.copies.send_replace(Delivery::Untagged);
+    }
+
+    /// Every SUBSCRIBE so far: `(connection, filter, subscription identifier)`.
+    pub fn subscription_ids(&self) -> Vec<(usize, String, Option<u32>)> {
+        self.ids.lock().unwrap().clone()
+    }
+
+    /// The wills the open connections leave with the broker, by connection.
+    pub fn wills_held(&self) -> BTreeMap<usize, Will> {
+        self.wills_held.lock().unwrap().clone()
+    }
+
+    /// The wills the broker published, by connection: their connection ended
+    /// without a DISCONNECT.
+    pub fn wills_said(&self) -> Vec<(usize, Will)> {
+        self.wills_said.lock().unwrap().clone()
+    }
+
+    /// Poll until the open connections hold exactly `wills`, in any order.
+    pub async fn wait_until_wills_held(&self, wills: &[Will]) {
+        let mut wanted = wills.to_vec();
+        wanted.sort();
+        let deadline = tokio::time::Instant::now() + PATIENCE;
+        loop {
+            let mut held: Vec<Will> = self.wills_held().into_values().collect();
+            held.sort();
+            if held == wanted {
+                return;
+            }
+            assert!(tokio::time::Instant::now() < deadline, "the broker holds the wills {:?}", self.wills_held());
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
     }
 
     pub fn config(&self) -> BrokerConfig {
@@ -177,6 +266,17 @@ impl FakeBroker {
     /// host that is there and says nothing.
     pub fn go_silent(&self) {
         self.silent.send_replace(true);
+    }
+
+    /// From here on, speak MQTT 3.1.1 only: refuse every MQTT 5 CONNECT the
+    /// way `refusal` says, and close its connection.
+    pub fn speak_only_3_1_1(&self, refusal: Refusal) {
+        self.refusal.send_replace(Some(refusal));
+    }
+
+    /// Speak MQTT 5 again: accept every CONNECT from here on.
+    pub fn speak_mqtt_5(&self) {
+        self.refusal.send_replace(None);
     }
 
     /// Answer again: the connections whose client is still waiting for its
@@ -283,6 +383,45 @@ impl FakeBroker {
     }
 }
 
+/// How a broker that speaks only MQTT 3.1.1 refuses an MQTT 5 CONNECT, before
+/// it closes the connection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// MQTT 3.1.1's CONNACK: session present 0, return code 1, "unacceptable
+    /// protocol version" (MQTT 3.1.1 §3.2.2.3).
+    Connack311,
+    /// MQTT 5's CONNACK: session present 0, reason code 0x84, "Unsupported
+    /// Protocol Version", no properties (MQTT 5 §3.2.2.2).
+    Connack5,
+    /// No CONNACK at all.
+    Close,
+}
+
+impl Refusal {
+    /// What the broker sends before it closes the connection.
+    fn connack(self) -> &'static [u8] {
+        match self {
+            Self::Connack311 => &[0x20, 0x02, 0x00, 0x01],
+            Self::Connack5 => &[0x20, 0x03, 0x00, 0x84, 0x00],
+            Self::Close => &[],
+        }
+    }
+}
+
+/// Every SUBSCRIBE a broker read: `(connection, filter, subscription identifier)`.
+type SubscriptionIds = Arc<Mutex<Vec<(usize, String, Option<u32>)>>>;
+
+/// How a live publish goes to a connection that holds matching filters.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Delivery {
+    /// One copy, carrying the identifier of every matching filter.
+    OneForAll,
+    /// One copy per matching filter, carrying that filter's identifier.
+    PerSubscription,
+    /// One copy, carrying no identifier.
+    Untagged,
+}
+
 /// One connection to the [`FakeBroker`].
 struct Link {
     connection: usize,
@@ -291,10 +430,19 @@ struct Link {
     retained: Arc<Mutex<BTreeMap<String, Vec<u8>>>>,
     cut: watch::Receiver<u64>,
     outbound: broadcast::Receiver<(String, Vec<u8>)>,
-    copies: watch::Receiver<bool>,
-    /// The topic filters this connection subscribed and still holds.
-    filters: BTreeSet<String>,
+    copies: watch::Receiver<Delivery>,
+    ids: SubscriptionIds,
+    wills_held: Arc<Mutex<BTreeMap<usize, Will>>>,
+    wills_said: Arc<Mutex<Vec<(usize, Will)>>>,
+    /// The will this connection's CONNECT carried.
+    will: Option<Will>,
+    /// The client said DISCONNECT.
+    goodbye: bool,
+    /// The topic filters this connection subscribed and still holds, with
+    /// their subscription identifiers.
+    filters: BTreeMap<String, Option<u32>>,
     silent: watch::Receiver<bool>,
+    refusal: watch::Receiver<Option<Refusal>>,
     let_through: watch::Receiver<BTreeSet<usize>>,
     deaf: watch::Receiver<bool>,
     open: Arc<AtomicUsize>,
@@ -309,6 +457,12 @@ impl Link {
         let mut connected = false;
         self.run(stream, &mut connected).await;
         if connected {
+            if let Some(will) = self.will.take() {
+                self.wills_held.lock().unwrap().remove(&self.connection);
+                if !self.goodbye {
+                    self.wills_said.lock().unwrap().push((self.connection, will));
+                }
+            }
             self.open.fetch_sub(1, Ordering::SeqCst);
         }
     }
@@ -335,9 +489,8 @@ impl Link {
                 _ = self.deaf.changed() => continue,
                 message = self.outbound.recv() => {
                     let Ok((topic, payload)) = message else { return };
-                    let matching = self.filters.iter().filter(|filter| filter_matches(filter, &topic)).count();
-                    let copies = if *self.copies.borrow() { matching.max(1) } else { 1 };
-                    if stream.write_all(&publish_packet(&topic, &payload, false).repeat(copies)).await.is_err() {
+                    let packets = self.deliveries(&topic, &payload);
+                    if stream.write_all(&packets).await.is_err() {
                         return;
                     }
                     continue;
@@ -351,6 +504,11 @@ impl Link {
                 // A silent broker holds the connection, and answers it when it
                 // speaks again — if the client is still there.
                 0x10 => {
+                    let refusal = *self.refusal.borrow();
+                    if let Some(refusal) = refusal {
+                        let _ = stream.write_all(refusal.connack()).await;
+                        return;
+                    }
                     if *self.silent.borrow() {
                         self.waiting.fetch_add(1, Ordering::SeqCst);
                         self.held.fetch_add(1, Ordering::SeqCst);
@@ -368,6 +526,10 @@ impl Link {
                         if !still_there {
                             return;
                         }
+                    }
+                    self.will = will_of(&body);
+                    if let Some(will) = &self.will {
+                        self.wills_held.lock().unwrap().insert(self.connection, will.clone());
                     }
                     self.see(Seen::Connected(self.connection));
                     self.open.fetch_add(1, Ordering::SeqCst);
@@ -397,17 +559,7 @@ impl Link {
                 }
                 // SUBSCRIBE → SUBACK (packet id, no properties, granted QoS 0),
                 // then the retained messages the filter matches, flagged.
-                0x80 => {
-                    let filter = first_topic(&body);
-                    reply.extend([0x90, 0x04, body[0], body[1], 0x00, 0x00]);
-                    for (topic, payload) in self.retained.lock().unwrap().iter() {
-                        if filter_matches(&filter, topic) {
-                            reply.extend(publish_packet(topic, payload, true));
-                        }
-                    }
-                    self.filters.insert(filter.clone());
-                    self.see(Seen::Subscribed { connection: self.connection, topic: filter });
-                }
+                0x80 => reply.extend(self.subscribe(&body)),
                 // UNSUBSCRIBE → UNSUBACK.
                 0xA0 => {
                     let filter = first_topic(&body);
@@ -419,6 +571,7 @@ impl Link {
                 0xC0 => reply.extend([0xD0, 0x00]),
                 // DISCONNECT.
                 0xE0 => {
+                    self.goodbye = true;
                     self.hear(Heard::Disconnected(self.connection));
                     return;
                 }
@@ -427,6 +580,47 @@ impl Link {
             if stream.write_all(&reply).await.is_err() {
                 return;
             }
+        }
+    }
+
+    /// Take the SUBSCRIBE in `body`: the SUBACK, then the retained messages
+    /// its filter matches, flagged and tagged with its subscription
+    /// identifier.
+    fn subscribe(&mut self, body: &[u8]) -> Vec<u8> {
+        let (filter, id) = subscription(body);
+        let mut reply = vec![0x90, 0x04, body[0], body[1], 0x00, 0x00];
+        let ids: Vec<u32> = id.into_iter().collect();
+        for (topic, payload) in self.retained.lock().unwrap().iter() {
+            if filter_matches(&filter, topic) {
+                reply.extend(publish_packet(topic, payload, true, &ids));
+            }
+        }
+        self.filters.insert(filter.clone(), id);
+        self.ids.lock().unwrap().push((self.connection, filter.clone(), id));
+        self.see(Seen::Subscribed { connection: self.connection, topic: filter });
+        reply
+    }
+
+    /// What a live publish of `payload` on `topic` sends this connection:
+    /// nothing when none of its filters match, otherwise the copies
+    /// [`Delivery`] says, tagged as it says.
+    fn deliveries(&self, topic: &str, payload: &[u8]) -> Vec<u8> {
+        let matching: Vec<Option<u32>> =
+            self.filters.iter().filter(|(filter, _)| filter_matches(filter, topic)).map(|(_, id)| *id).collect();
+        if matching.is_empty() {
+            return Vec::new();
+        }
+        let delivery = *self.copies.borrow();
+        match delivery {
+            Delivery::OneForAll => {
+                let ids: Vec<u32> = matching.iter().flatten().copied().collect();
+                publish_packet(topic, payload, false, &ids)
+            }
+            Delivery::PerSubscription => matching
+                .iter()
+                .flat_map(|id| publish_packet(topic, payload, false, &id.iter().copied().collect::<Vec<_>>()))
+                .collect(),
+            Delivery::Untagged => publish_packet(topic, payload, false, &[]),
         }
     }
 
@@ -440,10 +634,64 @@ impl Link {
 }
 
 /// The first topic filter of a SUBSCRIBE or UNSUBSCRIBE body: packet id (2),
-/// property length (1, zero), then the filter as a length-prefixed string.
+/// properties (their length as a variable byte integer, then that many
+/// bytes), then the filter as a length-prefixed string.
 pub fn first_topic(body: &[u8]) -> String {
-    let length = usize::from(u16::from_be_bytes([body[3], body[4]]));
-    String::from_utf8_lossy(&body[5..5 + length]).to_string()
+    subscription(body).0
+}
+
+/// The first topic filter of a SUBSCRIBE (or UNSUBSCRIBE) body, and the
+/// subscription identifier among its properties (MQTT 5 §3.8.2.1.2), if it
+/// has one.
+pub fn subscription(body: &[u8]) -> (String, Option<u32>) {
+    let mut at = 2;
+    let properties = variable_integer(body, &mut at);
+    let end = at + properties;
+    let mut id = None;
+    while at < end {
+        let property = body[at];
+        at += 1;
+        match property {
+            0x0B => id = Some(u32::try_from(variable_integer(body, &mut at)).expect("an identifier")),
+            // A user property: two length-prefixed strings.
+            0x26 => {
+                for _ in 0..2 {
+                    at += 2 + usize::from(u16::from_be_bytes([body[at], body[at + 1]]));
+                }
+            }
+            other => panic!("a SUBSCRIBE property the fake broker does not know: {other:#x}"),
+        }
+    }
+    let length = usize::from(u16::from_be_bytes([body[end], body[end + 1]]));
+    (String::from_utf8_lossy(&body[end + 2..end + 2 + length]).to_string(), id)
+}
+
+/// A variable byte integer at `at` in `bytes`, moving `at` past it.
+fn variable_integer(bytes: &[u8], at: &mut usize) -> usize {
+    let (mut value, mut shift) = (0usize, 0);
+    loop {
+        let byte = bytes[*at];
+        *at += 1;
+        value |= usize::from(byte & 0x7F) << shift;
+        if byte & 0x80 == 0 {
+            return value;
+        }
+        shift += 7;
+    }
+}
+
+/// `value` as a variable byte integer.
+fn encode_variable_integer(mut value: usize) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    loop {
+        let byte = u8::try_from(value % 128).expect("below 128");
+        value /= 128;
+        if value == 0 {
+            bytes.push(byte);
+            return bytes;
+        }
+        bytes.push(byte | 0x80);
+    }
 }
 
 /// The topic and payload of a client's PUBLISH at `QoS` 0: the topic as a
@@ -477,15 +725,23 @@ pub fn filter_matches(filter: &str, topic: &str) -> bool {
 }
 
 /// A PUBLISH at `QoS` 0, with or without the RETAIN flag: topic as a
-/// length-prefixed string, no properties, payload. Short enough here for a
-/// one-byte remaining length.
-pub fn publish_packet(topic: &str, payload: &[u8], retain: bool) -> Vec<u8> {
-    let remaining = 2 + topic.len() + 1 + payload.len();
-    let mut packet = vec![0x30 | u8::from(retain), u8::try_from(remaining).expect("a short test packet")];
-    packet.extend_from_slice(&u16::try_from(topic.len()).expect("a short topic").to_be_bytes());
-    packet.extend_from_slice(topic.as_bytes());
-    packet.push(0x00);
-    packet.extend_from_slice(payload);
+/// length-prefixed string, a subscription identifier property for each of
+/// `ids`, payload.
+pub fn publish_packet(topic: &str, payload: &[u8], retain: bool, ids: &[u32]) -> Vec<u8> {
+    let mut properties = Vec::new();
+    for id in ids {
+        properties.push(0x0B);
+        properties.extend(encode_variable_integer(usize::try_from(*id).expect("an identifier")));
+    }
+    let mut body = Vec::new();
+    body.extend_from_slice(&u16::try_from(topic.len()).expect("a short topic").to_be_bytes());
+    body.extend_from_slice(topic.as_bytes());
+    body.extend(encode_variable_integer(properties.len()));
+    body.extend(properties);
+    body.extend_from_slice(payload);
+    let mut packet = vec![0x30 | u8::from(retain)];
+    packet.extend(encode_variable_integer(body.len()));
+    packet.extend(body);
     packet
 }
 

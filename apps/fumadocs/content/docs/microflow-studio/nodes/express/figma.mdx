@@ -65,10 +65,11 @@ A value that does not fit the variable's type is dropped.
 
 ## Arduino sketch export
 
-When you export a flow as an Arduino sketch for an ESP32, the sketch connects to the broker itself over Wi-Fi.
+When you export a flow as an Arduino sketch for an ESP32, the sketch connects to the broker itself over Wi-Fi. The node needs a board with Wi-Fi: for a board without it, such as the Uno, generating the sketch gives a warning.
 
-- Nodes connected to `change` get the last value the plugin sent: `true` or `false` for a Boolean variable, and a number for every other type.
-- Only the `set` input is exported. The sketch sends the value of the first node connected to `set` each time it changes. Other inputs are left out, with a note in the generated code.
+- Nodes connected to `value` and `change` get the last value the plugin sent or the node set: `true` or `false` for a Boolean variable, and a number for every other type. A Boolean variable is `true` only when the plugin sent exactly `true`. A String or Color variable is read as a number.
+- Only the `set` input is exported. Each value that reaches `set`, from any connected node and the same value again included, is converted to the variable's type and sent as Studio sends it; a value that does not fit is not sent, nor is a colour set on a colour variable. Other inputs (`true`, `false`, `toggle`, `increment`, `decrement`, `reset` and the colour channels) are left out, with a note in the generated code.
+- When text is converted to a Boolean or a number, the board ignores only ASCII spaces around it and lowercases only ASCII letters. Studio does both for every Unicode space and letter.
 - The sketch uses Studio's current Bridge ID.
 - The export needs the Wi-Fi details and an **MQTT broker host**. The sketch connects over plain MQTT (port `1883` by default), not WebSockets.
 

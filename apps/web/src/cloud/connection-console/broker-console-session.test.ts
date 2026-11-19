@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { settleBrokerSettings, useMqttBrokerStore, type MqttBrokerConfig } from "@/cloud/mqtt-broker";
+import { MQTT5_REQUIRED } from "@/cloud/mqtt-refusal";
 
 import {
   createBrokerConsoleSession,
@@ -119,7 +120,48 @@ afterEach(() => {
 
 beforeEach(() => {
   // Copies: the store hands the default flag on by writing to the entry it holds.
-  useMqttBrokerStore.setState({ brokers: [{ ...HOME }, { ...LAB }], unsettled: {}, statuses: {} });
+  useMqttBrokerStore.setState({ brokers: [{ ...HOME }, { ...LAB }], unsettled: {}, statuses: {}, problems: {} });
+});
+
+describe("a broker's problem", () => {
+  test("is told in the transcript once when the selected broker gets it, and again when it comes back", () => {
+    const { session } = start();
+
+    store().setStatus("lab", "error", MQTT5_REQUIRED);
+    // Each retry is refused the same way: nothing new to tell.
+    store().setStatus("lab", "error", MQTT5_REQUIRED);
+    expect(transcript(session)).toEqual([`err ${MQTT5_REQUIRED}`]);
+
+    store().setStatus("lab", "connected");
+    store().setStatus("lab", "error", MQTT5_REQUIRED);
+    expect(transcript(session)).toEqual([`err ${MQTT5_REQUIRED}`, `err ${MQTT5_REQUIRED}`]);
+  });
+
+  test("is told for the broker selected, not for another, and when the console opens on it", () => {
+    store().setStatus("home", "error", MQTT5_REQUIRED);
+    const { session } = start();
+    expect(transcript(session)).toEqual([]);
+
+    session.select("home");
+    expect(transcript(session)).toEqual([`err ${MQTT5_REQUIRED}`]);
+  });
+
+  test("is what a failed command says, in place of a guess", async () => {
+    const { host, session } = start();
+    host.refusing = true;
+    await session.run("publish test/a hi");
+
+    store().setStatus("lab", "error", MQTT5_REQUIRED);
+    await session.run("subscribe test/#");
+    await session.run("publish test/a hi");
+
+    expect(transcript(session)).toEqual([
+      "err test/a could not publish — is the broker connected?",
+      `err ${MQTT5_REQUIRED}`,
+      `err test/# ${MQTT5_REQUIRED}`,
+      `err test/a ${MQTT5_REQUIRED}`,
+    ]);
+  });
 });
 
 describe("selection", () => {

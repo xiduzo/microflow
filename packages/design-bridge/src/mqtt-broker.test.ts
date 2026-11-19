@@ -87,6 +87,20 @@ describe("the mqtt.js adapter, on the wire", () => {
     ]);
   });
 
+  test("never sends a publish on a topic that is not a topic name, and keeps the connection", async () => {
+    const plugin = connect();
+    await plugin.up();
+
+    for (const topic of ["microflow/a/figma/variable/+", "microflow/a/#", "", "a\u0000b"]) {
+      plugin.connection.publish(topic, "0.5");
+    }
+    plugin.connection.publish("microflow/a/figma/variable/1-2", "0.5");
+    await until(() => plugin.packets().length === 2);
+
+    expect(plugin.packets().slice(1)).toEqual(["PUBLISH microflow/a/figma/variable/1-2 0.5 qos0"]);
+    expect(plugin.statuses).toEqual(["connected"]);
+  });
+
   test("delivers to every subscriber of a filter, and unsubscribes when the last one ends", async () => {
     const plugin = connect();
     await plugin.up();

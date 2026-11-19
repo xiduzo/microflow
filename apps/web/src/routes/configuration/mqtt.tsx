@@ -45,7 +45,7 @@ function MqttConfigPage() {
   // round the console would follow the settled settings with a link it is
   // about to close.
   const [{ selectedId, lines, subscriptions, commands }, session] = useBrokerConsole();
-  const { brokers, statuses } = useBrokerSettingsForm();
+  const { brokers, statuses, problems } = useBrokerSettingsForm();
   const addBroker = useMqttBrokerStore((state) => state.addBroker);
   const updateBroker = useMqttBrokerStore((state) => state.updateBroker);
   const deleteBroker = useMqttBrokerStore((state) => state.deleteBroker);
@@ -66,6 +66,7 @@ function MqttConfigPage() {
         subtitle: entry.url,
         isDefault: entry.isDefault,
         status: statusTone(statuses[entry.id]),
+        problem: problems[entry.id],
       }))}
       selectedId={selectedId}
       onSelect={session.select}

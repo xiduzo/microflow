@@ -277,6 +277,17 @@ Connect as many I2C devices as you like to the same SDA/SCL lines. **One chip, t
 I2C needs pull-up resistors on SDA and SCL (typically 4.7 kΩ to 10 kΩ). Most breakout boards include these already. A bare chip may need them added.
 </Callout>
 
+## Arduino sketch export
+
+When you export a flow as an Arduino sketch, the sketch reads the device itself with the Arduino `Wire` library, on the same occasions as Studio: every **stream interval** while **auto-read** is on, and on each **trigger**.
+
+- **Unsigned int** and **Signed int** combine the bytes into a 32-bit number, unsigned or two's-complement, as in Studio.
+- A reply shorter than **read bytes** is a failed read. The node keeps its last value, as in Studio.
+- **Raw bytes** gives a number on the board, the bytes combined as an unsigned int. In Studio it gives an array.
+- The **write** input is left out, with a note in the generated code.
+- With **register** 0, the board writes the register pointer 0 before each read. Studio reads without writing a register first.
+- On AVR boards, such as the Uno, a number is a 32-bit float: a reading above 16 777 216 loses its last digits.
+
 ## Resources
 
 - [I2C protocol overview](https://learn.sparkfun.com/tutorials/i2c)

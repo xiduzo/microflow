@@ -129,8 +129,24 @@ export function createBrokerConsoleSession(options: {
   });
 
   const selected = () => brokers().find((broker) => broker.id === transcript.getState().selectedId);
+  /** Why the selected broker is in error, when the host knows something the
+   *  user can act on (`useMqttBrokerStore`'s `problems`). */
+  const problem = (): string | undefined =>
+    useMqttBrokerStore.getState().problems[transcript.getState().selectedId];
 
   let live = false;
+  /** The problem the transcript last told, so that each is told once, when
+   *  it arises; empty after a switch, whose transcript starts empty. */
+  let told: string | undefined;
+
+  /** Tell the selected broker's problem in the transcript, when it has one
+   *  the transcript has not told since it last changed. */
+  const tell = () => {
+    const now = live ? problem() : undefined;
+    if (now === told) return;
+    told = now;
+    if (now !== undefined) transcript.push({ kind: "err", text: now });
+  };
   let link: BrokerLink | undefined;
   /** The transport's key for what `link` was opened for; empty while there is none. */
   let linkedTo = "";
@@ -183,7 +199,9 @@ export function createBrokerConsoleSession(options: {
     if (brokerId === transcript.getState().selectedId) return;
     release();
     transcript.select(brokerId, { subscriptions: [] });
+    told = undefined;
     follow();
+    tell();
   };
 
   /** A deleted broker cannot stay selected: move to the first one left. */
@@ -191,6 +209,7 @@ export function createBrokerConsoleSession(options: {
     const { selectedId } = transcript.getState();
     if (selectedId !== "" && !selected()) return select(brokers()[0]?.id ?? "");
     follow();
+    tell();
   };
 
   const subscribe = async (topic: string, reply: Reply) => {
@@ -215,7 +234,7 @@ export function createBrokerConsoleSession(options: {
     reply.push({
       kind: success ? "sys" : "err",
       label: topic,
-      text: success ? "subscribed" : "could not subscribe — is the broker connected?",
+      text: success ? "subscribed" : (problem() ?? "could not subscribe — is the broker connected?"),
     });
   };
 
@@ -239,7 +258,7 @@ export function createBrokerConsoleSession(options: {
     reply.push({
       kind: success ? "out" : "err",
       label: topic,
-      text: success ? payload : "could not publish — is the broker connected?",
+      text: success ? payload : (problem() ?? "could not publish — is the broker connected?"),
     });
   };
 
@@ -250,6 +269,7 @@ export function createBrokerConsoleSession(options: {
     open() {
       live = true;
       follow();
+      tell();
       const unfollow = useMqttBrokerStore.subscribe(followStore);
       return () => {
         unfollow();
@@ -258,6 +278,7 @@ export function createBrokerConsoleSession(options: {
         transcript.update({ subscriptions: [] });
         live = false;
         follow();
+        told = undefined;
       };
     },
 

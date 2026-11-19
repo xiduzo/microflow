@@ -20,7 +20,7 @@ bool button_btn_1_seen = false;
 bool button_btn_1_pending = false;
 unsigned long button_btn_1_edge_at = 0;
 // node i2c-1 (I2cDevice)
-long i2c_i2c_1_value = 0;
+double i2c_i2c_1_value = 0.0;
 // node led-1 (Led)
 const uint8_t led_led_1_pin = 11;
 bool led_led_1_on = false;
@@ -66,12 +66,13 @@ void loop() {
       Wire.write((uint8_t)0);
       Wire.endTransmission(false);
       Wire.requestFrom((uint8_t)64, (uint8_t)2);
-      long i2c_i2c_1_acc = 0;
-      for (uint8_t i2c_i2c_1_i = 0; i2c_i2c_1_i < 2 && Wire.available(); i2c_i2c_1_i++) {
+      uint32_t i2c_i2c_1_acc = 0;
+      uint8_t i2c_i2c_1_i = 0;
+      for (; i2c_i2c_1_i < 2 && Wire.available(); i2c_i2c_1_i++) {
         uint8_t i2c_i2c_1_b = Wire.read();
-        i2c_i2c_1_acc = (i2c_i2c_1_acc << 8) | (long)i2c_i2c_1_b;
+        i2c_i2c_1_acc = (i2c_i2c_1_acc << 8) | i2c_i2c_1_b;
       }
-      i2c_i2c_1_value = i2c_i2c_1_acc;
+      if (i2c_i2c_1_i == 2) { i2c_i2c_1_value = (double)(uint32_t)i2c_i2c_1_acc; }
     }
     double led_led_1_value_now0 = ((double)(i2c_i2c_1_value));
     bool led_led_1_value_fired0 = (led_led_1_value_now0 != led_led_1_value_prev0);

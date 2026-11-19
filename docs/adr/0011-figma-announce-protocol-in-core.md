@@ -152,7 +152,8 @@ and so is the TypeScript stand-in the browser performer's tests run on
 (`apps/web/src/cloud/cloud-performer.test.ts`). A stand-in that drifts from
 core, in content or in order, fails a test.
 
-Accepted residue: a host that crashes, or a connection that closes while its
-link is down, leaves a retained `connected` on that broker for every Bridge ID
-but the first. The first is covered by the link's will, which both hosts set
+A host that crashes, or a connection that closes while its link is down, says
+no goodbye. Every Bridge ID announced on the broker is covered by a will
+instead: the first by the connection's link, each other by a will link of its
+own, which both hosts keep
 ([ADR-0049](0049-a-broker-session-leaves-its-goodbye-with-the-pool.md)).

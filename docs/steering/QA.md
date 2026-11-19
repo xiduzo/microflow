@@ -10,7 +10,7 @@ The Rust runtime is tested with `cargo test`. TypeScript has DOM-less unit tests
 
 The design-tool bridge protocol has one fixture, `packages/design-bridge/fixtures/protocol.json`. The `bun test` suite of `packages/design-bridge` and the `design_bridge` tests in `crates/microflow-core` both check against it, so a protocol change starts as a fixture change ([ADR-0028](../adr/0028-design-tool-bridge-protocol.md)).
 
-MQTT topic filters have one case table, `apps/web/src/cloud/fixtures/topic-filter.json`. The browser host's `topicMatches` (`cloud/topic-filter.test.ts`) and the desktop host's `MqttBroker::topic_matches` (`tests/mqtt_routing.rs`) are both held to it, so a routing change starts as a change to the table.
+MQTT topic filters have one case table, `packages/design-bridge/fixtures/topic-filter.json`. The one TypeScript `topicMatches`, in `@microflow/design-bridge`, which the plugins and the browser host both route by (`packages/design-bridge/src/topic-filter.test.ts`, `apps/web/src/cloud/topic-filter.test.ts`), and the desktop host's `MqttBroker::topic_matches` (`tests/mqtt_routing.rs`) are all held to it, so a routing change starts as a change to the table.
 
 | Level | Layer | Tool | Purpose |
 | --- | --- | --- | --- |

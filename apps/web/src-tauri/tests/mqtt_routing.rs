@@ -3,18 +3,21 @@
 //!
 //! - **Filters.** `MqttBroker::topic_matches` is held to the case table the
 //!   browser host's `topicMatches` is held to
-//!   (`src/cloud/fixtures/topic-filter.json`).
-//! - **One delivery per message.** A message reaches each subscription whose
-//!   filter matches its topic once, whether the broker sends one copy of it
-//!   for every matching filter or one for all; a retained replay reaches only
-//!   the subscription that asked for it.
+//!   (`packages/design-bridge/fixtures/topic-filter.json`).
+//! - **One delivery per subscription and message.** Every filter is subscribed
+//!   with a subscription identifier of its own, and a message reaches exactly
+//!   the subscriptions whose identifiers it carries — whether the broker sends
+//!   one copy of it for every matching filter or one for all, and however
+//!   soon a publisher repeats a payload. A retained replay reaches only the
+//!   subscription that asked for it.
 //! - **No invalid PUBLISH.** A topic with a wildcard is never published: a
 //!   broker closes the connection of a client that does, and every
 //!   subscription on it with it.
 
-use app_lib::mqtt::broker::{MessageCallback, MqttBroker, MqttMessage, Subscriber, COPY_WINDOW};
+use app_lib::mqtt::broker::{MessageCallback, MqttBroker, MqttMessage, ReconnectConfig, Subscriber};
 use app_lib::mqtt::MqttManager;
 use serde_json::Value;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -22,7 +25,10 @@ use std::time::Duration;
 mod fake_broker;
 use fake_broker::{published, FakeBroker, PATIENCE};
 
-const TABLE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../src/cloud/fixtures/topic-filter.json"));
+/// How long a test waits for messages that should not come.
+const QUIET: Duration = Duration::from_millis(150);
+
+const TABLE: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../packages/design-bridge/fixtures/topic-filter.json"));
 
 #[test]
 fn filters_match_the_shared_case_table() {
@@ -74,13 +80,17 @@ impl Inbox {
             assert!(tokio::time::Instant::now() < deadline, "received only {:?}", self.received());
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        tokio::time::sleep(COPY_WINDOW * 3).await;
+        tokio::time::sleep(QUIET).await;
     }
 }
 
 /// A pool connected to `broker`, the flow subscribed to `filters` on it.
 async fn subscribed(broker: &FakeBroker, filters: &[&str]) -> (MqttManager, Inbox) {
-    let manager = MqttManager::new();
+    subscribed_on(MqttManager::new(), broker, filters).await
+}
+
+/// `manager`, connected to `broker`, the flow subscribed to `filters` on it.
+async fn subscribed_on(manager: MqttManager, broker: &FakeBroker, filters: &[&str]) -> (MqttManager, Inbox) {
     manager.connect(broker.config()).await.expect("connect");
     let inbox = Inbox::default();
     for filter in filters {
@@ -90,51 +100,113 @@ async fn subscribed(broker: &FakeBroker, filters: &[&str]) -> (MqttManager, Inbo
     (manager, inbox)
 }
 
-fn each_once(filters: &[&str], payload: &str) -> Vec<String> {
-    let mut deliveries: Vec<String> = filters.iter().map(|filter| format!("{filter} <- {payload}")).collect();
-    deliveries.sort();
-    deliveries
-}
-
 fn sorted(mut deliveries: Vec<String>) -> Vec<String> {
     deliveries.sort();
     deliveries
 }
 
-#[tokio::test]
-async fn a_broker_that_sends_a_copy_per_matching_filter_reaches_each_filter_once_per_message() {
-    let broker = FakeBroker::start().await;
-    broker.copy_per_subscription();
+/// What each filter received, in order.
+fn by_filter(received: &[String]) -> BTreeMap<String, Vec<String>> {
+    let mut filters: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for delivery in received {
+        let (filter, payload) = delivery.split_once(" <- ").expect("filter <- payload");
+        filters.entry(filter.to_string()).or_default().push(payload.to_string());
+    }
+    filters
+}
+
+/// Every one of `filters` received `payloads`, in that order.
+fn each_received(filters: &[&str], payloads: &[&str]) -> BTreeMap<String, Vec<String>> {
+    let payloads: Vec<String> = payloads.iter().map(|payload| (*payload).to_string()).collect();
+    filters.iter().map(|filter| ((*filter).to_string(), payloads.clone())).collect()
+}
+
+/// Three overlapping filters; a value published twice in a row, at once, and
+/// another after it: each filter gets each of the three, once.
+async fn three_messages_reach_each_overlapping_filter_once(broker: &FakeBroker) {
     let filters = ["sensors/#", "sensors/+/temperature", "sensors/kitchen/temperature"];
-    let (_manager, inbox) = subscribed(&broker, &filters).await;
+    let (_manager, inbox) = subscribed(broker, &filters).await;
 
     broker.publish("sensors/kitchen/temperature", b"21");
-    inbox.settle_at(3).await;
-    assert_eq!(sorted(inbox.received()), each_once(&filters, "21"));
-
-    // The same value, published again after the copies of the first, is news.
     broker.publish("sensors/kitchen/temperature", b"21");
-    inbox.settle_at(6).await;
-    assert_eq!(sorted(inbox.received()[3..].to_vec()), each_once(&filters, "21"));
+    broker.publish("sensors/kitchen/temperature", b"22");
+    inbox.settle_at(9).await;
+
+    assert_eq!(by_filter(&inbox.received()), each_received(&filters, &["21", "21", "22"]));
 }
 
 #[tokio::test]
-async fn a_broker_that_sends_one_copy_for_all_filters_reaches_each_filter_once_per_message() {
+async fn a_broker_that_sends_a_copy_per_subscription_reaches_each_subscription_once_per_message() {
+    // mosquitto 2, EMQX: one copy for each matching subscription, each
+    // carrying the identifier of its own.
     let broker = FakeBroker::start().await;
+    broker.copy_per_subscription();
+    three_messages_reach_each_overlapping_filter_once(&broker).await;
+}
+
+#[tokio::test]
+async fn a_broker_that_sends_one_copy_for_all_subscriptions_reaches_each_subscription_once_per_message() {
+    // HiveMQ: one copy, carrying the identifiers of every matching
+    // subscription.
+    let broker = FakeBroker::start().await;
+    three_messages_reach_each_overlapping_filter_once(&broker).await;
+}
+
+#[tokio::test]
+async fn a_message_that_carries_no_subscription_identifier_reaches_every_matching_filter_once() {
+    // A broker that forgets the identifiers: the client falls back on the
+    // topic.
+    let broker = FakeBroker::start().await;
+    broker.tag_nothing();
     let filters = ["sensors/#", "sensors/kitchen"];
     let (_manager, inbox) = subscribed(&broker, &filters).await;
 
     broker.publish("sensors/kitchen", b"21");
-    inbox.settle_at(2).await;
     broker.publish("sensors/kitchen", b"21");
     inbox.settle_at(4).await;
-    broker.publish("sensors/kitchen", b"22");
-    inbox.settle_at(6).await;
 
-    let received = inbox.received();
-    assert_eq!(sorted(received[..2].to_vec()), each_once(&filters, "21"));
-    assert_eq!(sorted(received[2..4].to_vec()), each_once(&filters, "21"));
-    assert_eq!(sorted(received[4..].to_vec()), each_once(&filters, "22"));
+    assert_eq!(by_filter(&inbox.received()), each_received(&filters, &["21", "21"]));
+}
+
+#[tokio::test]
+async fn every_filter_has_an_identifier_of_its_own_and_keeps_it_across_a_repaired_and_a_renewed_link() {
+    let broker = FakeBroker::start().await;
+    let reconnecting = ReconnectConfig { initial_delay: Duration::from_millis(20), ..ReconnectConfig::default() };
+    let manager = MqttManager::with_reconnect_config(reconnecting);
+    let (manager, inbox) = subscribed_on(manager, &broker, &["a/#", "a/b"]).await;
+    // The console on a filter the flow holds: the same subscription.
+    manager.subscribe("b", "a/b", Subscriber::Console, inbox.callback("console a/b")).await.expect("subscribe");
+    broker.wait_until_seen(4).await;
+
+    let ids_on = |connection: usize| -> BTreeMap<String, Option<u32>> {
+        broker
+            .subscription_ids()
+            .into_iter()
+            .filter(|(on, _, _)| *on == connection)
+            .map(|(_, filter, id)| (filter, id))
+            .collect()
+    };
+    let first = ids_on(1);
+    assert_eq!(first.len(), 2, "{first:?}");
+    assert!(first.values().all(Option::is_some), "every SUBSCRIBE carries an identifier: {first:?}");
+    assert_ne!(first["a/#"], first["a/b"], "one per filter");
+
+    // A repaired link.
+    broker.cut_links();
+    broker.wait_until_seen(4 + 1 + 2).await;
+    assert_eq!(ids_on(2), first);
+
+    // A link renewed for a will.
+    let session = manager.session("b").await.expect("a session");
+    let will = app_lib::mqtt::broker::LastWord { topic: "bye".into(), payload: b"bye".to_vec(), retain: true };
+    manager.set_last_words("b", session.id, vec![will]).await;
+    broker.wait_until_seen(4 + 3 + 3).await;
+    assert_eq!(ids_on(3), first);
+
+    // And delivery still goes by them.
+    broker.publish("a/b", b"1");
+    inbox.settle_at(3).await;
+    assert_eq!(sorted(inbox.received()), sorted(vec!["a/# <- 1".into(), "a/b <- 1".into(), "console a/b <- 1".into()]));
 }
 
 #[tokio::test]

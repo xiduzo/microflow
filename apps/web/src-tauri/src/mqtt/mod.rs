@@ -6,5 +6,6 @@
 pub mod broker;
 pub mod commands;
 pub mod manager;
+mod will_links;
 
 pub use manager::MqttManager;

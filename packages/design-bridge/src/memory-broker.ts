@@ -10,7 +10,7 @@
  */
 import type { BridgeMqtt } from "./bridge";
 import type { BrokerConnectOptions, BrokerConnector, BrokerMessage } from "./broker";
-import { topicMatches } from "./topic-filter";
+import { isTopicName, topicMatches } from "./topic-filter";
 
 type Listener = (topic: string, payload: string) => void;
 type Subscription = { filter: string; onMessage: Listener; online: () => boolean };
@@ -107,7 +107,7 @@ export function createMemoryBroker() {
 
     return {
       publish(topic, payload, publishOptions) {
-        if (!link.info.online) return;
+        if (!link.info.online || !isTopicName(topic)) return;
         accept({
           topic,
           payload,

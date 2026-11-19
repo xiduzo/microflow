@@ -18,7 +18,6 @@ pub(crate) struct Function {
     base: ComponentBase,
     config: FunctionConfig,
     variables: HashMap<String, ComponentValue>,
-    last_good_value: ComponentValue,
 }
 
 impl Function {
@@ -28,7 +27,6 @@ impl Function {
             base: ComponentBase::new(id, ComponentValue::Number(0.0)),
             config,
             variables: HashMap::new(),
-            last_good_value: ComponentValue::Number(0.0),
         }
     }
 
@@ -104,25 +102,32 @@ function isValid(value) {
 /// The script one `trigger` evaluates: the user's body as one function call.
 ///
 /// That call is one boa call frame, so the context's loop iteration limit
-/// applies to it as a whole (see `make_context`).
+/// applies to it as a whole (see `make_context`). The body sits on lines of
+/// its own, so a `//` comment on its last line ends there.
 fn wrap_user_code(code: &str, input_literal: &str) -> String {
     format!(
-        "var __res__ = (function(input) {{ {code} }})({input_literal});\
+        "var __res__ = (function(input) {{\n{code}\n}})({input_literal});\
          (typeof __res__ === 'object' && __res__ !== null) \
            ? JSON.stringify(__res__) \
            : __res__"
     )
 }
 
-/// Serialize a `ComponentValue` as a JS literal for template substitution.
+/// Serialize a `ComponentValue` as a JS literal: the `input` a call
+/// receives, and a `{{var}}` template slot's value. Every value reads back
+/// as itself: `NaN` and the infinities by their JavaScript names, a negative
+/// number in parentheses (so `a -{{x}}` with `x` = -1 is `a -(-1)`), and text
+/// as a JSON string literal (line breaks and control characters escaped).
 fn value_to_js_literal(value: &ComponentValue) -> String {
     match value {
+        ComponentValue::Number(n) if n.is_nan() => "NaN".to_string(),
+        ComponentValue::Number(n) if n.is_infinite() => {
+            if *n > 0.0 { "Infinity" } else { "(-Infinity)" }.to_string()
+        }
+        ComponentValue::Number(n) if n.is_sign_negative() => format!("({n})"),
         ComponentValue::Number(n) => n.to_string(),
         ComponentValue::Bool(b) => b.to_string(),
-        ComponentValue::String(s) => {
-            let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
-            format!("\"{escaped}\"")
-        }
+        ComponentValue::String(s) => serde_json::to_string(s).unwrap_or_else(|_| "\"\"".to_string()),
         ComponentValue::Array(arr) => {
             let items: Vec<String> = arr.iter().map(value_to_js_literal).collect();
             format!("[{}]", items.join(","))
@@ -204,14 +209,11 @@ impl Component for Function {
                 let mut context = Self::make_context();
                 match context.eval(Source::from_bytes(wrapped.as_bytes())) {
                     Ok(js_result) => {
-                        let output = js_value_to_component_value(&js_result);
-                        self.last_good_value = output.clone();
-                        self.base.set_value(output);
+                        self.base.set_value(js_value_to_component_value(&js_result));
                     }
-                    Err(e) => {
-                        log::warn!("[Function] {} JS error: {e}", self.base.id);
-                        self.base.set_value(self.last_good_value.clone());
-                    }
+                    // The value stays as it is and nothing is sent: a call
+                    // that throws emits nothing (a held `NaN` included).
+                    Err(e) => log::warn!("[Function] {} JS error: {e}", self.base.id),
                 }
             }
             var_name => {
@@ -277,5 +279,80 @@ mod tests {
     #[test]
     fn endless_recursion_throws() {
         assert!(run("function f() { return f(); } return f();").is_err());
+    }
+}
+
+#[cfg(test)]
+mod sim_tests {
+    use crate::firmata::sim::rig::{edge, node, SimRig};
+    use crate::firmata::sim::{BoardLayout, SimBoard};
+    use crate::runtime::ComponentValue;
+    use serde_json::json;
+
+    /// A Function running `code`, with a Constant 3 on its `{{k}}` slot.
+    fn function(code: &str) -> SimRig {
+        let mut rig = SimRig::connect(SimBoard::new(BoardLayout::uno()));
+        rig.apply_flow(
+            vec![node("f", "Function", json!({ "code": code })), node("k", "Constant", json!({ "value": -3 }))],
+            vec![edge("k", "value", "f", "k")],
+        );
+        rig.take_events();
+        rig
+    }
+
+    /// What `f` sends on `value` for each of `inputs`, in turn.
+    fn sends(rig: &mut SimRig, inputs: Vec<ComponentValue>) -> Vec<ComponentValue> {
+        let mut sent = Vec::new();
+        for input in inputs {
+            rig.dispatch("f", "trigger", input);
+            sent.extend(
+                rig.take_events()
+                    .into_iter()
+                    .filter(|e| e.source.as_ref() == "f" && e.source_handle.as_ref() == "value")
+                    .map(|e| e.value),
+            );
+        }
+        sent
+    }
+
+    /// An infinite or `NaN` input reaches the code as itself, where it was
+    /// rendered `inf` (an unknown name, so the call threw).
+    #[test]
+    fn an_infinite_or_nan_input_is_itself_in_the_code() {
+        let mut rig = function("return input === Infinity ? 1 : input === -Infinity ? 2 : isNaN(input) ? 3 : 4;");
+        let got = sends(&mut rig, vec![f64::INFINITY.into(), f64::NEG_INFINITY.into(), f64::NAN.into()]);
+        assert_eq!(got, [ComponentValue::Number(1.0), ComponentValue::Number(2.0), ComponentValue::Number(3.0)]);
+    }
+
+    /// Text with a line break or a quote reaches the code as itself.
+    #[test]
+    fn a_text_input_with_a_line_break_is_itself_in_the_code() {
+        let mut rig = function("return input.length;");
+        let got = sends(&mut rig, vec![ComponentValue::String("a\n\"b\"\\".to_string())]);
+        assert_eq!(got, [ComponentValue::Number(6.0)]);
+    }
+
+    /// A negative template value is a number, whatever precedes the slot.
+    #[test]
+    fn a_negative_template_value_reads_as_a_number() {
+        let mut rig = function("return input -{{k}};");
+        assert_eq!(sends(&mut rig, vec![1.0.into()]), [ComponentValue::Number(4.0)]);
+    }
+
+    /// A `//` comment on the last line ends at the line's end.
+    #[test]
+    fn a_comment_on_the_last_line_does_not_swallow_the_call() {
+        let mut rig = function("return input + 1; // done");
+        assert_eq!(sends(&mut rig, vec![1.0.into()]), [ComponentValue::Number(2.0)]);
+    }
+
+    /// A call that throws sends nothing — not even the `NaN` held before,
+    /// which never equals itself.
+    #[test]
+    fn a_call_that_throws_sends_nothing() {
+        let mut rig = function("if (input > 5) throw new Error('no'); return 0 / 0;");
+        let got = sends(&mut rig, vec![1.0.into(), 9.0.into(), 9.0.into()]);
+        assert_eq!(got.len(), 1, "{got:?}");
+        assert!(got[0].as_number().is_some_and(f64::is_nan), "{got:?}");
     }
 }

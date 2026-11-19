@@ -55,6 +55,9 @@ type MqttBrokerStore = {
   unsettled: Record<string, BrokerFields>;
   /** Connection status per broker ID (managed separately from persisted config) */
   statuses: Record<string, ConnectionStatus>;
+  /** Per broker ID, why its status is `error`, when the host knows something
+   *  the user can act on (`mqtt-refusal.ts`). A broker without one has none. */
+  problems: Record<string, string>;
   /** Settled at once. */
   addBroker: (broker: Omit<MqttBrokerConfig, "id">) => string;
   /** What the settings form does at a keystroke: `fields` are shown by the
@@ -70,9 +73,23 @@ type MqttBrokerStore = {
   settle: (id?: string) => void;
   getDefaultBroker: () => MqttBrokerConfig | undefined;
   getBroker: (id: string) => MqttBrokerConfig | undefined;
-  setStatus: (id: string, status: ConnectionStatus) => void;
-  setStatuses: (statuses: Record<string, ConnectionStatus>) => void;
+  /** The broker's status, and why it is that: `problem`, or nothing known. */
+  setStatus: (id: string, status: ConnectionStatus, problem?: string) => void;
+  /** Every broker's status, and the problems of those that have one: what
+   *  the store held before is replaced. */
+  setStatuses: (statuses: Record<string, ConnectionStatus>, problems?: Record<string, string>) => void;
 };
+
+/** `problems` with `problem` as broker `id`'s, or without one for it. */
+function withProblem(
+  problems: Record<string, string>,
+  id: string,
+  problem: string | undefined,
+): Record<string, string> {
+  if (problems[id] === problem) return problems;
+  const { [id]: _was, ...rest } = problems;
+  return problem === undefined ? rest : { ...rest, [id]: problem };
+}
 
 const uid = () => Math.random().toString(36).substring(2, 9) + Date.now().toString(36);
 
@@ -126,6 +143,7 @@ export function createMqttBrokerStore(options: { timers?: Timers; storage?: Stat
         brokers: [],
         unsettled: {},
         statuses: {},
+        problems: {},
 
         addBroker: (broker) => {
           const id = uid();
@@ -168,11 +186,15 @@ export function createMqttBrokerStore(options: { timers?: Timers; storage?: Stat
             // With other settings it is being connected to anew, and stays
             // `connecting` until the host reports on that.
             const statuses = { ...state.statuses };
+            let { problems } = state;
             state.brokers.forEach((was, index) => {
               const is = brokers[index];
-              if (is && connectsDifferently(was, is)) statuses[was.id] = "connecting";
+              if (is && connectsDifferently(was, is)) {
+                statuses[was.id] = "connecting";
+                problems = withProblem(problems, was.id, undefined);
+              }
             });
-            return { brokers, unsettled, statuses };
+            return { brokers, unsettled, statuses, problems };
           });
         },
 
@@ -188,7 +210,12 @@ export function createMqttBrokerStore(options: { timers?: Timers; storage?: Stat
             // ended late would have nothing to bring back.
             const { [id]: _status, ...remainingStatuses } = state.statuses;
             const { [id]: _typed, ...unsettled } = state.unsettled;
-            return { brokers: filtered, unsettled, statuses: remainingStatuses };
+            return {
+              brokers: filtered,
+              unsettled,
+              statuses: remainingStatuses,
+              problems: withProblem(state.problems, id, undefined),
+            };
           });
         },
 
@@ -209,14 +236,15 @@ export function createMqttBrokerStore(options: { timers?: Timers; storage?: Stat
           return get().brokers.find((b) => b.id === id);
         },
 
-        setStatus: (id, status) => {
+        setStatus: (id, status, problem) => {
           set((state) => ({
             statuses: { ...state.statuses, [id]: status },
+            problems: withProblem(state.problems, id, problem),
           }));
         },
 
-        setStatuses: (statuses) => {
-          set({ statuses });
+        setStatuses: (statuses, problems = {}) => {
+          set({ statuses, problems });
         },
       }),
       {
@@ -248,19 +276,28 @@ export type BrokerSettingsForm = {
    *  is that of the connection made from the settled settings, not of the
    *  ones on screen, and a connection to those is about to be tried. */
   statuses: Record<string, ConnectionStatus>;
+  /** Why a broker's status is `error`, for the brokers whose status shows
+   *  one ({@link MqttBrokerStore.problems}): none for a broker that shows
+   *  `connecting` because of what is typed. */
+  problems: Record<string, string>;
 };
 
 /** What the settings form shows of `state`. */
 export function brokerSettingsForm(
-  state: Pick<MqttBrokerStore, "brokers" | "unsettled" | "statuses">,
+  state: Pick<MqttBrokerStore, "brokers" | "unsettled" | "statuses"> &
+    Partial<Pick<MqttBrokerStore, "problems">>,
 ): BrokerSettingsForm {
   const brokers = asTyped(state.brokers, state.unsettled);
   const statuses = { ...state.statuses };
+  let problems = state.problems ?? {};
   state.brokers.forEach((settled, index) => {
     const typed = brokers[index];
-    if (typed && connectsDifferently(settled, typed)) statuses[settled.id] = "connecting";
+    if (typed && connectsDifferently(settled, typed)) {
+      statuses[settled.id] = "connecting";
+      problems = withProblem(problems, settled.id, undefined);
+    }
   });
-  return { brokers, statuses };
+  return { brokers, statuses, problems };
 }
 
 /** Call `onHidden` when the page is hidden or left. Returns a cleanup. */
@@ -301,10 +338,11 @@ export function useBrokerSettingsForm(): BrokerSettingsForm {
   const brokers = useMqttBrokerStore((state) => state.brokers);
   const unsettled = useMqttBrokerStore((state) => state.unsettled);
   const statuses = useMqttBrokerStore((state) => state.statuses);
+  const problems = useMqttBrokerStore((state) => state.problems);
   useEffect(() => holdBrokerSettingsForm(), []);
   return useMemo(
-    () => brokerSettingsForm({ brokers, unsettled, statuses }),
-    [brokers, unsettled, statuses],
+    () => brokerSettingsForm({ brokers, unsettled, statuses, problems }),
+    [brokers, unsettled, statuses, problems],
   );
 }
 

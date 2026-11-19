@@ -24,11 +24,13 @@ import {
   OPENING_PUBLISH_MS,
   RENEW_MS,
   type BrokerConn,
+  type ClientPurpose,
   type MqttClientFactory,
   type MqttClientLike,
   type Will,
 } from "./mqtt-client";
 import type { ActiveSub } from "./mqtt-subscriptions";
+import { topicMatches } from "./topic-filter";
 import { FakeTimers } from "@/lib/fake-timers";
 import { resetHostFetch } from "@/ai/endpoint";
 import { FIGMA_ANNOUNCE_CASES } from "@/lib/figma-announce-cases";
@@ -114,14 +116,21 @@ const DISCONNECT: Packet = { disconnect: true };
  *   answers cuts the connection: no DISCONNECT, and `done` is not called.
  * - It keeps the will it was made with (`will`); what a broker does with it is
  *   `mqtt-client.real.test.ts`'s to show, on the scripted broker.
+ * - It speaks MQTT 5: `deliver` sends one copy of a message tagged with the
+ *   subscription identifier of every held filter that matches its topic, as
+ *   HiveMQ does. (It matches with the client's own `topicMatches`; the
+ *   scripted broker holds the client to a matcher of its own.)
  */
 class FakeMqttClient implements MqttClientLike {
   connected = false;
   ended = false;
+  readonly subscriptionIds = true;
   /** Every packet the broker received, in order. */
   readonly wire: Packet[] = [];
   /** The topics the broker holds for this connection. */
   readonly held = new Set<string>();
+  /** The subscription identifier each topic was subscribed with. */
+  private readonly ids = new Map<string, number | undefined>();
   /** Topics the broker refuses to subscribe. */
   readonly refused = new Set<string>();
   /** Hold the broker's SUBACKs back until `ack()`. */
@@ -133,7 +142,7 @@ class FakeMqttClient implements MqttClientLike {
   private readonly unanswered: Array<(lost: Error | null) => void> = [];
   private readonly connectListeners: Array<() => void> = [];
   private readonly messageListeners: Array<
-    (topic: string, payload: Uint8Array, retain: boolean) => void
+    (topic: string, payload: Uint8Array, retain: boolean, ids: readonly number[]) => void
   > = [];
 
   constructor(
@@ -143,6 +152,8 @@ class FakeMqttClient implements MqttClientLike {
     /** Opened while another client to the same broker was up: a link
      *  renewed for its will. */
     readonly renewal: boolean,
+    /** A will link: it carries `will` and nothing else. */
+    readonly purpose: ClientPurpose = "link",
   ) {}
 
   /** The broker took this client's CONNECT at least once. */
@@ -152,18 +163,21 @@ class FakeMqttClient implements MqttClientLike {
   private connects = 0;
 
   on(event: "connect", handler: () => void): void;
-  on(event: "message", handler: (topic: string, payload: Uint8Array, retain: boolean) => void): void;
+  on(
+    event: "message",
+    handler: (topic: string, payload: Uint8Array, retain: boolean, ids: readonly number[]) => void,
+  ): void;
   on(event: "error", handler: (error: unknown) => void): void;
   on(event: string, handler: (...args: never[]) => void): void {
     if (event === "connect") this.connectListeners.push(handler as () => void);
     if (event === "message") {
       this.messageListeners.push(
-        handler as (topic: string, payload: Uint8Array, retain: boolean) => void,
+        handler as (topic: string, payload: Uint8Array, retain: boolean, ids: readonly number[]) => void,
       );
     }
   }
 
-  subscribe(topic: string, callback: (error?: Error | null) => void): void {
+  subscribe(topic: string, id: number | undefined, callback: (error?: Error | null) => void): void {
     if (this.ended) {
       callback(new Error("client disconnecting"));
       return;
@@ -171,7 +185,10 @@ class FakeMqttClient implements MqttClientLike {
     this.send(() => {
       this.wire.push(subscribed(topic));
       const refused = this.refused.has(topic);
-      if (!refused) this.held.add(topic);
+      if (!refused) {
+        this.held.add(topic);
+        this.ids.set(topic, id);
+      }
       const answer = (lost: Error | null) => callback(lost ?? (refused ? subackFailure() : null));
       if (this.deferAcks) this.unanswered.push(answer);
       else answer(null);
@@ -241,8 +258,12 @@ class FakeMqttClient implements MqttClientLike {
   /** The broker sends a message on `topic`: `retain` for the retained one it
    *  answers a SUBSCRIBE with. */
   deliver(topic: string, text: string, retain = false): void {
+    const ids = [...this.held]
+      .filter((filter) => topicMatches(filter, topic))
+      .flatMap((filter) => this.ids.get(filter) ?? []);
+    if (ids.length === 0) return;
     for (const listener of this.messageListeners) {
-      listener(topic, new TextEncoder().encode(text), retain);
+      listener(topic, new TextEncoder().encode(text), retain, ids);
     }
   }
 
@@ -273,10 +294,17 @@ class StubMqttClientFactory implements MqttClientFactory {
   readonly opened: FakeMqttClient[] = [];
   /** Every link opened to renew another one's will, oldest first. */
   readonly renewals: FakeMqttClient[] = [];
+  /** Every will link opened, oldest first. */
+  readonly willLinks: FakeMqttClient[] = [];
   private readonly all: FakeMqttClient[] = [];
-  create(conn: BrokerConn, will: Will | undefined): MqttClientLike {
+  create(conn: BrokerConn, will: Will | undefined, purpose: ClientPurpose): MqttClientLike {
     if (!/^[a-z][a-z0-9+.-]*:/i.test(conn.url)) throw new Error("Missing protocol");
     if (!URL.canParse(conn.url)) throw new Error("Invalid URL");
+    if (purpose === "will") {
+      const client = new FakeMqttClient(conn, will, false, purpose);
+      this.willLinks.push(client);
+      return client;
+    }
     const renewal = this.all.some((other) => other.conn.id === conn.id && other.connected && !other.ended);
     const client = new FakeMqttClient(conn, will, renewal);
     this.all.push(client);
@@ -2240,6 +2268,92 @@ describe("CloudPerformer leaves the first goodbye with the broker as its links' 
     second.connect();
     expect(second.wire).toEqual([subscribed(VARIABLE), subscribed(uid0.topic)]);
     expect(first.wire.at(-1)).toEqual(DISCONNECT);
+  });
+
+  /** Variable nodes of Bridge IDs `uid-0` and `uid-1` on broker `b1`, both
+   *  announced, the link renewed to carry `uid-0`'s goodbye and `uid-1`'s will
+   *  link up. */
+  function twoAnnounced() {
+    const fixture = setup();
+    const { performer, factory } = fixture;
+    performer.reconcile([variableSub(), UID_0_SUB]);
+    factory.client("b1").connect();
+    factory.renewal("b1").connect();
+    factory.renewal("b1").connect();
+    const [willLink] = factory.willLinks;
+    willLink.connect();
+    return { ...fixture, link: factory.client("b1"), willLink };
+  }
+  const UID_0_SUB: ActiveSub = {
+    brokerId: "b1",
+    topic: "microflow/uid-0/figma/variable/3",
+    nodeId: "zero",
+    kind: "topicAware",
+  };
+  const UID_0_GONE: Will = { ...UID_1_GONE, topic: "microflow/uid-0/app/status" };
+
+  test("with two Bridge IDs on a broker, the second one's goodbye is the will of a will link that does nothing else", () => {
+    const { factory, link, willLink } = twoAnnounced();
+
+    expect(link.will).toEqual(UID_0_GONE);
+    expect(factory.willLinks).toHaveLength(1);
+    expect(willLink.will).toEqual(UID_1_GONE);
+    expect(willLink.wire).toEqual([]);
+    expect(willLink.ended).toBe(false);
+  });
+
+  test("a Bridge ID that leaves: its will link says the goodbye and then DISCONNECT, and the link says nothing", () => {
+    const { performer, link, willLink } = twoAnnounced();
+
+    performer.reconcile([UID_0_SUB]);
+
+    expect(link.wire.at(-1)).toEqual(unsubscribed(VARIABLE));
+    expect(willLink.wire).toEqual([STUDIO_DISCONNECTED, DISCONNECT]);
+    expect(willLink.ended).toBe(true);
+  });
+
+  test("a Bridge ID that leaves while its will link is down: the link says the goodbye, and the will link is closed", () => {
+    const { performer, link, willLink } = twoAnnounced();
+    willLink.drop();
+
+    performer.reconcile([UID_0_SUB]);
+
+    expect(link.wire.slice(-2)).toEqual([unsubscribed(VARIABLE), STUDIO_DISCONNECTED]);
+    expect(willLink.wire).toEqual([]);
+    expect(willLink.ended).toBe(true);
+  });
+
+  test("a connection closed on purpose: each link says its own goodbye, then DISCONNECT", () => {
+    const { performer, link, willLink } = twoAnnounced();
+
+    performer.dispose();
+
+    expect(link.wire.slice(-2)).toEqual([published(UID_0_GONE.topic, "disconnected", true), DISCONNECT]);
+    expect(willLink.wire).toEqual([STUDIO_DISCONNECTED, DISCONNECT]);
+  });
+
+  test("a page that goes away says every goodbye and leaves every will link's will in place", () => {
+    const { performer, factory, link, willLink } = twoAnnounced();
+
+    performer.leave();
+
+    expect(link.wire.slice(-2)).toEqual([published(UID_0_GONE.topic, "disconnected", true), STUDIO_DISCONNECTED]);
+    expect(willLink.ended).toBe(false);
+    expect(willLink.wire).toEqual([]);
+    // Back from the cache: announced again, on the links there are.
+    performer.rejoin();
+    expect(factory.willLinks).toHaveLength(1);
+    expect(willLink.ended).toBe(false);
+  });
+
+  test("a will link never changes what the connection reports", () => {
+    const { performer, factory, willLink, delivered } = twoAnnounced();
+
+    willLink.drop();
+    performer.reconcile([variableSub(), UID_0_SUB, sensorSub()]);
+    factory.client("b1").deliver(SENSOR, "21");
+
+    expect(delivered).toEqual([{ nodeId: "mqtt", topic: SENSOR, text: "21" }]);
   });
 
   test("a will that changed while the link was down is carried by a link renewed once it is back", () => {

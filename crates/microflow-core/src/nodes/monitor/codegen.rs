@@ -43,6 +43,7 @@
 //! copy. With no such source the Monitor shows 0 for good. It publishes what
 //! it shows once it has shown something, each time that reads differently.
 
+use crate::codegen::cloud::payload::{mqtt_payload, NUMBER_TEXT};
 use crate::codegen::cloud::transport::{Transport, DEFAULT_PORT};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
 use crate::codegen::wire::{bind_pulses, extra_sources_note, CppExpr, CppType, NodeInputs, SourceExpr};
@@ -148,7 +149,9 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs, shown: Option<&SourceEx
         loop_tail.push(format!("  {moved} = {differs};"));
         loop_tail.push(format!("  {copy} = {next}; {seen} = true;"));
         loop_tail.push("}".to_string());
-        let copy_text = CppExpr { code: copy, ty: source.value.ty }.as_string();
+        // What it shows, written as the live runtime writes the value (a
+        // number as its Display: `1`, not Arduino's `1.00`).
+        let copy_text = mqtt_payload(&CppExpr { code: copy, ty: source.value.ty });
         let mqtt_client = transport.mqtt_client();
         loop_tail.push(format!("if ({seen} && {mqtt_client}.connected()) {{"));
         loop_tail.push(format!("  String {prefix}_text = {copy_text};"));
@@ -163,7 +166,11 @@ pub(crate) fn emit(node: &FlowNode, inputs: &NodeInputs, shown: Option<&SourceEx
         ));
     }
 
-    transport.emission(extra_decls, loop_tail)
+    let mut e = transport.emission(extra_decls, loop_tail);
+    if shown.is_some() {
+        e.shared_declarations = vec![NUMBER_TEXT.to_string()];
+    }
+    e
 }
 
 #[cfg(test)]

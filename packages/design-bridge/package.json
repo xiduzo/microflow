@@ -11,7 +11,8 @@
     "./react": {
       "default": "./src/react.ts"
     },
-    "./fixtures/protocol.json": "./fixtures/protocol.json"
+    "./fixtures/protocol.json": "./fixtures/protocol.json",
+    "./fixtures/topic-filter.json": "./fixtures/topic-filter.json"
   },
   "scripts": {
     "check-types": "tsc --noEmit",

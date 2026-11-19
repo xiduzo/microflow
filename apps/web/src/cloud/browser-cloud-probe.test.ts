@@ -14,7 +14,7 @@ describe("probeBroker", () => {
       throw new SyntaxError(`Invalid URL: ${url}`);
     }) as unknown as Connect;
 
-    expect(await probeBroker({ ...broker, url: "ws://a b" }, connect)).toBe("error");
+    expect(await probeBroker({ ...broker, url: "ws://a b" }, connect)).toEqual({ status: "error" });
   });
 
   it("does not try a URL no browser can reach", async () => {
@@ -24,8 +24,8 @@ describe("probeBroker", () => {
       throw new Error("not reached");
     }) as unknown as Connect;
 
-    expect(await probeBroker({ ...broker, url: "mqtt://broker.test:1883" }, connect)).toBe("error");
-    expect(await probeBroker({ ...broker, url: "broker.test" }, connect)).toBe("error");
+    expect(await probeBroker({ ...broker, url: "mqtt://broker.test:1883" }, connect)).toEqual({ status: "error" });
+    expect(await probeBroker({ ...broker, url: "broker.test" }, connect)).toEqual({ status: "error" });
     expect(tried).toBe(0);
   });
 });

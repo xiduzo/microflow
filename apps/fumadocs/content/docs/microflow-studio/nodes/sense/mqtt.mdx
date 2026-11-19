@@ -16,6 +16,15 @@ To read or change a variable in a Figma or Penpot file, use the [Design variable
 
 Before you use the node, add a broker under **Configuration → MQTT** in Studio. A broker has a name, a URL, and an optional username and password. In the browser, Studio can only reach a broker over `ws://` or `wss://`. The desktop app also accepts other schemes, such as `mqtt://`.
 
+<Callout type="warn" title="Your broker must speak MQTT 5">
+Studio connects to every broker with MQTT 5, in the browser, in the desktop app and in the Connection Console. A broker that speaks only MQTT 3.1.1 refuses the connection, and Studio cannot use it.
+
+- **Works:** Mosquitto 1.6 and later (including `test.mosquitto.org`), HiveMQ (including `broker.hivemq.com`), EMQX, VerneMQ.
+- **Does not work:** brokers that speak only MQTT 3.1.1, such as Adafruit IO and Azure IoT Hub.
+
+Not sure? Check your broker's documentation for "MQTT 5", or see [MQTT can't connect](/docs/troubleshooting/mqtt-cant-connect).
+</Callout>
+
 What you type into a broker's settings applies 500 ms after your last keystroke, or at once when you run a console command, close the form, or hide or leave the page. Adding or removing a broker, and choosing the default broker, apply at once.
 
 <Callout type="warn" title="Public brokers mean public data">
@@ -39,7 +48,7 @@ When the node subscribes, its **topic** can be a topic filter with wildcards. Th
 - Shared subscriptions (`$share/<group>/<filter>` and `$queue/<filter>`) deliver messages too.
 - A filter that is not valid, such as `sensors/#/temperature` or `sensors+`, matches nothing.
 
-When a message matches the topics of several MQTT nodes in a flow, each of those nodes gets it once.
+When a message matches the topics of several MQTT nodes in a flow, each of those nodes gets it once. Studio asks the broker to say which subscriptions a message is for (MQTT 5 subscription identifiers). A broker that does not do this gets its messages routed by topic: there a node can get a message once for each copy the broker sends.
 
 A topic you publish to cannot hold a wildcard and cannot be empty. A publish to such a topic is not sent.
 
@@ -52,6 +61,13 @@ A topic you publish to cannot hold a wildcard and cannot be empty. A publish to 
 | **topic** | The topic to publish to, or the topic filter to subscribe to |
 | **QoS** | The delivery guarantee: at most once (0), at least once (1, the default), or exactly once (2) |
 | **retain** | Publish only. Asks the broker to keep the last message for new subscribers |
+
+## Arduino sketch export
+
+When you export a flow as an Arduino sketch for an ESP32, the sketch connects to the broker itself over Wi-Fi, with plain MQTT (port `1883` by default). The node needs a board with Wi-Fi: for a board without it, such as the Uno, generating the sketch gives a warning.
+
+- **publish** — each value that reaches **trigger**, from any connected node and the same value again included, is published as Studio writes it: a number as its shortest exact digits without an exponent (`1`, `0.1`, `NaN`, `inf`), `true` or `false`, and text as it is.
+- **subscribe** — **value** fires with each message, as a number. A message that is a number gives that number, `true` gives `1`, and any other text gives `0`. In Studio, `true` and `false` stay booleans and other text stays text.
 
 ## Related
 

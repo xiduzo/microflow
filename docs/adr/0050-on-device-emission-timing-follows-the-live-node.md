@@ -1,6 +1,6 @@
 # ADR-0050 — On-device emission timing follows the live node
 
-- **Status:** accepted (2026-11-19)
+- **Status:** accepted (2026-11-19); amended (2026-11-19)
 - **Date:** 2026-11-19
 - **Deciders:** sander
 - **Refines:** [ADR-0013](0013-handle-aware-sketch-wiring.md)
@@ -53,6 +53,14 @@ pulse-consuming port synthesizes a change detector over it (`bind_pulses`),
 starting from the value the live node holds before it first emits
 (`SourceExpr::starting_at`).
 
+A Function's `value` is an event. The live Function emits through `set_value`
+only when an evaluation changes the value it holds, so the sketch fires
+`value` on exactly those evaluations. The node starts at the number 0, so a
+first boolean result is a change. An evaluation that throws keeps the value
+and sends nothing. The type of `value` follows the code the Function runs on
+its input, so the sketch resolves the Function's input against the flow, as
+it does a Monitor's.
+
 **D2 — A boolean node's handles all carry its state.** A boolean node is its
 state plus an emitted flag (`bool_state(state, emitted, handle)` in
 `codegen/mod.rs`): `event` fires when it emits, `true` when it emits with the
@@ -83,6 +91,13 @@ Smooth and RangeMap run by it; a Stepper's `to` moves once per value.
   hands on a move of more than `MIN_MOVE_CM`, on both.
 - A Midi control change rounds and clamps its value to 0–127, as
   `Midi::encode` does.
+- Mqtt and design-variable payloads are written as the live node writes them
+  (`codegen::cloud::payload`): a number as Rust's `f64` Display
+  (`mf_number_text`: shortest round-trip digits, no exponent), a boolean as
+  `true`/`false`, text as itself, and a design variable's value coerced to its
+  type as `design_bridge::coerce` and `encode` do. A Monitor publishes what it
+  shows the same way. A number literal in the sketch (`cpp_double`) that is a
+  whole number of 1e15 or more is written with an exponent.
 
 **D5 — A Constant emits once at the start.** The live Constant emits its value
 when the flow starts, 0 included; the sketch fires it once on the first loop
@@ -125,6 +140,9 @@ fails one of them.
 - The golden sketches change with each such rule, and the guards, not the
   golden files, say whether a change is right.
 - A transform with no wired source emits nothing on the board.
+- A Function whose code the board cannot run as the live node does is
+  refused: generation reports a warning naming the reason
+  (`function::codegen::board_refusal`), and the node never runs on the board.
 
 ## What this does NOT decide
 
@@ -141,5 +159,7 @@ fails one of them.
 - `crates/microflow-core/src/nodes/compare/config.rs` — `EQUALITY_TOLERANCE`, `CompareConfig::equals`.
 - `crates/microflow-core/src/config/mod.rs` — `DEBOUNCE_MS`.
 - `crates/microflow-core/src/codegen/parity.rs` — the two guards.
-- `crates/microflow-core/tests/boolean_sketch.rs`, `input_sketch.rs`, `output_sketch.rs` — the sketches run against the live nodes.
+- `crates/microflow-core/src/codegen/cloud/payload.rs` — `mf_number_text`, the design-variable coercion on the board.
+- `crates/microflow-core/src/nodes/function/codegen.rs` — the Function subset, `board_refusal`.
+- `crates/microflow-core/tests/boolean_sketch.rs`, `input_sketch.rs`, `output_sketch.rs`, `function_sketch.rs`, `cloud_sketch.rs`, `i2c_sketch.rs`, `midi_sketch.rs` — the sketches run against the live nodes.
 - `CONTEXT.md` § Sketch Wiring (Transform rule), Debounce window, Ranging.

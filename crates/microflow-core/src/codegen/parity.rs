@@ -442,7 +442,7 @@ mod tests {
             &send,
         ).unwrap();
         assert!(
-            out_cc.loop_body.join("\n").contains("sendControlChange(7, (byte)constrain"),
+            out_cc.loop_body.join("\n").contains("sendControlChange(7, (byte)(midi_p_cc > 0.0 ? (midi_p_cc < 127.0"),
             "out-cc clamps + sends its control"
         );
     }
@@ -862,8 +862,8 @@ mod tests {
     fn i2c_format_token(f: crate::nodes::i2c_device::config::OutputFormat) -> &'static str {
         use crate::nodes::i2c_device::config::ByteDecode;
         match f.decode() {
-            ByteDecode::Raw | ByteDecode::Fold { sign_extend: false } => "<< 8",
-            ByteDecode::Fold { sign_extend: true } => "= -1",
+            ByteDecode::Raw | ByteDecode::Fold { sign_extend: false } => "(uint32_t)i2c_",
+            ByteDecode::Fold { sign_extend: true } => "= 0xFFFFFFFFUL",
         }
     }
 
@@ -1161,7 +1161,7 @@ mod tests {
         let mut all = vec![json!({})];
         match node_type {
             "Mqtt" => all.push(json!({ "direction": "publish" })),
-            "Midi" => all.push(json!({ "direction": "out" })),
+            "Midi" => all.extend([json!({ "direction": "out" }), json!({ "mode": "cc" })]),
             "Servo" => all.push(json!({ "type": "continuous" })),
             _ => {}
         }
@@ -1558,11 +1558,17 @@ mod tests {
                  Arduino export omits it",
             ),
             // cloud
-            "Monitor" | "Mqtt" | "Figma" | "Llm" => Exempt(
+            "Mqtt" | "Figma" => Exempt(
                 "network transport side-effect; bring-up and topic plumbing are pinned by \
-                 the emitter's own tests. Values do NOT all cross unchanged: a number is \
-                 sent as Arduino's String(double) (two decimals) and a received payload \
-                 parsed with toFloat(), where the runtime writes and reads JSON values",
+                 the emitter's own tests, and what goes on the wire (a number as Rust's \
+                 Display, a design variable's coerced payload) by tests/cloud_sketch.rs, \
+                 which runs the sketch against the live node",
+            ),
+            "Monitor" | "Llm" => Exempt(
+                "network transport side-effect; bring-up and topic plumbing are pinned by \
+                 the emitter's own tests. A Monitor publishes what it shows, written as \
+                 the live runtime writes the value (tests/cloud_sketch.rs); an Llm reply \
+                 is parsed on the board with ArduinoJson",
             ),
             other => panic!(
                 "node type `{other}` has no interpret↔emit parity classification — add a \

@@ -14,7 +14,7 @@
 // connection, the design-tool handshake and goodbye in wire order, and the
 // will that says the goodbye for a Studio that could not.
 
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { FigmaAnnounce } from "./cloud-performer";
@@ -29,7 +29,8 @@ const require = createRequire(import.meta.url);
 const realMqtt: object = require(path.join(path.dirname(require.resolve("mqtt")), "mqtt.js"));
 mock.module("mqtt", () => ({ ...realMqtt, default: realMqtt }));
 
-const { BrokerConnections, CLOSE_GRACE_MS, COPY_WINDOW_MS } = await import("./mqtt-client");
+const { BrokerConnections, CLOSE_GRACE_MS } = await import("./mqtt-client");
+const { MQTT5_REQUIRED } = await import("./mqtt-refusal");
 const { CloudPerformer } = await import("./cloud-performer");
 
 const text = (value: string): Uint8Array => new TextEncoder().encode(value);
@@ -270,8 +271,9 @@ describe("BrokerConnections over the real mqtt.js client", () => {
     CLOSE_GRACE_MS + 8000,
   );
 
-  test("a message goes to every subscription whose filter matches its topic, once each", async () => {
-    const mosquitto = broker();
+  /** Three overlapping filters on broker `b` of `mosquitto`, held, and what
+   *  each of them got. */
+  async function overlapping(mosquitto: ScriptedBroker) {
     const { made } = connections();
     const got: string[] = [];
     let held = 0;
@@ -285,51 +287,68 @@ describe("BrokerConnections over the real mqtt.js client", () => {
       );
     }
     await until(() => held === 3);
+    return got;
+  }
 
-    // This broker sends each message once, whatever number of filters it matches.
-    mosquitto.publish("sensors/kitchen/temperature", "21");
-    mosquitto.publish("sensors/hall/humidity", "40");
-    await until(() => got.length === 4);
+  const KITCHEN_21 = [
+    "sensors/# <- sensors/kitchen/temperature 21",
+    "sensors/+/temperature <- sensors/kitchen/temperature 21",
+    "sensors/kitchen/temperature <- sensors/kitchen/temperature 21",
+  ];
 
-    expect(got).toEqual([
-      "sensors/# <- sensors/kitchen/temperature 21",
-      "sensors/+/temperature <- sensors/kitchen/temperature 21",
-      "sensors/kitchen/temperature <- sensors/kitchen/temperature 21",
-      "sensors/# <- sensors/hall/humidity 40",
-    ]);
-  });
+  // Both delivery styles, each with the same payload published twice in a
+  // row: a copy-window heuristic took the second for a copy of the first on a
+  // broker that sends one copy.
+  for (const style of ["one copy for all subscriptions", "one copy per subscription"] as const) {
+    test(`a broker that sends ${style} reaches each subscription once per message`, async () => {
+      const mosquitto = broker();
+      if (style === "one copy per subscription") mosquitto.copyPerSubscription();
+      const got = await overlapping(mosquitto);
 
-  test("a broker that sends a copy per matching subscription reaches each one once per message", async () => {
+      mosquitto.publish("sensors/kitchen/temperature", "21");
+      mosquitto.publish("sensors/kitchen/temperature", "21");
+      mosquitto.publish("sensors/hall/humidity", "40");
+      mosquitto.publish("marker", "after");
+      await until(() => got.length === 7);
+      // Nothing more is on its way.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(got.slice(0, 6).toSorted()).toEqual([...KITCHEN_21, ...KITCHEN_21].toSorted());
+      expect(got.slice(6)).toEqual(["sensors/# <- sensors/hall/humidity 40"]);
+    });
+  }
+
+  test("each filter is subscribed with an identifier, the same one after a reconnect", async () => {
     const mosquitto = broker();
     mosquitto.copyPerSubscription();
-    const { made } = connections();
-    const got: string[] = [];
-    let held = 0;
-    made.configure("b", { id: "b", url: mosquitto.url });
-    for (const filter of ["sensors/#", "sensors/+/temperature", "sensors/kitchen/temperature"]) {
-      made.subscribe(
-        "b",
-        filter,
-        (topic, payload) => got.push(`${filter} <- ${topic} ${new TextDecoder().decode(payload)}`),
-        () => (held += 1),
-      );
-    }
-    await until(() => held === 3);
+    const got = await overlapping(mosquitto);
 
+    mosquitto.drop();
+    await until(() => mosquitto.count("SUBSCRIBE") === 6, 12_000);
+    await new Promise((resolve) => setTimeout(resolve, 50));
     mosquitto.publish("sensors/kitchen/temperature", "21");
     await until(() => got.length === 3);
-    // The same value, published again a moment later, is a new message.
-    await new Promise((resolve) => setTimeout(resolve, COPY_WINDOW_MS * 3));
-    mosquitto.publish("sensors/kitchen/temperature", "21");
-    await until(() => got.length === 6);
-    await new Promise((resolve) => setTimeout(resolve, COPY_WINDOW_MS * 3));
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    const once = [
-      "sensors/# <- sensors/kitchen/temperature 21",
-      "sensors/+/temperature <- sensors/kitchen/temperature 21",
-      "sensors/kitchen/temperature <- sensors/kitchen/temperature 21",
-    ];
-    expect(got).toEqual([...once, ...once]);
+    expect(got.toSorted()).toEqual(KITCHEN_21.toSorted());
+  }, 20_000);
+
+  test("a broker that takes no subscription identifiers is asked for none, and a message reaches every filter that matches", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const mosquitto = broker();
+      mosquitto.withoutSubscriptionIds();
+      const got = await overlapping(mosquitto);
+
+      mosquitto.publish("sensors/kitchen/temperature", "21");
+      await until(() => got.length === 3);
+
+      expect(got).toEqual(KITCHEN_21);
+      expect(mosquitto.connections()).toBe(1);
+      expect(mosquitto.count("SUBSCRIBE with")).toBe(0);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   test("a retained value reaches the subscription that asked for it, and no other again", async () => {
@@ -388,7 +407,7 @@ describe("BrokerConnections over the real mqtt.js client", () => {
     subscribe("a");
     await until(() => outcomes.length === 1);
 
-    made.setWill("b", { topic: "app/status", payload: "disconnected", retain: true });
+    made.setWills("b", [{ topic: "app/status", payload: "disconnected", retain: true }]);
     await until(() => mosquitto.count("DISCONNECT") === 1);
 
     expect(mosquitto.packets().slice(0, 3)).toEqual([
@@ -413,7 +432,7 @@ describe("BrokerConnections over the real mqtt.js client", () => {
       made.configure(id, { id, url: mosquitto.url });
       made.subscribe(id, "a", () => {}, (held) => outcomes.push(`${id} ${held}`));
       await until(() => outcomes.includes(`${id} true`));
-      made.setWill(id, { topic: "app/status", payload: "disconnected", retain: true });
+      made.setWills(id, [{ topic: "app/status", payload: "disconnected", retain: true }]);
       await until(() => mosquitto.count("DISCONNECT") === 1 && mosquitto.connections() === 1);
     }
 
@@ -438,9 +457,9 @@ describe("BrokerConnections over the real mqtt.js client", () => {
     subscribe("a");
     await until(() => received.length === 1);
 
-    made.setWill("b", { topic: "app/one", payload: "gone", retain: true });
+    made.setWills("b", [{ topic: "app/one", payload: "gone", retain: true }]);
     await until(() => mosquitto.count("DISCONNECT") === 1 && mosquitto.connections() === 1);
-    made.setWill("b", { topic: "app/two", payload: "gone", retain: true });
+    made.setWills("b", [{ topic: "app/two", payload: "gone", retain: true }]);
     await until(() => mosquitto.count("DISCONNECT") === 2 && mosquitto.connections() === 1);
     await until(() => mosquitto.count("SUBSCRIBE a") === 3);
 
@@ -454,11 +473,132 @@ describe("BrokerConnections over the real mqtt.js client", () => {
     expect(received).toEqual(["a 21", "a 22"]);
   });
 
+  /** The goodbye of Bridge ID `uid`, as a will and as the broker writes it. */
+  const goodbye = (uid: string) => ({
+    will: { topic: `microflow/${uid}/app/status`, payload: "disconnected", retain: true },
+    said: `microflow/${uid}/app/status disconnected retain`,
+  });
+  const [ALPHA, BRAVO, CHARLIE] = ["alpha", "bravo", "charlie"].map(goodbye);
+
+  /** Broker `b` on `mosquitto` holding topic `a`, with the wills of ALPHA,
+   *  BRAVO and CHARLIE left there and every link that carries one up. */
+  async function leavingThree(mosquitto: ScriptedBroker, beforeLeaving?: (brokerId: string) => void) {
+    const { made, outcomes, subscribe } = connections(beforeLeaving);
+    made.configure("b", { id: "b", url: mosquitto.url });
+    subscribe("a");
+    await until(() => outcomes.length === 1);
+    made.setWills("b", [ALPHA.will, BRAVO.will, CHARLIE.will]);
+    await until(() => mosquitto.heldWills().length === 3 && mosquitto.connections() === 3);
+    return made;
+  }
+
+  test("every will is left with the broker: the first by the link, each other one by a will link of its own", async () => {
+    const mosquitto = broker();
+    await leavingThree(mosquitto);
+
+    expect(mosquitto.heldWills()).toEqual([ALPHA.said, BRAVO.said, CHARLIE.said]);
+    // A will link subscribes to nothing and publishes nothing.
+    expect(mosquitto.count("SUBSCRIBE")).toBe(2);
+    expect(mosquitto.count("PUBLISH")).toBe(0);
+
+    // The tab crashed, the network went: the broker says every goodbye.
+    mosquitto.drop();
+    await until(() => mosquitto.wills().length === 3);
+    expect(mosquitto.wills().toSorted()).toEqual([ALPHA.said, BRAVO.said, CHARLIE.said]);
+    expect(mosquitto.retained(BRAVO.will.topic)).toBe("disconnected");
+  });
+
+  /** What the connection that carried `said` as its will sent, in order. */
+  const carrying = (mosquitto: ScriptedBroker, said: string): string[] => {
+    const found = mosquitto.connectionPackets().filter(([first]) => first === `CONNECT will ${said}`);
+    expect(found).toHaveLength(1);
+    return found[0];
+  };
+
+  test("a Bridge ID that leaves: its will link says the goodbye and then DISCONNECT, on its own connection", async () => {
+    const mosquitto = broker();
+    const made = await leavingThree(mosquitto);
+
+    expect(made.farewell("b", BRAVO.will)).toBe("sent");
+    made.setWills("b", [ALPHA.will, CHARLIE.will]);
+    await until(() => mosquitto.connections() === 2);
+
+    expect(carrying(mosquitto, BRAVO.said)).toEqual([`CONNECT will ${BRAVO.said}`, `PUBLISH ${BRAVO.said}`, "DISCONNECT"]);
+    expect(mosquitto.heldWills()).toEqual([ALPHA.said, CHARLIE.said]);
+    expect(mosquitto.wills()).toEqual([]);
+    expect(mosquitto.retained(BRAVO.will.topic)).toBe("disconnected");
+    // Nothing else said it: the link that subscribes did not.
+    expect(mosquitto.count(`PUBLISH ${BRAVO.said}`)).toBe(1);
+  });
+
+  test("a connection closed on purpose: each link says its own goodbye, then DISCONNECT, and the broker says nothing", async () => {
+    const mosquitto = broker();
+    let made: Awaited<ReturnType<typeof leavingThree>> | undefined;
+    made = await leavingThree(mosquitto, (brokerId) => {
+      for (const { will } of [ALPHA, BRAVO, CHARLIE]) made?.farewell(brokerId, will);
+    });
+
+    made.configure("b", undefined);
+    await until(() => mosquitto.connections() === 0);
+
+    expect(mosquitto.wills()).toEqual([]);
+    // The link in use was renewed to carry the first will.
+    expect(carrying(mosquitto, ALPHA.said)).toEqual([
+      `CONNECT will ${ALPHA.said}`,
+      "SUBSCRIBE a",
+      `PUBLISH ${ALPHA.said}`,
+      "DISCONNECT",
+    ]);
+    for (const { said } of [BRAVO, CHARLIE]) {
+      expect(carrying(mosquitto, said)).toEqual([`CONNECT will ${said}`, `PUBLISH ${said}`, "DISCONNECT"]);
+    }
+    expect(mosquitto.count("PUBLISH")).toBe(3);
+  });
+
+  test("a will link that is down when its Bridge ID leaves: the goodbye waits on the link, and the will link is cut", async () => {
+    const mosquitto = broker();
+    const made = await leavingThree(mosquitto);
+    // Every link goes, and the broker says every will.
+    mosquitto.drop();
+    await until(() => mosquitto.wills().length === 3);
+    // Until the clients have seen their links go.
+    await until(() => made.publish("b", "flow/out", text("on"), FLOW) === "dropped");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(made.farewell("b", BRAVO.will)).toBe("kept");
+    made.setWills("b", [ALPHA.will, CHARLIE.will]);
+    // The link is repaired, and sends what it kept.
+    await until(() => mosquitto.count(`PUBLISH ${BRAVO.said}`) === 1, 12_000);
+    expect(mosquitto.count(`CONNECT will ${BRAVO.said}`)).toBe(1);
+  }, 20_000);
+
   test("a URL no connection can be opened to throws nothing and leaves the broker without one", () => {
     const { made } = connections();
     for (const url of ["ws://a b", "ws://[", "ws://host:99999"]) {
       expect(made.configure("b", { id: "b", url })).toEqual({ open: false, changed: false });
     }
+  });
+
+  test("a broker that refuses MQTT 5 is logged as needing it; one that only closes the connection is not", async () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    cleanups.push(() => warn.mockRestore());
+    const told = () => warn.mock.calls.filter(([said]) => String(said).includes(MQTT5_REQUIRED)).length;
+    const { made } = connections();
+
+    for (const refusal of ["connack 3.1.1", "connack 5"] as const) {
+      const old311 = broker();
+      old311.speakOnly311(refusal);
+      const before = told();
+      made.configure("b", { id: "b", url: old311.url });
+      await until(() => told() === before + 1);
+    }
+    expect(warn.mock.calls.at(-1)).toEqual([`[mqtt] broker b: ${MQTT5_REQUIRED}`]);
+
+    const closing = broker();
+    closing.speakOnly311("close");
+    made.configure("b", { id: "b", url: closing.url });
+    await until(() => closing.count("CONNECT refused") === 1);
+    expect(told()).toBe(2);
   });
 });
 

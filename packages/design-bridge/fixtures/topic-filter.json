@@ -1,5 +1,5 @@
 {
-  "$comment": "Which messages an MQTT subscription receives: [filter, topic, matches]. The one table both hosts route by. The browser checks `apps/web/src/cloud/topic-filter.ts` against it (`topic-filter.test.ts`), the desktop checks `MqttBroker::topic_matches` (`src-tauri/tests/mqtt_routing.rs`). Section numbers are MQTT 3.1.1 unless they say MQTT 5. An invalid filter or topic name matches nothing: a broker refuses such a SUBSCRIBE and never delivers on such a topic.",
+  "$comment": "Which messages an MQTT subscription receives: [filter, topic, matches]. The one table every MQTT client in microflow routes by. `topicMatches` (`packages/design-bridge/src/topic-filter.ts`), which the design-tool plugins' brokers and Studio's browser host both use, is checked against it (`packages/design-bridge/src/topic-filter.test.ts`, `apps/web/src/cloud/topic-filter.test.ts`); the desktop checks `MqttBroker::topic_matches` (`apps/web/src-tauri/tests/mqtt_routing.rs`). Section numbers are MQTT 3.1.1 unless they say MQTT 5. An invalid filter or topic name matches nothing: a broker refuses such a SUBSCRIBE and never delivers on such a topic.",
   "groups": [
     {
       "rule": "§4.7.1.2: a # is the last level, alone, and matches the parent level and every level below it",

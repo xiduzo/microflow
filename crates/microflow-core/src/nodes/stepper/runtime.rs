@@ -416,7 +416,7 @@ mod sim_tests {
         rig.pump();
         let out: Vec<_> = rig.events().iter().filter(|e| &*e.source == "motor").collect();
         assert!(out.is_empty(), "{out:?}");
-        assert!(<super::Stepper as crate::runtime::Component>::emits().is_empty());
+        assert_eq!(<super::Stepper as crate::runtime::Component>::emits(), [] as [&str; 0]);
     }
 
     /// `enable` holds the motor for a truthy value and releases it for a falsy

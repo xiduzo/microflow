@@ -59,7 +59,9 @@ impl Ranging {
     pub(crate) const VOLTS: f64 = 5.0;
     pub(crate) const STEPS: f64 = 1024.0;
 
-    /// The distance `raw` stands for, in centimetres.
+    /// The distance `raw` stands for, in centimetres. Read by the live node
+    /// (the sketch writes the same formula in C++).
+    #[cfg(feature = "runtime")]
     #[must_use]
     pub(crate) fn centimetres(self, raw: u16) -> f64 {
         let raw = f64::from(raw);

@@ -17,6 +17,7 @@ import mqtt, { type MqttClient } from "mqtt";
 import type { ConnectionStatus, MqttBrokerConfig } from "@/cloud/mqtt-broker";
 import type { LlmProviderConfig, ProviderStatus } from "@/ai/llm-provider";
 import { isBrowserReachableBroker } from "@/cloud/broker-url";
+import { brokerProblem } from "@/cloud/mqtt-refusal";
 import { hostFetch, isMixedContent, normalizeBaseUrl } from "@/ai/endpoint";
 
 const PROBE_TIMEOUT_MS = 8000;
@@ -40,24 +41,32 @@ export type LlmProbeOutcome =
   /** A CLI provider whose binary is not on this machine. */
   | { kind: "cliNotFound"; bin: string };
 
+/** How a broker probe ended: the status to show, and why it is `error` when
+ *  that is something the user can act on (`mqtt-refusal.ts`). */
+export type BrokerProbe = { status: ConnectionStatus; problem?: string };
+
 /**
- * Open a throwaway MQTT-over-WSS connection and close it again. Resolves
- * `"connected"` once the broker sends CONNACK, `"error"` on a refused/failed
- * connection, a non-`ws(s)://` URL (unreachable from any browser), a URL no
- * connection can be opened to (`mqtt.connect` throws on a space or an
- * impossible port), or timeout. It never rejects.
+ * Open a throwaway MQTT-over-WSS connection and close it again, speaking MQTT 5
+ * as a flow's connections do (`mqtt-client.ts`), so the status says whether a
+ * flow can reach the broker. Resolves `"connected"` once the broker sends
+ * CONNACK, `"error"` on a refused/failed connection, a non-`ws(s)://` URL
+ * (unreachable from any browser), a URL no connection can be opened to
+ * (`mqtt.connect` throws on a space or an impossible port), or timeout. A
+ * broker that refused the connection for its protocol version comes with the
+ * problem that says so. It never rejects.
  *
  * `connect` is `mqtt.connect`; a test passes its own.
  */
 export async function probeBroker(
   broker: MqttBrokerConfig,
   connect: typeof mqtt.connect = mqtt.connect,
-): Promise<ConnectionStatus> {
-  if (!isBrowserReachableBroker(broker.url)) return "error";
+): Promise<BrokerProbe> {
+  if (!isBrowserReachableBroker(broker.url)) return { status: "error" };
 
   let client: MqttClient;
   try {
     client = connect(broker.url, {
+      protocolVersion: 5,
       clientId: `microflow-probe-${Math.random().toString(16).slice(2, 10)}`,
       username: broker.username || undefined,
       password: broker.password || undefined,
@@ -67,18 +76,25 @@ export async function probeBroker(
       connectTimeout: PROBE_TIMEOUT_MS,
     });
   } catch {
-    return "error";
+    return { status: "error" };
   }
 
-  return new Promise<ConnectionStatus>((resolve) => {
-    const settle = (status: ConnectionStatus) => {
+  return new Promise<BrokerProbe>((resolve) => {
+    let settled = false;
+    const settle = (probe: BrokerProbe) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       client.end(true);
-      resolve(status);
+      resolve(probe);
     };
-    const timer = setTimeout(() => settle("error"), PROBE_TIMEOUT_MS);
-    client.on("connect", () => settle("connected"));
-    client.on("error", () => settle("error"));
+    const timer = setTimeout(() => settle({ status: "error" }), PROBE_TIMEOUT_MS);
+    client.on("connect", () => settle({ status: "connected" }));
+    client.on("error", (error) => settle({ status: "error", problem: brokerProblem(error) }));
+    // A broker that closes the connection without a CONNACK says nothing
+    // about why, and `mqtt.js` emits no error for it: it is an error all the
+    // same, and one without a problem to tell.
+    client.on("close", () => settle({ status: "error" }));
   });
 }
 

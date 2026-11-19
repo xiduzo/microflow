@@ -88,7 +88,7 @@ use microflow_core::runtime::{
     bridge_uid, figma_announce_actions, reconcile_desired, CloudRequest, CloudRequestKind, DesiredSub, FigmaPublish,
     SubKind, SubscriberWiring,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -491,8 +491,12 @@ impl Subscriptions {
         }
 
         // Before anything is announced: a session that is ended on purpose
-        // from here on says goodbye for what it is about to be told.
-        self.leave_last_words(&sessions, &next).await;
+        // from here on says goodbye for what it is about to be told — and
+        // still for what it is about to be told has left: a goodbye, and the
+        // will it is, are taken back only once it was said (below).
+        let leaving_or_there: BTreeSet<(String, String)> =
+            was.iter().chain(&next).map(|(uid, broker_id)| (uid.clone(), broker_id.clone())).collect();
+        self.leave_last_words(&sessions, &leaving_or_there).await;
 
         // First what is owed to a broker whose link is back, then this
         // reconcile's own announcements in core's order: departures before
@@ -532,7 +536,7 @@ impl Subscriptions {
 
         // And after: what was said, and what was owed and has been said, is
         // what is taken back.
-        let announced = self.announced_brokers();
+        let announced: BTreeSet<(String, String)> = self.announced_brokers().into_iter().collect();
         self.leave_last_words(&sessions, &announced).await;
     }
 
@@ -565,7 +569,7 @@ impl Subscriptions {
 
     /// Leave with each broker what it is to publish should its session be
     /// ended on purpose ([`MqttBrokers::set_last_words`]): the `disconnected`
-    /// of every Bridge ID `announced` on it (`uid -> broker_id`), and the
+    /// of every Bridge ID `announced` on it (`(uid, broker_id)`), and the
     /// `disconnected` it is still owed. A broker that is removed, or given
     /// other settings, is then not left with a retained `connected` for a
     /// Studio that is gone — this module hears of the session's end only
@@ -577,7 +581,7 @@ impl Subscriptions {
     async fn leave_last_words(
         &mut self,
         sessions: &HashMap<String, Option<BrokerSession>>,
-        announced: &BTreeMap<String, String>,
+        announced: &BTreeSet<(String, String)>,
     ) {
         let mut wanted: BTreeMap<String, Vec<LastWord>> = BTreeMap::new();
         for (uid, broker_id) in announced {
@@ -914,7 +918,7 @@ mod tests {
         // elsewhere in the flow, a respawn of the same flow — hands over the
         // same wirings, in whatever order the runtime collected them.
         let rig = Rig::new();
-        let wirings = [plain("n1", "t1"), bridge("fig", "u1")];
+        let wirings = [plain("n1", "t1"), bridge("fig", "uid_1")];
         rig.reconcile(&wirings).await;
         let mut seen = rig.brokers.calls().len();
 
@@ -1015,14 +1019,14 @@ mod tests {
     #[tokio::test]
     async fn a_new_bridge_id_is_subscribed_before_it_is_announced() {
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
 
         assert_eq!(
             rig.brokers.calls(),
             vec![
-                subscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ],
             "the answer to the request needs the subscription in place"
         );
@@ -1031,7 +1035,7 @@ mod tests {
     #[tokio::test]
     async fn a_vanished_bridge_id_announces_disconnected() {
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1"), plain("n1", "t")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1"), plain("n1", "t")]).await;
         let mut seen = rig.brokers.calls().len();
 
         rig.reconcile(&[plain("n1", "t")]).await;
@@ -1039,8 +1043,8 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                unsubscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "disconnected", true),
+                unsubscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "disconnected", true),
             ]
         );
     }
@@ -1050,27 +1054,27 @@ mod tests {
         // A generic Mqtt node may subscribe `microflow/…`; only design-bridge
         // topics carry a Bridge ID.
         let rig = Rig::new();
-        rig.reconcile(&[plain("n1", "microflow/u1/custom")]).await;
-        assert_eq!(rig.brokers.calls(), vec![subscribe("microflow/u1/custom")]);
+        rig.reconcile(&[plain("n1", "microflow/uid_1/custom")]).await;
+        assert_eq!(rig.brokers.calls(), vec![subscribe("microflow/uid_1/custom")]);
     }
 
     #[tokio::test]
     async fn a_bridge_id_whose_node_moves_to_another_broker_leaves_the_old_one_and_arrives_on_the_new_one() {
         let rig = Rig::new();
         rig.brokers.connect("b2");
-        rig.reconcile(&[bridge_on("b2", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b2", "fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
 
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", unsubscribe("microflow/u1/figma/variable/1-2")),
-                subscribe("microflow/u1/figma/variable/1-2"),
-                on("b2", publish("microflow/u1/app/status", "disconnected", true)),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                on("b2", unsubscribe("microflow/uid_1/figma/variable/1-2")),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
+                on("b2", publish("microflow/uid_1/app/status", "disconnected", true)),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ],
             "the old broker must not keep a retained `connected`, and the new one must be told"
         );
@@ -1080,24 +1084,24 @@ mod tests {
     async fn a_bridge_id_on_two_brokers_is_announced_on_the_one_that_held_it_first_and_leaves_from_there() {
         let rig = Rig::new();
         rig.brokers.connect("b2");
-        let on_second = bridge_on("b2", "pen", "u1");
+        let on_second = bridge_on("b2", "pen", "uid_1");
         rig.reconcile(std::slice::from_ref(&on_second)).await;
         let mut seen = rig.brokers.calls().len();
 
         // A second node brings the Bridge ID to broker `b` as well. Studio is
         // still on `b2`, where it was announced: nothing is said.
-        rig.reconcile(&[on_second, bridge_on("b", "fig", "u1")]).await;
-        assert_eq!(rig.take_calls(&mut seen), vec![subscribe("microflow/u1/figma/variable/1-2")]);
+        rig.reconcile(&[on_second, bridge_on("b", "fig", "uid_1")]).await;
+        assert_eq!(rig.take_calls(&mut seen), vec![subscribe("microflow/uid_1/figma/variable/1-2")]);
 
         // The node on `b2` goes: the Bridge ID leaves `b2` and is now on `b`.
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", unsubscribe("microflow/u1/figma/variable/1-2")),
-                on("b2", publish("microflow/u1/app/status", "disconnected", true)),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                on("b2", unsubscribe("microflow/uid_1/figma/variable/1-2")),
+                on("b2", publish("microflow/uid_1/app/status", "disconnected", true)),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
 
@@ -1105,8 +1109,8 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                unsubscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "disconnected", true),
+                unsubscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "disconnected", true),
             ]
         );
     }
@@ -1118,7 +1122,7 @@ mod tests {
         // is announced on `b`, which holds it, and stays there.
         let rig = Rig::new();
         rig.brokers.connect("b2");
-        let wirings = [bridge_on("b2", "pen", "u1"), bridge_on("b", "fig", "u1")];
+        let wirings = [bridge_on("b2", "pen", "uid_1"), bridge_on("b", "fig", "uid_1")];
         rig.reconcile(&wirings[..1]).await;
         rig.reconcile(&wirings).await;
         let mut seen = rig.brokers.calls().len();
@@ -1129,9 +1133,9 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", subscribe("microflow/u1/figma/variable/1-2")),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                on("b2", subscribe("microflow/uid_1/figma/variable/1-2")),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
     }
@@ -1146,7 +1150,7 @@ mod tests {
     async fn a_subscription_skipped_while_its_broker_was_offline_is_made_when_the_link_is_back() {
         let rig = Rig::new();
         rig.brokers.set_online("b", false);
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         assert_eq!(rig.brokers.calls(), vec![], "an offline broker is left alone");
 
         rig.brokers.set_online("b", true);
@@ -1155,9 +1159,9 @@ mod tests {
         assert_eq!(
             rig.brokers.calls(),
             vec![
-                subscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
     }
@@ -1183,7 +1187,7 @@ mod tests {
         // settings sync — the flow's subscriptions are made again on the new
         // connection and Studio is announced on it.
         let rig = Rig::new();
-        rig.reconcile(&[plain("n1", "t"), bridge("fig", "u1")]).await;
+        rig.reconcile(&[plain("n1", "t"), bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
         rig.brokers.connect("b");
@@ -1192,10 +1196,10 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                subscribe("microflow/u1/figma/variable/1-2"),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
                 subscribe("t"),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
     }
@@ -1208,14 +1212,14 @@ mod tests {
         // the plugins sent meanwhile did not reach Studio: on each new link,
         // Studio is announced again and asks for the values.
         let rig = Rig::new();
-        rig.reconcile(&[plain("n1", "t"), bridge("fig", "u1")]).await;
+        rig.reconcile(&[plain("n1", "t"), bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
         for _ in 0..2 {
             rig.brokers.set_online("b", false);
             rig.brokers.set_online("b", true);
             rig.settled().await;
-            assert_eq!(rig.take_calls(&mut seen), announced("u1"), "no subscribe; announced again");
+            assert_eq!(rig.take_calls(&mut seen), announced("uid_1"), "no subscribe; announced again");
         }
 
         // A pool change that is not this broker's link coming back says nothing.
@@ -1239,29 +1243,29 @@ mod tests {
         let mut seen = 0;
         rig.brokers.script_err(BrokerOp::Publish, MqttError::Failed("connection reset".into()));
 
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
-            vec![subscribe("microflow/u1/figma/variable/1-2"), publish("microflow/u1/app/status", "connected", true)],
+            vec![subscribe("microflow/uid_1/figma/variable/1-2"), publish("microflow/uid_1/app/status", "connected", true)],
             "no request goes out after a status that did not"
         );
         assert_eq!(rig.brokers.last_words("b"), vec![], "the broker was told nothing: there is nothing to take back");
 
         bounce(&rig, "b").await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1"), "said when the link is back");
-        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("u1")]);
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1"), "said when the link is back");
+        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("uid_1")]);
     }
 
     #[tokio::test]
     async fn a_connected_that_did_not_get_through_is_said_with_the_next_flow_update() {
         let rig = Rig::new();
         rig.brokers.script_err(BrokerOp::Publish, MqttError::Failed("connection reset".into()));
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
 
-        assert_eq!(rig.take_calls(&mut seen), announced("u1"));
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1"));
     }
 
     #[tokio::test]
@@ -1271,20 +1275,20 @@ mod tests {
         // Studio is still announced there — said again on the next link, and
         // taken back should the broker go.
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
         rig.brokers.script_err(BrokerOp::Publish, MqttError::Failed("connection reset".into()));
         bounce(&rig, "b").await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1")[..1]);
-        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("u1")], "still announced");
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1")[..1]);
+        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("uid_1")], "still announced");
 
         bounce(&rig, "b").await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1"));
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1"));
         rig.reconcile(&[]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
-            vec![unsubscribe("microflow/u1/figma/variable/1-2"), publish("microflow/u1/app/status", "disconnected", true)]
+            vec![unsubscribe("microflow/uid_1/figma/variable/1-2"), publish("microflow/uid_1/app/status", "disconnected", true)]
         );
     }
 
@@ -1345,7 +1349,7 @@ mod tests {
         // subscribes them again when it is back — the removed node's too,
         // unless it is unsubscribed then.
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
 
         rig.brokers.set_online("b", false);
@@ -1357,8 +1361,8 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                unsubscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "disconnected", true),
+                unsubscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "disconnected", true),
             ]
         );
         assert_eq!(rig.brokers.subscriptions("b"), topics(&[]));
@@ -1366,12 +1370,12 @@ mod tests {
 
     // --- a Bridge ID and a broker whose link is down ---------------------------------
 
-    /// Bridge ID `u1` announced on `b2`, whose link then went down, and the
+    /// Bridge ID `uid_1` announced on `b2`, whose link then went down, and the
     /// calls made so far.
     async fn announced_on_a_broker_that_went_offline() -> (Rig, usize) {
         let rig = Rig::new();
         rig.brokers.connect("b2");
-        rig.reconcile(&[bridge_on("b2", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b2", "fig", "uid_1")]).await;
         rig.brokers.set_online("b2", false);
         let seen = rig.brokers.calls().len();
         (rig, seen)
@@ -1391,14 +1395,14 @@ mod tests {
         // the new broker must not wait for the old one to be told.
         let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
 
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
 
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                subscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
     }
@@ -1406,15 +1410,15 @@ mod tests {
     #[tokio::test]
     async fn the_disconnected_owed_to_an_offline_broker_is_sent_once_when_its_link_is_back() {
         let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
         rig.take_calls(&mut seen);
 
         // The new broker's link bounces, the flow is sent again: the old
         // broker is still offline, and the new one is told only what a new
         // link is told.
         bounce(&rig, "b").await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1"));
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1"));
 
         // Two broker ids can name one server: there the late `disconnected`
         // has just replaced the retained `connected`, for a Studio that is
@@ -1425,15 +1429,15 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", unsubscribe("microflow/u1/figma/variable/1-2")),
-                on("b2", publish("microflow/u1/app/status", "disconnected", true)),
-                publish("microflow/u1/app/status", "connected", true),
+                on("b2", unsubscribe("microflow/uid_1/figma/variable/1-2")),
+                on("b2", publish("microflow/uid_1/app/status", "disconnected", true)),
+                publish("microflow/uid_1/app/status", "connected", true),
             ]
         );
 
         bounce(&rig, "b2").await;
         bounce(&rig, "b").await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1"), "it was owed once; `b` is told what a new link is");
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1"), "it was owed once; `b` is told what a new link is");
     }
 
     #[tokio::test]
@@ -1443,7 +1447,7 @@ mod tests {
         // ids name one server, the retained status must end on `connected`.
         let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
         rig.brokers.set_online("b", false);
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
         assert_eq!(rig.take_calls(&mut seen), vec![], "nothing can be said or subscribed on a link that is down");
 
         rig.brokers.set_online("b2", true);
@@ -1453,11 +1457,11 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", unsubscribe("microflow/u1/figma/variable/1-2")),
-                subscribe("microflow/u1/figma/variable/1-2"),
-                on("b2", publish("microflow/u1/app/status", "disconnected", true)),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                on("b2", unsubscribe("microflow/uid_1/figma/variable/1-2")),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
+                on("b2", publish("microflow/uid_1/app/status", "disconnected", true)),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ],
             "the goodbye first, and `connected` once"
         );
@@ -1466,16 +1470,16 @@ mod tests {
     #[tokio::test]
     async fn a_disconnected_that_did_not_get_through_on_a_link_that_is_up_is_owed_too() {
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         let mut seen = rig.brokers.calls().len();
-        let goodbye = publish("microflow/u1/app/status", "disconnected", true);
+        let goodbye = publish("microflow/uid_1/app/status", "disconnected", true);
 
         // The design node is deleted, and the link drops under the publish.
         rig.brokers.script_err(BrokerOp::Publish, MqttError::Failed("connection reset".into()));
         rig.reconcile(&[]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
-            vec![unsubscribe("microflow/u1/figma/variable/1-2"), goodbye.clone()],
+            vec![unsubscribe("microflow/uid_1/figma/variable/1-2"), goodbye.clone()],
             "the publish that failed"
         );
         assert_eq!(rig.brokers.last_words("b").len(), 1, "owed: and said by the pool should the broker be removed now");
@@ -1489,7 +1493,7 @@ mod tests {
     #[tokio::test]
     async fn a_disconnected_that_did_not_get_through_stays_owed() {
         let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
         rig.take_calls(&mut seen);
 
         // The link drops again under the publish.
@@ -1498,15 +1502,15 @@ mod tests {
         rig.settled().await;
         bounce(&rig, "b2").await;
 
-        let goodbye = on("b2", publish("microflow/u1/app/status", "disconnected", true));
+        let goodbye = on("b2", publish("microflow/uid_1/app/status", "disconnected", true));
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                on("b2", unsubscribe("microflow/u1/figma/variable/1-2")),
+                on("b2", unsubscribe("microflow/uid_1/figma/variable/1-2")),
                 goodbye.clone(),
                 goodbye,
                 // Said again after the goodbye that got through.
-                publish("microflow/u1/app/status", "connected", true),
+                publish("microflow/uid_1/app/status", "connected", true),
             ]
         );
     }
@@ -1514,17 +1518,17 @@ mod tests {
     #[tokio::test]
     async fn a_bridge_id_that_moved_back_before_the_disconnected_could_be_sent_is_never_said_to_have_left() {
         let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
         rig.take_calls(&mut seen);
 
         // Back to the old broker, whose link is still down: the Bridge ID
         // leaves `b` and is on no broker until that link is back.
-        rig.reconcile(&[bridge_on("b2", "fig", "u1")]).await;
+        rig.reconcile(&[bridge_on("b2", "fig", "uid_1")]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                unsubscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "disconnected", true),
+                unsubscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "disconnected", true),
             ]
         );
 
@@ -1534,7 +1538,7 @@ mod tests {
         rig.brokers.set_online("b2", true);
         rig.settled().await;
         bounce(&rig, "b2").await;
-        let on_b2: Vec<BrokerCall> = announced("u1").into_iter().map(|call| on("b2", call)).collect();
+        let on_b2: Vec<BrokerCall> = announced("uid_1").into_iter().map(|call| on("b2", call)).collect();
         assert_eq!(rig.take_calls(&mut seen), [on_b2.clone(), on_b2].concat(), "no `disconnected` on b2");
     }
 
@@ -1544,7 +1548,7 @@ mod tests {
         // announced in is gone, and so is what it was owed.
         for end_session in [RecordingMqttBrokers::connect, RecordingMqttBrokers::disconnect] {
             let (rig, mut seen) = announced_on_a_broker_that_went_offline().await;
-            rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
+            rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
             rig.take_calls(&mut seen);
 
             end_session(&rig.brokers, "b2");
@@ -1563,9 +1567,9 @@ mod tests {
         // offline: nothing can be said on `b2` until its link is back.
         let rig = Rig::new();
         rig.brokers.connect("b2");
-        let on_second = bridge_on("b2", "pen", "u1");
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1"), on_second.clone()]).await;
+        let on_second = bridge_on("b2", "pen", "uid_1");
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1"), on_second.clone()]).await;
         rig.brokers.set_online("b2", false);
         let mut seen = rig.brokers.calls().len();
 
@@ -1573,14 +1577,14 @@ mod tests {
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                unsubscribe("microflow/u1/figma/variable/1-2"),
-                publish("microflow/u1/app/status", "disconnected", true),
+                unsubscribe("microflow/uid_1/figma/variable/1-2"),
+                publish("microflow/uid_1/app/status", "disconnected", true),
             ]
         );
 
         rig.brokers.set_online("b2", true);
         rig.settled().await;
-        assert_eq!(rig.take_calls(&mut seen), announced("u1").into_iter().map(|call| on("b2", call)).collect::<Vec<_>>());
+        assert_eq!(rig.take_calls(&mut seen), announced("uid_1").into_iter().map(|call| on("b2", call)).collect::<Vec<_>>());
     }
 
     #[tokio::test]
@@ -1623,28 +1627,28 @@ mod tests {
         rig.brokers.connect("b2");
         assert_eq!(rig.brokers.last_words("b"), vec![]);
 
-        rig.reconcile(&[bridge("fig", "u1"), bridge("pen", "u2"), plain("n1", "t")]).await;
-        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("u1"), goodbye("u2")]);
+        rig.reconcile(&[bridge("fig", "uid_1"), bridge("pen", "uid_2"), plain("n1", "t")]).await;
+        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("uid_1"), goodbye("uid_2")]);
         assert_eq!(rig.brokers.last_words("b2"), vec![], "nothing is announced there");
 
         // One Bridge ID moves to the other broker, the other leaves the flow:
         // each broker is left what is announced on it now.
-        rig.reconcile(&[bridge_on("b2", "fig", "u1"), plain("n1", "t")]).await;
+        rig.reconcile(&[bridge_on("b2", "fig", "uid_1"), plain("n1", "t")]).await;
         assert_eq!(rig.brokers.last_words("b"), vec![]);
-        assert_eq!(rig.brokers.last_words("b2"), vec![goodbye("u1")]);
+        assert_eq!(rig.brokers.last_words("b2"), vec![goodbye("uid_1")]);
     }
 
     #[tokio::test]
     async fn a_broker_that_starts_a_new_session_is_left_its_goodbyes_again() {
         // What was left with a session goes with it.
         let rig = Rig::new();
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
 
         rig.brokers.connect("b");
         assert_eq!(rig.brokers.last_words("b"), vec![], "a new session, with nothing to say yet");
         rig.settled().await;
 
-        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("u1")], "announced again, and left again");
+        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("uid_1")], "announced again, and left again");
     }
 
     #[tokio::test]
@@ -1653,9 +1657,9 @@ mod tests {
         // be removed once its link is back, before the goodbye could be
         // published, it is what the pool says on closing it.
         let (rig, _) = announced_on_a_broker_that_went_offline().await;
-        rig.reconcile(&[bridge_on("b", "fig", "u1")]).await;
-        assert_eq!(rig.brokers.last_words("b2"), vec![goodbye("u1")], "owed");
-        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("u1")], "announced");
+        rig.reconcile(&[bridge_on("b", "fig", "uid_1")]).await;
+        assert_eq!(rig.brokers.last_words("b2"), vec![goodbye("uid_1")], "owed");
+        assert_eq!(rig.brokers.last_words("b"), vec![goodbye("uid_1")], "announced");
 
         rig.brokers.set_online("b2", true);
         rig.settled().await;
@@ -1670,23 +1674,23 @@ mod tests {
         rig.brokers.script_err(BrokerOp::Subscribe, MqttError::Failed("connection reset".into()));
         let mut seen = 0;
 
-        rig.reconcile(&[bridge("fig", "u1")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1")]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
-            vec![subscribe("microflow/u1/figma/variable/1-2")],
+            vec![subscribe("microflow/uid_1/figma/variable/1-2")],
             "no request goes out that nothing would hear the answer to"
         );
 
         // The flow changes: a node is added. The missing subscription is made
         // along with the new one, and now the Bridge ID is announced.
-        rig.reconcile(&[bridge("fig", "u1"), plain("n1", "t")]).await;
+        rig.reconcile(&[bridge("fig", "uid_1"), plain("n1", "t")]).await;
         assert_eq!(
             rig.take_calls(&mut seen),
             vec![
-                subscribe("microflow/u1/figma/variable/1-2"),
+                subscribe("microflow/uid_1/figma/variable/1-2"),
                 subscribe("t"),
-                publish("microflow/u1/app/status", "connected", true),
-                publish("microflow/u1/app/variables/request", "", false),
+                publish("microflow/uid_1/app/status", "connected", true),
+                publish("microflow/uid_1/app/variables/request", "", false),
             ]
         );
     }

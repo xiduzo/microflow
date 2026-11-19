@@ -7,6 +7,7 @@
  * module in `crates/microflow-core/src/design_bridge.rs`; both are checked
  * against `fixtures/protocol.json`.
  */
+import { isValidBridgeId } from "./pairing";
 
 export const DESIGN_TOOLS = ["figma", "penpot"] as const;
 export type DesignTool = (typeof DESIGN_TOOLS)[number];
@@ -79,14 +80,15 @@ export function parseTopic(topic: string): ParsedTopic | null {
 /**
  * The bridge uid a topic belongs to, or `undefined` for topics outside the
  * protocol. Studio announces itself only for uids that design-bridge
- * subscriptions use, never for an arbitrary `microflow/…` topic. A topic
- * filter whose uid level holds a wildcard (`microflow/+/figma/status`) names
- * no Bridge ID: Studio would publish its status on a wildcard topic, which no
- * broker takes.
+ * subscriptions use, never for an arbitrary `microflow/…` topic, and only for
+ * a uid level that is a valid Bridge ID ({@link isValidBridgeId}): no plugin
+ * can hold any other, so Studio never announces itself, or leaves a last will,
+ * for one. That also leaves out a uid level with a wildcard
+ * (`microflow/+/figma/status`), on which no broker takes a publish.
  */
 export function bridgeUid(topic: string): string | undefined {
   const uid = parseTopic(topic)?.uid;
-  return uid === undefined || /[+#]/.test(uid) ? undefined : uid;
+  return uid !== undefined && isValidBridgeId(uid) ? uid : undefined;
 }
 
 /**
@@ -105,9 +107,4 @@ export function fromWireId(tool: DesignTool, wireId: string): string {
     case "penpot":
       return wireId;
   }
-}
-
-/** Whether `segment` can be used as one MQTT topic level. */
-export function isTopicSafe(segment: string): boolean {
-  return segment.length > 0 && !/[/+#\s]/.test(segment);
 }

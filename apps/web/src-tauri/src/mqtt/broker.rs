@@ -3,10 +3,11 @@
 //! Simple MQTT client implementation using mqtt-endpoint-tokio.
 
 use mqtt_endpoint_tokio::mqtt_ep;
+use mqtt_endpoint_tokio::mqtt_ep::packet::{Property, SubscriptionIdentifier};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tokio::sync::{mpsc, RwLock};
 
 /// Configuration for MQTT reconnection with exponential backoff
@@ -87,7 +88,93 @@ impl ReconnectConfig {
 }
 
 /// Type alias for client endpoint
-type ClientEndpoint = mqtt_ep::endpoint::Endpoint<mqtt_ep::role::Client>;
+pub(super) type ClientEndpoint = mqtt_ep::endpoint::Endpoint<mqtt_ep::role::Client>;
+
+/// What the user is told about a broker that refused a connection for its
+/// protocol version: it speaks MQTT 3.1.1 only, and this client speaks MQTT 5
+/// only. The browser host says the same words (`MQTT5_REQUIRED` in
+/// `src/cloud/mqtt-refusal.ts`, which a test there holds to this one).
+///
+/// It is the error a connection attempt fails with ([`Dialer::open`]) for a
+/// broker that answered the CONNECT with
+///
+/// - an MQTT 5 CONNACK with reason code 0x84, "Unsupported Protocol Version"
+///   (MQTT 5 §3.2.2.2): `mqtt-endpoint-tokio` hands it over as a
+///   `V5_0Connack` whose reason code is `UnsupportedProtocolVersion`; or
+/// - an MQTT 3.1.1 CONNACK with return code 1, "unacceptable protocol
+///   version" (MQTT 3.1.1 §3.2.2.3). An MQTT 5 endpoint does not parse it (a
+///   CONNACK of two bytes is no MQTT 5 CONNACK): it only logs a malformed
+///   packet and keeps waiting, and `recv` fails when the broker closes the
+///   connection, as it does for a broker that closes it without answering. The
+///   bytes the broker sent tell the two apart ([`FirstBytes`]).
+///
+/// A broker that closes the connection without a CONNACK says nothing about
+/// why, and is not taken for one that refused the protocol version.
+pub const MQTT5_REQUIRED: &str = "This broker does not speak MQTT 5. Microflow Studio needs an MQTT 5 broker — see the docs: /docs/troubleshooting/mqtt-cant-connect";
+
+/// What the user is to be told about a connection attempt that failed with
+/// `error`, when it is something they can act on: [`MQTT5_REQUIRED`].
+#[must_use]
+pub fn problem_of(error: &str) -> Option<&'static str> {
+    (error == MQTT5_REQUIRED).then_some(MQTT5_REQUIRED)
+}
+
+/// An MQTT 3.1.1 CONNACK, whole: session present 0, return code 1,
+/// "unacceptable protocol version" (MQTT 3.1.1 §3.2.2.3).
+const MQTT_3_1_1_REFUSAL: [u8; 4] = [0x20, 0x02, 0x00, 0x01];
+
+/// The first bytes the broker sent on a link, as they came off the transport,
+/// before the endpoint parsed them: as many as an MQTT 3.1.1 refusal has.
+#[derive(Clone, Default)]
+struct FirstBytes(Arc<std::sync::Mutex<Vec<u8>>>);
+
+impl FirstBytes {
+    fn note(&self, received: &[u8]) {
+        let mut first = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let room = MQTT_3_1_1_REFUSAL.len().saturating_sub(first.len());
+        first.extend(received.iter().take(room));
+    }
+
+    /// The broker's first packet was an MQTT 3.1.1 CONNACK that refused the
+    /// connection for its protocol version.
+    fn refused_as_3_1_1(&self) -> bool {
+        *self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner) == MQTT_3_1_1_REFUSAL
+    }
+}
+
+/// A transport that notes the [`FirstBytes`] it receives, and is otherwise
+/// the transport it wraps.
+struct Noting<T> {
+    transport: T,
+    first: FirstBytes,
+}
+
+impl<T: mqtt_ep::TransportOps + Send> mqtt_ep::TransportOps for Noting<T> {
+    fn send<'a>(
+        &'a mut self,
+        buffers: &'a [std::io::IoSlice<'a>],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), mqtt_ep::TransportError>> + Send + 'a>> {
+        self.transport.send(buffers)
+    }
+
+    fn recv<'a>(
+        &'a mut self,
+        buffer: &'a mut [u8],
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<usize, mqtt_ep::TransportError>> + Send + 'a>> {
+        Box::pin(async move {
+            let received = self.transport.recv(buffer).await?;
+            self.first.note(&buffer[..received]);
+            Ok(received)
+        })
+    }
+
+    fn shutdown<'a>(
+        &'a mut self,
+        timeout: Duration,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'a>> {
+        self.transport.shutdown(timeout)
+    }
+}
 
 /// Connection status for a broker
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ts_rs::TS)]
@@ -196,7 +283,7 @@ pub struct LastWord {
 impl LastWord {
     /// Whether a CONNECT can carry it as a will: a topic without wildcards,
     /// and a topic and payload each within MQTT's two-byte length.
-    fn fits_a_will(&self) -> bool {
+    pub(super) fn fits_a_will(&self) -> bool {
         let short = usize::from(u16::MAX);
         !self.topic.is_empty() && !self.topic.contains(['+', '#']) && self.topic.len() <= short && self.payload.len() <= short
     }
@@ -259,48 +346,113 @@ impl Held {
     }
 }
 
-/// What a client holds: per topic filter, each subscriber's [`Held`]. A filter
-/// is in the map exactly while at least one subscriber holds it.
-pub(super) type Subscriptions = HashMap<String, HashMap<Subscriber, Held>>;
+/// The highest subscription identifier MQTT 5 allows (§3.8.2.1.2: a variable
+/// byte integer from 1).
+const MAX_SUBSCRIPTION_ID: u32 = 268_435_455;
 
-/// Make `subscriber` hold `topic` in `subscriptions`, unless it already does.
-pub(super) fn hold(subscriptions: &mut Subscriptions, topic: &str, subscriber: Subscriber, callback: MessageCallback) {
-    subscriptions.entry(topic.to_string()).or_default().entry(subscriber).or_insert_with(|| Held::new(callback));
+/// One topic filter a client holds at the broker.
+pub(super) struct Filter {
+    /// The filter's subscription identifier: sent with every SUBSCRIBE of the
+    /// filter, and carried by every PUBLISH the broker sends for it. It stays
+    /// the filter's for as long as the filter is held — across a repaired
+    /// link, a link renewed for a will and a client that takes over from
+    /// another ([`MqttBroker::adopt`]) — and is not given to another filter
+    /// meanwhile.
+    id: u32,
+    /// Each subscriber's hold on the filter.
+    holders: HashMap<Subscriber, Held>,
 }
 
-/// How long after a live message the copies of it a broker may still send for
-/// the client's other matching filters are waited for (see [`route`]). A
-/// broker writes them out together, one after the other, so they arrive well
-/// within it.
-pub const COPY_WINDOW: Duration = Duration::from_millis(50);
-
-/// A live message that matched several of the client's filters, and how many
-/// more copies of it the broker may still send.
-struct Owed {
-    payload: Vec<u8>,
-    copies: usize,
-    until: Instant,
+/// What a client holds: per topic filter, its subscription identifier and each
+/// subscriber's [`Held`]. A filter is in the table exactly while at least one
+/// subscriber holds it.
+#[derive(Default)]
+pub(super) struct Subscriptions {
+    filters: HashMap<String, Filter>,
+    /// The subscription identifier handed out last.
+    last_id: u32,
 }
 
-/// Per topic, the copies of its last live message a broker may still send.
-type Copies = HashMap<String, Owed>;
+impl Subscriptions {
+    #[must_use]
+    pub(super) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(super) fn is_empty(&self) -> bool {
+        self.filters.is_empty()
+    }
+
+    /// Make `subscriber` hold `topic`, unless it already does.
+    pub(super) fn hold(&mut self, topic: &str, subscriber: Subscriber, callback: MessageCallback) {
+        self.filter(topic).holders.entry(subscriber).or_insert_with(|| Held::new(callback));
+    }
+
+    /// The filter `topic`, made with a subscription identifier of its own when
+    /// the table does not hold it yet.
+    fn filter(&mut self, topic: &str) -> &mut Filter {
+        if !self.filters.contains_key(topic) {
+            let id = self.next_id();
+            self.filters.insert(topic.to_string(), Filter { id, holders: HashMap::new() });
+        }
+        self.filters.get_mut(topic).expect("just made")
+    }
+
+    /// An identifier no filter in the table has. They are handed out in turn,
+    /// so one a filter that was let go of had is not given again before the
+    /// other quarter of a billion have been: a message still on its way for
+    /// that filter goes to nobody.
+    fn next_id(&mut self) -> u32 {
+        loop {
+            self.last_id = if self.last_id >= MAX_SUBSCRIPTION_ID { 1 } else { self.last_id + 1 };
+            if !self.filters.values().any(|filter| filter.id == self.last_id) {
+                return self.last_id;
+            }
+        }
+    }
+
+    /// Every filter in the table, with its subscription identifier.
+    fn ids(&self) -> Vec<(String, u32)> {
+        self.filters.iter().map(|(topic, filter)| (topic.clone(), filter.id)).collect()
+    }
+
+    /// Every subscriber's hold, of every filter.
+    fn holds_mut(&mut self) -> impl Iterator<Item = &mut Held> {
+        self.filters.values_mut().flat_map(|filter| filter.holders.values_mut())
+    }
+}
+
+/// How the subscriptions an inbound message is for are found: by the
+/// subscription identifiers it carries, or — on a link whose broker does not
+/// give them, and for a message that carries none — by the filters that
+/// match its topic.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum Addressed {
+    /// The identifiers the PUBLISH carried.
+    Ids(Vec<u32>),
+    /// The PUBLISH carried none.
+    Untagged,
+}
 
 /// The callbacks an inbound message on `topic` goes to, marking the topic seen
-/// for every subscriber of a matching filter. Each subscriber of a filter that
-/// matches gets one delivery per message, however many filters match it and
-/// however many copies of it the broker sends.
+/// for every subscriber of a filter it is for. Each subscriber of such a
+/// filter gets one delivery per PUBLISH, and each subscription one per message
+/// the broker forwards, however many of the client's filters overlap.
 ///
-/// **Copies.** A message does not say which subscription it is for, and a
-/// broker may send one copy of it for each of the client's filters that match
-/// its topic (MQTT 3.1.1 §3.3.5, MQTT 5 §3.3.4; mosquitto 2 and EMQX do), or
-/// one for all of them (`HiveMQ` does). So the first copy goes to every matching
-/// filter, and when `n` filters match, up to `n - 1` more live messages on that
-/// topic with the same payload within [`COPY_WINDOW`] of it are taken for its
-/// copies and go to nobody. Any other message on the topic ends the wait. At
-/// `QoS` 0 nothing else tells a copy from a new message, so this cannot be
-/// exact: on a broker that sends one copy, a publisher that repeats a payload
-/// within the window loses the repeat to a filter overlap; a copy that comes
-/// later than the window is delivered again.
+/// **By subscription identifier.** Every filter is subscribed with an
+/// identifier of its own ([`Filter::id`]), and an MQTT 5 broker tags each
+/// PUBLISH with the identifiers of the subscriptions it sends it for (MQTT 5
+/// §3.3.4). Whether it sends one copy for all of them (`HiveMQ`), carrying every
+/// identifier, or one per subscription (mosquitto 2, EMQX), each carrying its
+/// own, a filter is handed exactly the copies that name it — so a repeated
+/// payload is a new message, and a copy for another filter is no message for
+/// this one. The topic is still matched against the filter, as a guard: an
+/// identifier that names a filter the topic does not match delivers nothing.
+///
+/// **Without one.** A link whose broker does not give subscription
+/// identifiers, and a PUBLISH that carries none (a broker bug), are routed by
+/// the topic: once to every filter that matches it. On a broker that sends a
+/// copy per subscription each copy then reaches every matching filter.
 ///
 /// **Retained messages.** A broker answers every SUBSCRIBE with the retained
 /// messages its filter matches, flagged RETAIN, and forwards a live publish to
@@ -315,37 +467,20 @@ type Copies = HashMap<String, Owed>;
 /// Counter behind it does not count the same value twice. The rule needs no
 /// "replay is over" moment, which a filter with no retained message, or a
 /// wildcard with several, never signals. An unflagged message goes to
-/// everyone. That also takes care of the flagged copies a broker sends when
-/// several overlapping filters are subscribed at once, as on a reconnect.
-fn route(
-    subscriptions: &mut Subscriptions,
-    copies: &mut Copies,
-    message: &MqttMessage,
-    now: Instant,
-) -> Vec<MessageCallback> {
-    let MqttMessage { topic, payload, retain } = message;
-    if !retain {
-        copies.retain(|_, owed| owed.until > now);
-        if let Some(owed) = copies.get_mut(topic.as_str()).filter(|owed| owed.payload == *payload) {
-            owed.copies -= 1;
-            if owed.copies == 0 {
-                copies.remove(topic.as_str());
-            }
-            return Vec::new();
-        }
-        let filters = subscriptions.keys().filter(|filter| MqttBroker::topic_matches(filter, topic)).count();
-        if filters > 1 {
-            copies.insert(topic.clone(), Owed { payload: payload.clone(), copies: filters - 1, until: now + COPY_WINDOW });
-        } else {
-            copies.remove(topic.as_str());
-        }
-    }
+/// everyone. Two subscribers of one filter share its identifier, so the rule
+/// is what keeps a replay asked for by the one from the other.
+fn route(subscriptions: &mut Subscriptions, message: &MqttMessage, addressed: &Addressed) -> Vec<MessageCallback> {
+    let MqttMessage { topic, retain, .. } = message;
     let mut callbacks = Vec::new();
-    for (filter, subscribers) in subscriptions.iter_mut() {
-        if !MqttBroker::topic_matches(filter, topic) {
+    for (filter, held) in &mut subscriptions.filters {
+        let named = match addressed {
+            Addressed::Ids(ids) => ids.contains(&held.id),
+            Addressed::Untagged => true,
+        };
+        if !named || !MqttBroker::topic_matches(filter, topic) {
             continue;
         }
-        for held in subscribers.values_mut() {
+        for held in held.holders.values_mut() {
             let news = if held.seen.contains(topic) { !retain } else { held.seen.insert(topic.clone()) };
             if news {
                 callbacks.push(Arc::clone(&held.callback));
@@ -383,9 +518,17 @@ fn matching_filter(filter: &str) -> Option<Vec<&str>> {
 /// Internal state for the broker connection
 struct BrokerState {
     status: ConnectionStatus,
+    /// Why `status` is `Error`, when the user can act on it ([`problem_of`]).
+    /// `None` with any other status.
+    problem: Option<&'static str>,
     subscriptions: Subscriptions,
-    /// The copies of a live message the broker may still send ([`route`]).
-    copies: Copies,
+    /// Whether the link that is up (or was last) subscribes with subscription
+    /// identifiers: its broker said in its CONNACK that it gives them
+    /// ([`route`]).
+    tagged: bool,
+    /// A PUBLISH without a subscription identifier on a link that gives them
+    /// has been logged: it is logged once per client.
+    untagged_told: bool,
     /// [`MqttBroker::disconnect`] was called: this client is finished and its
     /// reconnect loop must not bring it back.
     closed: bool,
@@ -397,12 +540,24 @@ struct BrokerState {
 }
 
 impl BrokerState {
-    /// The one place the status is written, so that every change is told.
+    /// Set the status, which has no [problem](Self::fail).
     fn set_status(&mut self, status: ConnectionStatus) {
-        if self.status == status {
+        self.report(status, None);
+    }
+
+    /// The status is `Error`, for `problem` when the user can act on it.
+    fn fail(&mut self, problem: Option<&'static str>) {
+        self.report(ConnectionStatus::Error, problem);
+    }
+
+    /// The one place the status and its problem are written, so that every
+    /// change is told.
+    fn report(&mut self, status: ConnectionStatus, problem: Option<&'static str>) {
+        if self.status == status && self.problem == problem {
             return;
         }
         self.status = status;
+        self.problem = problem;
         if let Some(notify) = &self.status_changed {
             notify();
         }
@@ -444,8 +599,10 @@ impl MqttBroker {
             config,
             state: Arc::new(RwLock::new(BrokerState {
                 status: ConnectionStatus::Disconnected,
-                subscriptions: HashMap::new(),
-                copies: HashMap::new(),
+                problem: None,
+                subscriptions: Subscriptions::new(),
+                tagged: true,
+                untagged_told: false,
                 closed: false,
                 will: None,
                 status_changed: None,
@@ -482,10 +639,10 @@ impl MqttBroker {
     /// automatic reconnection when the connection is lost.
     pub async fn connect(broker: Arc<RwLock<Self>>) -> Result<(), String> {
         let dialer = broker.read().await.dialer().await;
-        let endpoint = dialer.dial().await?;
+        let opened = dialer.dial().await?;
 
         let mut broker_guard = broker.write().await;
-        if !broker_guard.install(endpoint).await {
+        if !broker_guard.install(opened).await {
             return Err("Disconnected while connecting".to_string());
         }
         broker_guard.start_receive_loop(broker.clone());
@@ -497,7 +654,7 @@ impl MqttBroker {
     async fn dialer(&self) -> Dialer {
         Dialer {
             config: self.config.clone(),
-            state: self.state.clone(),
+            state: Some(self.state.clone()),
             timeout: self.reconnect_config.connect_timeout,
             will: self.state.read().await.will.clone(),
         }
@@ -530,9 +687,10 @@ impl MqttBroker {
     ///
     /// The receive loop of the old link stops before the new one starts, so
     /// nothing arrives twice; a message published in that moment is lost, as
-    /// one published while a link is down is. A subscriber is not handed a
-    /// retained message again that it has had: the new link's replay of it
-    /// is not news.
+    /// one published while a link is down is. Every filter is subscribed on
+    /// the new link with the subscription identifier it had. A subscriber is
+    /// not handed a retained message again that it has had: the new link's
+    /// replay of it is not news.
     ///
     /// Gives up, and leaves the old link as it is, when the new one cannot be
     /// opened, when the old one dropped meanwhile (its repair carries the
@@ -540,8 +698,8 @@ impl MqttBroker {
     /// again meanwhile (the renewal for that one carries it).
     pub(super) async fn renew_link(broker: Arc<RwLock<Self>>) {
         let dialer = broker.read().await.dialer().await;
-        let endpoint = match dialer.open().await {
-            Ok(endpoint) => endpoint,
+        let opened = match dialer.open().await {
+            Ok(opened) => opened,
             Err(e) => {
                 log::warn!("[MQTT] Broker {}: no new link for its will: {e}", dialer.config.id);
                 return;
@@ -554,13 +712,16 @@ impl MqttBroker {
             !state.closed && state.status == ConnectionStatus::Connected && state.will == dialer.will
         };
         if !still {
-            let _ = endpoint.close().await;
+            // With a DISCONNECT: the link carries a will nobody wants said.
+            say_disconnect(&opened.endpoint, client.reconnect_config.write_timeout).await;
+            let _ = opened.endpoint.close().await;
             return;
         }
         if let Some(stop) = client.shutdown_tx.take() {
             let _ = stop.send(Stop::Closed).await;
         }
-        let old = client.endpoint.replace(Arc::new(endpoint));
+        client.state.write().await.tagged = opened.tagged;
+        let old = client.endpoint.replace(Arc::new(opened.endpoint));
         client.start_receive_loop(broker.clone());
         if let Err(e) = client.subscribe_held().await {
             log::warn!("[MQTT] Broker {}: the renewed link did not take every subscription: {e}", client.config.id);
@@ -570,12 +731,7 @@ impl MqttBroker {
         drop(client);
 
         if let Some(old) = old {
-            if let Ok(disconnect) = mqtt_ep::packet::v5_0::Disconnect::builder()
-                .reason_code(mqtt_ep::result_code::DisconnectReasonCode::NormalDisconnection)
-                .build()
-            {
-                let _ = tokio::time::timeout(write_timeout, old.send(disconnect)).await;
-            }
+            say_disconnect(&old, write_timeout).await;
             let _ = old.close().await;
         }
         log::info!("[MQTT] Broker {id}: link renewed for its will");
@@ -584,18 +740,22 @@ impl MqttBroker {
     /// Make the link a [`Dialer`] opened this client's link: from here on the
     /// client is `Connected`. Returns `false`, having closed the link, when the
     /// client was disconnected while the link was being opened.
-    async fn install(&mut self, endpoint: ClientEndpoint) -> bool {
+    async fn install(&mut self, opened: Opened) -> bool {
         let mut state = self.state.write().await;
         if state.closed {
             state.set_status(ConnectionStatus::Disconnected);
             drop(state);
-            let _ = endpoint.close().await;
+            // With a DISCONNECT: the session that would have used the link
+            // has ended, and said what it had to say itself.
+            say_disconnect(&opened.endpoint, self.reconnect_config.write_timeout).await;
+            let _ = opened.endpoint.close().await;
             return false;
         }
+        state.tagged = opened.tagged;
         state.set_status(ConnectionStatus::Connected);
         drop(state);
 
-        self.endpoint = Some(Arc::new(endpoint));
+        self.endpoint = Some(Arc::new(opened.endpoint));
         log::info!("[MQTT] Connected to broker {}", self.config.id);
         true
     }
@@ -625,38 +785,63 @@ impl MqttBroker {
 /// every `flow_update` for the length of the timeout, again at each retry.
 /// The client is locked only to take the finished link
 /// (`MqttBroker::install`).
-struct Dialer {
+pub(super) struct Dialer {
     config: BrokerConfig,
-    state: Arc<RwLock<BrokerState>>,
+    /// The state of the client the link is for, whose status an attempt
+    /// sets ([`Self::dial`]); `None` for a link that is no client's
+    /// ([`super::will_links`]).
+    state: Option<Arc<RwLock<BrokerState>>>,
     timeout: Duration,
     /// The will the link is opened with.
     will: Option<LastWord>,
 }
 
+/// A link a [`Dialer`] opened.
+pub(super) struct Opened {
+    pub(super) endpoint: ClientEndpoint,
+    /// Whether its broker gives subscription identifiers: its CONNACK did not
+    /// say it does not (MQTT 5 §3.2.2.3.12).
+    tagged: bool,
+}
+
 impl Dialer {
+    /// What opens links to `config`'s broker that leave `will` with it and
+    /// belong to no client: a link's status is nobody's ([`Self::open`] only).
+    pub(super) fn for_will(config: BrokerConfig, will: LastWord, timeout: Duration) -> Self {
+        Self { config, state: None, timeout, will: Some(will) }
+    }
+
     /// One connection attempt. The client is `Connecting` while it runs and
-    /// `Error` when it fails — which includes not being through in time; on
-    /// success the link is returned for the client to install.
-    async fn dial(&self) -> Result<ClientEndpoint, String> {
-        self.state.write().await.set_status(ConnectionStatus::Connecting);
+    /// `Error` when it fails — which includes not being through in time —
+    /// with the [problem](problem_of) the failure is, if any; on success the
+    /// link is returned for the client to install.
+    async fn dial(&self) -> Result<Opened, String> {
+        if let Some(state) = &self.state {
+            state.write().await.set_status(ConnectionStatus::Connecting);
+        }
         let attempt = self.open().await;
-        if attempt.is_err() {
-            self.state.write().await.set_status(ConnectionStatus::Error);
+        if let (Err(e), Some(state)) = (&attempt, &self.state) {
+            state.write().await.fail(problem_of(e));
         }
         attempt
     }
 
     /// One connection attempt, bounded as [`Self::dial`]'s, that leaves the
-    /// client's status alone: for a link opened beside one that is up.
-    async fn open(&self) -> Result<ClientEndpoint, String> {
-        match tokio::time::timeout(self.timeout, self.handshake()).await {
+    /// client's status alone: for a link opened beside one that is up. A
+    /// broker that refused the connection for its protocol version fails it
+    /// with [`MQTT5_REQUIRED`], however it said so.
+    pub(super) async fn open(&self) -> Result<Opened, String> {
+        let first = FirstBytes::default();
+        let attempt = match tokio::time::timeout(self.timeout, self.handshake(&first)).await {
             Ok(attempt) => attempt,
             Err(_) => Err(format!("Broker {} did not answer within {:?}", self.config.id, self.timeout)),
-        }
+        };
+        attempt.map_err(|e| if first.refused_as_3_1_1() { MQTT5_REQUIRED.to_string() } else { e })
     }
 
     /// Open the transport, send CONNECT and wait for a CONNACK that accepts.
-    async fn handshake(&self) -> Result<ClientEndpoint, String> {
+    /// What the broker sends first is noted in `first`.
+    async fn handshake(&self, first: &FirstBytes) -> Result<Opened, String> {
         let parsed = self.config.parse_url()?;
         log::info!(
             "[MQTT] Connecting to {}:{} (tls={}, ws={})",
@@ -672,15 +857,15 @@ impl Dialer {
         // Connect based on transport type
         match (parsed.use_websocket, parsed.use_tls) {
             (true, true) => {
-                self.connect_wss(&endpoint, &addr, &parsed.host, &parsed.path)
+                self.connect_wss(&endpoint, &addr, &parsed.host, &parsed.path, first)
                     .await
             }
             (true, false) => {
-                self.connect_ws(&endpoint, &addr, &parsed.host, &parsed.path)
+                self.connect_ws(&endpoint, &addr, &parsed.host, &parsed.path, first)
                     .await
             }
-            (false, true) => self.connect_tls(&endpoint, &addr, &parsed.host).await,
-            (false, false) => self.connect_tcp(&endpoint, &addr).await,
+            (false, true) => self.connect_tls(&endpoint, &addr, &parsed.host, first).await,
+            (false, false) => self.connect_tcp(&endpoint, &addr, first).await,
         }?;
 
         // Send CONNECT packet
@@ -688,19 +873,22 @@ impl Dialer {
 
         // Wait for CONNACK
         match endpoint.recv().await {
-            Ok(mqtt_ep::packet::Packet::V5_0Connack(connack)) => {
-                if connack.reason_code() == mqtt_ep::result_code::ConnectReasonCode::Success {
-                    Ok(endpoint)
-                } else {
-                    Err(format!("CONNACK failed: {:?}", connack.reason_code()))
+            Ok(mqtt_ep::packet::Packet::V5_0Connack(connack)) => match connack.reason_code() {
+                mqtt_ep::result_code::ConnectReasonCode::Success => {
+                    let tagged = !connack.props().iter().any(|property| {
+                        matches!(property, Property::SubscriptionIdentifierAvailable(available) if available.val() == 0)
+                    });
+                    Ok(Opened { endpoint, tagged })
                 }
-            }
+                mqtt_ep::result_code::ConnectReasonCode::UnsupportedProtocolVersion => Err(MQTT5_REQUIRED.to_string()),
+                refused => Err(format!("CONNACK failed: {refused:?}")),
+            },
             Ok(_) => Err("Unexpected packet, expected CONNACK".to_string()),
             Err(e) => Err(format!("Failed to receive CONNACK: {e}")),
         }
     }
 
-    async fn connect_tcp(&self, endpoint: &ClientEndpoint, addr: &str) -> Result<(), String> {
+    async fn connect_tcp(&self, endpoint: &ClientEndpoint, addr: &str, first: &FirstBytes) -> Result<(), String> {
         let tcp_stream = mqtt_ep::transport::connect_helper::connect_tcp(addr, None)
             .await
             .map_err(|e| format!("TCP connect failed: {e}"))?;
@@ -708,7 +896,7 @@ impl Dialer {
         let transport = mqtt_ep::transport::TcpTransport::from_stream(tcp_stream);
 
         endpoint
-            .attach(transport, mqtt_ep::endpoint::Mode::Client)
+            .attach(Noting { transport, first: first.clone() }, mqtt_ep::endpoint::Mode::Client)
             .await
             .map_err(|e| format!("Failed to attach transport: {e}"))
     }
@@ -718,6 +906,7 @@ impl Dialer {
         endpoint: &ClientEndpoint,
         addr: &str,
         host: &str,
+        first: &FirstBytes,
     ) -> Result<(), String> {
         let tls_stream =
             mqtt_ep::transport::connect_helper::connect_tcp_tls(addr, host, None, None)
@@ -727,7 +916,7 @@ impl Dialer {
         let transport = mqtt_ep::transport::TlsTransport::from_stream(tls_stream);
 
         endpoint
-            .attach(transport, mqtt_ep::endpoint::Mode::Client)
+            .attach(Noting { transport, first: first.clone() }, mqtt_ep::endpoint::Mode::Client)
             .await
             .map_err(|e| format!("Failed to attach TLS transport: {e}"))
     }
@@ -738,11 +927,12 @@ impl Dialer {
         addr: &str,
         host: &str,
         path: &str,
+        first: &FirstBytes,
     ) -> Result<(), String> {
         // Plain WS is not well supported by the library, upgrade to WSS
         // Most MQTT brokers use TLS anyway for security
         log::warn!("[MQTT] Plain WebSocket (ws://) requested, but using WSS for better compatibility");
-        self.connect_wss(endpoint, addr, host, path).await
+        self.connect_wss(endpoint, addr, host, path, first).await
     }
 
     async fn connect_wss(
@@ -751,6 +941,7 @@ impl Dialer {
         addr: &str,
         host: &str,
         path: &str,
+        first: &FirstBytes,
     ) -> Result<(), String> {
         let wss_stream =
             mqtt_ep::transport::connect_helper::connect_tcp_tls_ws(addr, host, path, None, None, None)
@@ -760,7 +951,7 @@ impl Dialer {
         let transport = mqtt_ep::transport::WebSocketTransport::from_tls_client_stream(wss_stream);
 
         endpoint
-            .attach(transport, mqtt_ep::endpoint::Mode::Client)
+            .attach(Noting { transport, first: first.clone() }, mqtt_ep::endpoint::Mode::Client)
             .await
             .map_err(|e| format!("Failed to attach WSS transport: {e}"))
     }
@@ -889,13 +1080,32 @@ impl MqttBroker {
                     payload: publish.payload().as_slice().to_vec(),
                     retain: publish.retain(),
                 };
+                let ids: Vec<u32> = publish
+                    .props()
+                    .iter()
+                    .filter_map(|property| match property {
+                        Property::SubscriptionIdentifier(id) => Some(id.val()),
+                        _ => None,
+                    })
+                    .collect();
 
                 // Every subscriber the message is for gets its own copy
                 // (`route`); the callbacks run with the state lock released.
                 let callbacks = {
                     let mut state = state.write().await;
-                    let state = &mut *state;
-                    route(&mut state.subscriptions, &mut state.copies, &message, Instant::now())
+                    let addressed = if ids.is_empty() {
+                        if state.tagged && !state.untagged_told {
+                            state.untagged_told = true;
+                            log::warn!(
+                                "[MQTT] A message on {} carried no subscription identifier: it, and any other such, goes to every filter its topic matches",
+                                message.topic
+                            );
+                        }
+                        Addressed::Untagged
+                    } else {
+                        Addressed::Ids(ids)
+                    };
+                    route(&mut state.subscriptions, &message, &addressed)
                 };
                 for callback in callbacks {
                     callback(message.clone());
@@ -925,7 +1135,8 @@ impl MqttBroker {
 
     /// Whether a subscription to `filter` delivers messages on `topic`. The
     /// browser host's `topicMatches` (`src/cloud/topic-filter.ts`) is the
-    /// same rule; both are held to `src/cloud/fixtures/topic-filter.json`.
+    /// same rule; both are held to
+    /// `packages/design-bridge/fixtures/topic-filter.json`.
     ///
     /// - `+` fills a whole level and matches exactly one level.
     /// - `#` is the last level, alone, and matches the parent level and
@@ -993,15 +1204,7 @@ impl MqttBroker {
         // The DISCONNECT is for a link that is up, and gets the time any
         // write gets: a link that stalls under it is left as it is.
         if let Some(endpoint) = self.endpoint.take().filter(|_| link_up) {
-            let disconnect = mqtt_ep::packet::v5_0::Disconnect::builder()
-                .reason_code(mqtt_ep::result_code::DisconnectReasonCode::NormalDisconnection)
-                .build();
-            match disconnect {
-                Ok(disconnect) => {
-                    let _ = tokio::time::timeout(self.reconnect_config.write_timeout, endpoint.send(disconnect)).await;
-                }
-                Err(e) => log::warn!("[MQTT] Failed to build DISCONNECT: {e:?}"),
-            }
+            say_disconnect(&endpoint, self.reconnect_config.write_timeout).await;
         }
 
         let mut state = self.state.write().await;
@@ -1023,6 +1226,12 @@ impl MqttBroker {
         self.state.read().await.status
     }
 
+    /// Why the [status](Self::status) is `Error`, when the user can act on it
+    /// ([`problem_of`]); `None` with any other status.
+    pub async fn problem(&self) -> Option<&'static str> {
+        self.state.read().await.problem
+    }
+
     /// Subscribe `subscriber` to a topic filter, replacing the callback it
     /// already had for it. A SUBSCRIBE goes to the broker every time — also
     /// when another subscriber holds the filter already — because that is what
@@ -1040,24 +1249,25 @@ impl MqttBroker {
     ) -> Result<(), String> {
         // Held before the SUBSCRIBE goes out, so the replay it triggers cannot
         // arrive ahead of the subscriber it is for.
-        let previous = {
+        let (id, previous) = {
             let mut state = self.state.write().await;
-            state.subscriptions.entry(topic.to_string()).or_default().insert(subscriber, Held::new(callback))
+            let filter = state.subscriptions.filter(topic);
+            (filter.id, filter.holders.insert(subscriber, Held::new(callback)))
         };
 
-        if let Err(e) = self.send_subscribe(topic).await {
+        if let Err(e) = self.send_subscribe(topic, id).await {
             let mut state = self.state.write().await;
-            if let Some(subscribers) = state.subscriptions.get_mut(topic) {
+            if let Some(filter) = state.subscriptions.filters.get_mut(topic) {
                 match previous {
                     Some(held) => {
-                        subscribers.insert(subscriber, held);
+                        filter.holders.insert(subscriber, held);
                     }
                     None => {
-                        subscribers.remove(&subscriber);
+                        filter.holders.remove(&subscriber);
                     }
                 }
-                if subscribers.is_empty() {
-                    state.subscriptions.remove(topic);
+                if filter.holders.is_empty() {
+                    state.subscriptions.filters.remove(topic);
                 }
             }
             return Err(e);
@@ -1073,8 +1283,8 @@ impl MqttBroker {
     pub async fn unsubscribe(&self, topic: &str, subscriber: Subscriber) -> Result<(), String> {
         let others = {
             let state = self.state.read().await;
-            match state.subscriptions.get(topic) {
-                Some(subscribers) if subscribers.contains_key(&subscriber) => subscribers.len() - 1,
+            match state.subscriptions.filters.get(topic) {
+                Some(filter) if filter.holders.contains_key(&subscriber) => filter.holders.len() - 1,
                 _ => return Ok(()),
             }
         };
@@ -1083,10 +1293,10 @@ impl MqttBroker {
         }
 
         let mut state = self.state.write().await;
-        if let Some(subscribers) = state.subscriptions.get_mut(topic) {
-            subscribers.remove(&subscriber);
-            if subscribers.is_empty() {
-                state.subscriptions.remove(topic);
+        if let Some(filter) = state.subscriptions.filters.get_mut(topic) {
+            filter.holders.remove(&subscriber);
+            if filter.holders.is_empty() {
+                state.subscriptions.filters.remove(topic);
             }
         }
 
@@ -1104,13 +1314,13 @@ impl MqttBroker {
     pub async fn release(&self, topic: &str, subscriber: Subscriber) {
         let last = {
             let mut state = self.state.write().await;
-            let Some(subscribers) = state.subscriptions.get_mut(topic) else { return };
-            if subscribers.remove(&subscriber).is_none() {
+            let Some(filter) = state.subscriptions.filters.get_mut(topic) else { return };
+            if filter.holders.remove(&subscriber).is_none() {
                 return;
             }
-            let last = subscribers.is_empty();
+            let last = filter.holders.is_empty();
             if last {
-                state.subscriptions.remove(topic);
+                state.subscriptions.filters.remove(topic);
             }
             last
         };
@@ -1145,14 +1355,7 @@ impl MqttBroker {
     /// Publish a message to a topic
     pub async fn publish(&self, topic: &str, payload: &[u8], retain: bool) -> Result<(), String> {
         let endpoint = self.link().await?;
-
-        let publish = mqtt_ep::packet::v5_0::Publish::builder()
-            .topic_name(topic)
-            .map_err(|e| format!("Invalid topic: {e:?}"))?
-            .payload(payload)
-            .retain(retain)
-            .build()
-            .map_err(|e| format!("Failed to build PUBLISH: {e:?}"))?;
+        let publish = publish_packet(topic, payload, retain)?;
 
         self.write(async { endpoint.send(publish).await.map_err(Self::format_connection_error) }).await?;
 
@@ -1173,11 +1376,13 @@ impl MqttBroker {
         }
     }
 
-    /// Write a SUBSCRIBE for `topic` to the link. The callbacks are not its
-    /// concern: a new subscription stores one after this, a reconnection
-    /// already holds them.
-    async fn send_subscribe(&self, topic: &str) -> Result<(), String> {
+    /// Write a SUBSCRIBE for `topic` to the link, with `id` as its
+    /// subscription identifier when the link's broker gives them. The
+    /// callbacks are not its concern: a new subscription stores one after
+    /// this, a reconnection already holds them.
+    async fn send_subscribe(&self, topic: &str, id: u32) -> Result<(), String> {
         let endpoint = self.link().await?;
+        let tagged = self.state.read().await.tagged;
 
         self.write(async {
             // Acquire packet ID from the endpoint's internal pool
@@ -1186,11 +1391,12 @@ impl MqttBroker {
             let sub_entry = mqtt_ep::packet::SubEntry::new(topic, mqtt_ep::packet::SubOpts::new())
                 .map_err(|e| format!("Invalid topic: {e:?}"))?;
 
-            let subscribe = mqtt_ep::packet::v5_0::Subscribe::builder()
-                .packet_id(packet_id)
-                .entries(vec![sub_entry])
-                .build()
-                .map_err(|e| format!("Failed to build SUBSCRIBE: {e:?}"))?;
+            let mut builder = mqtt_ep::packet::v5_0::Subscribe::builder().packet_id(packet_id).entries(vec![sub_entry]);
+            if tagged {
+                let id = SubscriptionIdentifier::new(id).map_err(|e| format!("Invalid subscription identifier {id}: {e:?}"))?;
+                builder = builder.props(vec![Property::SubscriptionIdentifier(id)]);
+            }
+            let subscribe = builder.build().map_err(|e| format!("Failed to build SUBSCRIBE: {e:?}"))?;
 
             endpoint.send(subscribe).await.map_err(Self::format_connection_error)
         })
@@ -1203,18 +1409,19 @@ impl MqttBroker {
     /// the new connection replays the retained messages, and each of them gets
     /// that replay once.
     pub async fn resubscribe_all(&self) -> Result<(), String> {
-        for held in self.state.write().await.subscriptions.values_mut().flat_map(HashMap::values_mut) {
+        for held in self.state.write().await.subscriptions.holds_mut() {
             held.seen.clear();
         }
         self.subscribe_held().await
     }
 
     /// Subscribe every topic filter the client holds on the link, once per
-    /// filter, leaving what each subscriber has had as it is.
+    /// filter and with the subscription identifier it has, leaving what each
+    /// subscriber has had as it is.
     async fn subscribe_held(&self) -> Result<(), String> {
-        let topics: Vec<String> = self.state.read().await.subscriptions.keys().cloned().collect();
-        for topic in topics {
-            self.send_subscribe(&topic).await?;
+        let filters = self.state.read().await.subscriptions.ids();
+        for (topic, id) in filters {
+            self.send_subscribe(&topic, id).await?;
             log::info!("[MQTT] Resubscribed to topic: {topic}");
         }
         Ok(())
@@ -1283,9 +1490,9 @@ impl MqttBroker {
             // of this (the link is closed again and the loop stops) or after
             // it (the client is whole, and is shut down as any other).
             let result = match dialer.dial().await {
-                Ok(endpoint) => {
+                Ok(opened) => {
                     let mut broker_guard = broker.write().await;
-                    if !broker_guard.install(endpoint).await {
+                    if !broker_guard.install(opened).await {
                         log::info!("[MQTT] Broker {} was disconnected; not reconnecting", broker_guard.config.id);
                         return;
                     }
@@ -1329,6 +1536,39 @@ impl MqttBroker {
             }
         }
     }
+}
+
+/// Say DISCONNECT on `endpoint` — which tells the broker to drop the link's
+/// will rather than publish it — giving the write `timeout`: a link that
+/// stalls under it is left as it is.
+pub(super) async fn say_disconnect(endpoint: &ClientEndpoint, timeout: Duration) {
+    let disconnect = mqtt_ep::packet::v5_0::Disconnect::builder()
+        .reason_code(mqtt_ep::result_code::DisconnectReasonCode::NormalDisconnection)
+        .build();
+    match disconnect {
+        Ok(disconnect) => {
+            let _ = tokio::time::timeout(timeout, endpoint.send(disconnect)).await;
+        }
+        Err(e) => log::warn!("[MQTT] Failed to build DISCONNECT: {e:?}"),
+    }
+}
+
+/// A PUBLISH of `payload` on `topic` at `QoS` 0. A topic that is not a topic
+/// name is refused here (MQTT 5 §4.7.3): a broker would close the link.
+fn publish_packet(topic: &str, payload: &[u8], retain: bool) -> Result<mqtt_ep::packet::v5_0::Publish, String> {
+    mqtt_ep::packet::v5_0::Publish::builder()
+        .topic_name(topic)
+        .map_err(|e| format!("Invalid topic: {e:?}"))?
+        .payload(payload)
+        .retain(retain)
+        .build()
+        .map_err(|e| format!("Failed to build PUBLISH: {e:?}"))
+}
+
+/// Publish `word` on `endpoint`, a link that is no client's.
+pub(super) async fn say_word(endpoint: &ClientEndpoint, word: &LastWord) -> Result<(), String> {
+    let publish = publish_packet(&word.topic, &word.payload, word.retain)?;
+    endpoint.send(publish).await.map_err(MqttBroker::format_connection_error)
 }
 
 /// Helper function to spawn the receive loop

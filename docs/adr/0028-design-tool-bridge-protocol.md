@@ -71,7 +71,9 @@ user shared `anonymous` on the public broker.
 6. **Amends ADR-0011.** The announce policy stays in core
    (`figma_announce_actions`), with two changes: the uid set is taken only from
    design-bridge topics (`bridge_uid` in Rust, `bridgeUid` in TypeScript), so a
-   generic Mqtt node's `microflow/…` topic does not trigger a handshake; and
+   generic Mqtt node's `microflow/…` topic does not trigger a handshake. A uid
+   level counts only when it is a valid Bridge ID (point 5): Studio never
+   announces itself, or leaves a will, for any other, a wildcard included. And
    the browser subscribes before it announces, so the plugins' answers arrive.
    The browser also announces `disconnected` when its cloud host is disposed.
 
@@ -92,11 +94,12 @@ user shared `anonymous` on the public broker.
 - **Plugins run only in the editor.** Neither tool runs plugins in prototype view,
   so the bridge links hardware to the values in an open design file, not to a
   running prototype.
-- **A crashed Studio.** Both hosts leave a will on every link to a broker: the
-  `disconnected` of the first Bridge ID announced there, in uid order
+- **A crashed Studio.** Both hosts leave the `disconnected` of every Bridge ID
+  announced on a broker there as a will: the first on the connection's link,
+  each other on a will link of its own
   ([ADR-0049](0049-a-broker-session-leaves-its-goodbye-with-the-pool.md)). A
-  crash therefore takes back that Bridge ID, once the broker notices the link
-  is gone, and leaves any other Bridge ID on the same broker at `connected`.
+  crash therefore takes back every Bridge ID, once the broker notices the links
+  are gone.
 - **After a reconnect.** Both hosts say `connected` and send
   `variables/request` again on every new link to a broker.
 

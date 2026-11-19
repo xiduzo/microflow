@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import table from "./fixtures/topic-filter.json";
+import table from "@microflow/design-bridge/fixtures/topic-filter.json";
 import { isTopicName, topicMatches } from "./topic-filter";
 
-// The case table both hosts route by; the desktop runs the same one
+// The case table every MQTT client routes by, held here against what the
+// browser host imports; the desktop runs the same one
 // (`src-tauri/tests/mqtt_routing.rs`).
 for (const group of table.groups) {
   describe(group.rule, () => {

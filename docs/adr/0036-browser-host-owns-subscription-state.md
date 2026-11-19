@@ -1,6 +1,6 @@
 # ADR-0036 — The browser host owns its subscription state and settles broker settings
 
-- **Status:** accepted (2026-11-19)
+- **Status:** accepted (2026-11-19); amended (2026-11-19)
 - **Date:** 2026-11-19
 - **Deciders:** sander
 
@@ -155,10 +155,10 @@ engine ([ADR-0017](0017-wasm-fault-seam.md)).
   down, is dropped, not queued: a minute of LED commands replayed when a broker
   comes back is worse than none, and nothing piles up for a broker that stays
   away.
-- A connection whose link is down cannot be told `disconnected`. The links
-  carry the first goodbye as their will, so a broker whose link drops, or a tab
-  that crashes, says it for the first Bridge ID there and keeps the retained
-  `connected` of any other
+- A connection whose link is down cannot be told `disconnected`. Every goodbye
+  is a will instead: the first on the connection's link, each other on a will
+  link of its own. A tab that crashes has the broker say `disconnected` for
+  every Bridge ID there
   ([ADR-0049](0049-a-broker-session-leaves-its-goodbye-with-the-pool.md)).
 - A `pagehide` goodbye is best effort: a browser may close the socket before
   the publishes are out.

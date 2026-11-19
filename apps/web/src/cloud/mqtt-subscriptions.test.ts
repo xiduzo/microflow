@@ -46,23 +46,23 @@ describe("diffSubscriptions", () => {
 describe("uidBrokers", () => {
   test("maps uid → broker over design-bridge topics, ignoring others", () => {
     const map = uidBrokers([
-      active("n", "topicAware", "b1", "microflow/u1/figma/variable/1-2"),
-      active("n", "displayEcho", "b1", "microflow/u1/figma/status"),
+      active("n", "topicAware", "b1", "microflow/uid_1/figma/variable/1-2"),
+      active("n", "displayEcho", "b1", "microflow/uid_1/figma/status"),
       active("m", "plain", "b2", "sensors/x"),
       active("m", "plain", "b2", "microflow/kitchen/temperature"),
     ]);
-    expect(map.get("u1")).toBe("b1");
+    expect(map.get("uid_1")).toBe("b1");
     expect(map.size).toBe(1);
   });
 
   test("a uid on two brokers takes the first, unless it is already on the other", () => {
     const subs = [
-      active("n", "topicAware", "b1", "microflow/u1/figma/variable/1-2"),
-      active("m", "topicAware", "b2", "microflow/u1/penpot/variable/9"),
+      active("n", "topicAware", "b1", "microflow/uid_1/figma/variable/1-2"),
+      active("m", "topicAware", "b2", "microflow/uid_1/penpot/variable/9"),
     ];
-    expect(uidBrokers(subs).get("u1")).toBe("b1");
-    expect(uidBrokers(subs, new Map([["u1", "b2"]])).get("u1")).toBe("b2");
+    expect(uidBrokers(subs).get("uid_1")).toBe("b1");
+    expect(uidBrokers(subs, new Map([["uid_1", "b2"]])).get("uid_1")).toBe("b2");
     // Its current broker no longer holds a topic of it: back to the first seen.
-    expect(uidBrokers(subs, new Map([["u1", "b3"]])).get("u1")).toBe("b1");
+    expect(uidBrokers(subs, new Map([["uid_1", "b3"]])).get("uid_1")).toBe("b1");
   });
 });

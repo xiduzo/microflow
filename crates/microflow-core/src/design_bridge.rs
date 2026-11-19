@@ -47,18 +47,25 @@ pub(crate) fn request_topic(uid: &str) -> String {
     format!("{ROOT}/{uid}/{STUDIO}/variables/request")
 }
 
+/// Whether `id` is a Bridge ID a plugin can hold: 5 to 64 letters, digits,
+/// `-` and `_`. The same rule as `isValidBridgeId` (`pairing.ts`).
+fn is_valid_bridge_id(id: &str) -> bool {
+    (5..=64).contains(&id.len()) && id.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
 /// The bridge uid a topic belongs to, or `None` for topics outside the protocol.
 /// Studio announces itself only for these uids, never for an arbitrary
-/// `microflow/…` topic. A topic filter whose uid level holds a wildcard
-/// (`microflow/+/figma/status`) names no Bridge ID: Studio would publish its
-/// status on a wildcard topic, which no broker takes.
+/// `microflow/…` topic, and only for a uid level that is a valid Bridge ID: no
+/// plugin can hold any other, so Studio never announces itself, or leaves a
+/// last will, for one. That also leaves out a uid level with a wildcard
+/// (`microflow/+/figma/status`), on which no broker takes a publish.
 pub(crate) fn bridge_uid(topic: &str) -> Option<&str> {
     let parts: Vec<&str> = topic.split('/').collect();
     let (&root, &uid, &client, rest) = match parts.as_slice() {
         [root, uid, client, rest @ ..] => (root, uid, client, rest),
         _ => return None,
     };
-    if root != ROOT || uid.is_empty() || uid.contains(['+', '#']) || client.is_empty() {
+    if root != ROOT || !is_valid_bridge_id(uid) || client.is_empty() {
         return None;
     }
     let known = matches!(
@@ -89,14 +96,37 @@ pub(crate) fn decode_payload(raw: &str) -> Value {
     serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_string()))
 }
 
+/// What a variable's `resolvedType` makes it: the type a value is coerced to.
+/// Read by the live node ([`coerce`]) and by the sketch, which coerces the
+/// same way on the board.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum VariableKind {
+    Boolean,
+    Float,
+    Color,
+    /// Any other type (`STRING`, or one this version does not know).
+    Text,
+}
+
+impl VariableKind {
+    pub(crate) fn of(resolved_type: &str) -> Self {
+        match resolved_type {
+            "BOOLEAN" => Self::Boolean,
+            "FLOAT" => Self::Float,
+            "COLOR" => Self::Color,
+            _ => Self::Text,
+        }
+    }
+}
+
 /// Coerce a decoded value to a variable's type (`BOOLEAN`, `FLOAT`, `COLOR`;
 /// anything else is text). `None` when the value does not fit.
 pub(crate) fn coerce(resolved_type: &str, value: &Value) -> Option<BridgeValue> {
-    match resolved_type {
-        "BOOLEAN" => to_bool(value).map(BridgeValue::Bool),
-        "FLOAT" => to_float(value).map(BridgeValue::Number),
-        "COLOR" => to_color(value),
-        _ => to_text(value).map(BridgeValue::Text),
+    match VariableKind::of(resolved_type) {
+        VariableKind::Boolean => to_bool(value).map(BridgeValue::Bool),
+        VariableKind::Float => to_float(value).map(BridgeValue::Number),
+        VariableKind::Color => to_color(value),
+        VariableKind::Text => to_text(value).map(BridgeValue::Text),
     }
 }
 
@@ -384,6 +414,13 @@ mod tests {
             };
             assert_eq!(topic, str_of(&case, "topic"), "{case}");
             assert!(bridge_uid(&topic).is_some(), "{topic} is a bridge topic");
+        }
+    }
+
+    #[test]
+    fn bridge_ids_match_fixture() {
+        for case in fixture("bridgeIds") {
+            assert_eq!(is_valid_bridge_id(str_of(&case, "id")), case["valid"].as_bool().expect("valid"), "{case}");
         }
     }
 

@@ -1,24 +1,42 @@
-// Test support: a scripted MQTT 3.1.1 broker on a loopback WebSocket, for
-// driving the real `mqtt.js` client (`mqtt-client.real.test.ts`). It logs every
-// packet a client sends, answers the way a test tells it to (refuse a topic,
-// hold its SUBACKs back), delivers messages at QoS 0, and can cut every link.
+// Test support: a scripted MQTT 5 broker on a loopback WebSocket, for driving
+// the real `mqtt.js` client (`mqtt-client.real.test.ts`). It logs every packet
+// a client sends, answers the way a test tells it to (refuse a topic, hold its
+// SUBACKs back), delivers messages at QoS 0, and can cut every link.
 //
 // It is as strict as a real broker where a client could get away with less:
 //
+// - It speaks MQTT 5 only: a CONNECT of another protocol version is answered
+//   "unacceptable protocol version" and the connection closed (MQTT 5
+//   §3.1.2.2).
+// - After `speakOnly311(refusal)` it is a broker that speaks MQTT 3.1.1 only,
+//   and refuses an MQTT 5 CONNECT the way `refusal` says: with a 3.1.1
+//   CONNACK "unacceptable protocol version" (return code 1), with an MQTT 5
+//   CONNACK "Unsupported Protocol Version" (reason code 0x84), or by closing
+//   the connection without a CONNACK. It closes the connection after a
+//   CONNACK too.
 // - It routes by its own reading of the topic filters, not the client's.
+// - It tags every PUBLISH it sends with the subscription identifiers of the
+//   subscriptions it is for (§3.3.4): a SUBSCRIBE that carries one gives its
+//   filter that id, until the filter is subscribed again or unsubscribed.
+// - By default it sends one copy of a message for all of a connection's
+//   matching subscriptions, carrying the id of each, as HiveMQ does. After
+//   `copyPerSubscription()` it sends one copy per matching subscription, each
+//   carrying that subscription's id, as mosquitto 2 and EMQX do.
+// - After `withoutSubscriptionIds()` its CONNACK says it takes no subscription
+//   identifiers, it tags nothing, and it closes the connection of a client
+//   whose SUBSCRIBE carries one anyway (§3.8.2.1.2).
 // - It keeps the retained message of each topic, set by a client's PUBLISH
 //   with RETAIN (an empty one clears it) or by `retain()`, and answers every
-//   accepted SUBSCRIBE with the retained messages its filter matches, flagged.
-//   A message it forwards to a subscription that already exists is unflagged.
+//   accepted SUBSCRIBE with the retained messages its filter matches, flagged
+//   and tagged with that subscription's id. A message it forwards to a
+//   subscription that already exists is unflagged.
 // - It closes the connection of a client that publishes on a topic with a
-//   wildcard, or on an empty one (MQTT 3.1.1 §3.3.2.1, §4.8).
-// - After `copyPerSubscription()` it sends a message once for every filter of
-//   a connection that matches it, as MQTT 3.1.1 §3.3.5 allows and mosquitto 2
-//   and EMQX do. Until then, once per connection.
+//   wildcard, or on an empty one (§3.3.2.1, §4.7).
 // - It keeps the will a CONNECT carries and publishes it, as a client's
 //   PUBLISH would be (§3.1.2.5), when the connection ends without a
 //   DISCONNECT: the client's socket closed, `drop()` cut it, or the broker
-//   closed it over a protocol violation. A DISCONNECT discards the will.
+//   closed it over a protocol violation. A DISCONNECT discards the will,
+//   unless its reason code is 0x04 ("Disconnect with Will Message").
 // - A CONNECT with the client id of a connection that is open ends that
 //   connection first (§3.1.4), and so publishes its will.
 // - It closes the connection of a client whose will topic is not a topic name.
@@ -33,11 +51,15 @@ type Will = { topic: string; payload: string; retain: boolean };
 type SocketData = {
   /** Bytes received that do not make a whole packet yet. */
   pending: Uint8Array;
-  topics: Set<string>;
+  /** The filters it subscribed to, each with the subscription identifier its
+   *  SUBSCRIBE gave, if any. */
+  topics: Map<string, number | undefined>;
   /** The client id its CONNECT gave. */
   clientId: string | undefined;
   /** The will its CONNECT carried, until a DISCONNECT discards it. */
   will: Will | undefined;
+  /** Every packet its client sent, oldest first. */
+  packets: string[];
 };
 /** What the broker uses of a Bun `ServerWebSocket`. */
 type Socket = { data: SocketData; send(bytes: Uint8Array): unknown; terminate(): void };
@@ -66,31 +88,67 @@ const bunServe = (
 
 const SUBACK_FAILURE = 0x80;
 
+/** How a broker that speaks only MQTT 3.1.1 refuses an MQTT 5 CONNECT. */
+export type Mqtt5Refusal = "connack 3.1.1" | "connack 5" | "close";
+
+/** What the broker sends, per {@link Mqtt5Refusal}, before it closes the
+ *  connection. */
+const REFUSALS: Record<Mqtt5Refusal, Uint8Array | undefined> = {
+  // MQTT 3.1.1's CONNACK: session present 0, return code 1, "unacceptable
+  // protocol version" (MQTT 3.1.1 §3.2.2.3).
+  "connack 3.1.1": Uint8Array.of(0x20, 2, 0, 0x01),
+  // MQTT 5's CONNACK: session present 0, reason code 0x84, "Unsupported
+  // Protocol Version", no properties (MQTT 5 §3.2.2.2).
+  "connack 5": Uint8Array.of(0x20, 3, 0, 0x84, 0),
+  close: undefined,
+};
+
 export type ScriptedBroker = ReturnType<typeof startScriptedBroker>;
 
 export function startScriptedBroker() {
   const sockets = new Set<Socket>();
   const log: string[] = [];
+  /** The packet log of every connection there was, in the order they opened. */
+  const everConnected: string[][] = [];
   const refused = new Set<string>();
   const retained = new Map<string, string>();
   const willsPublished: string[] = [];
   let holding = false;
   let perSubscription = false;
+  let tagging = true;
   let stopping = false;
+  /** Set while the broker speaks MQTT 3.1.1 only: how it refuses MQTT 5. */
+  let only311: Mqtt5Refusal | undefined;
   const heldBack: Array<() => void> = [];
+
+  /** Log a packet `socket`'s client sent, in the broker's log and its own. */
+  function record(socket: Socket, packet: string): void {
+    log.push(packet);
+    socket.data.packets.push(packet);
+  }
 
   function answer(send: () => void): void {
     if (holding) heldBack.push(send);
     else send();
   }
 
+  /** The subscription identifiers a PUBLISH for these subscriptions carries. */
+  function tags(ids: Array<number | undefined>): number[] {
+    return tagging ? ids.filter((id): id is number => id !== undefined) : [];
+  }
+
   /** Send a message on `topic` to every connection that subscribed to it. */
   function route(topic: string, payload: string): void {
-    const packet = publishPacket(topic, payload, false);
     for (const socket of sockets) {
-      const matching = [...socket.data.topics].filter((filter) => brokerMatches(filter, topic)).length;
-      const copies = perSubscription ? matching : Math.min(matching, 1);
-      for (let copy = 0; copy < copies; copy++) socket.send(packet);
+      const matching = [...socket.data.topics]
+        .filter(([filter]) => brokerMatches(filter, topic))
+        .map(([, id]) => id);
+      if (matching.length === 0) continue;
+      if (perSubscription) {
+        for (const id of matching) socket.send(publishPacket(topic, payload, false, tags([id])));
+      } else {
+        socket.send(publishPacket(topic, payload, false, tags(matching)));
+      }
     }
   }
 
@@ -104,16 +162,31 @@ export function startScriptedBroker() {
 
   function onConnect(socket: Socket, body: DataView): void {
     const [, levelAt] = readText(body, 0);
+    const level = body.getUint8(levelAt);
+    if (level !== 5) {
+      record(socket, `CONNECT level ${level}`);
+      // MQTT 3.1.1's CONNACK: "unacceptable protocol version", then closed.
+      socket.send(Uint8Array.of(0x20, 2, 0, 0x01));
+      socket.terminate();
+      return;
+    }
+    if (only311) {
+      record(socket, `CONNECT refused: ${only311}`);
+      const connack = REFUSALS[only311];
+      if (connack) socket.send(connack);
+      socket.terminate();
+      return;
+    }
     const flags = body.getUint8(levelAt + 1);
-    const [clientId, next] = readText(body, levelAt + 4);
+    const [clientId, next] = readText(body, skipProperties(body, levelAt + 4));
     let will: Will | undefined;
     if ((flags & 0x04) !== 0) {
-      const [topic, payloadAt] = readText(body, next);
+      const [topic, payloadAt] = readText(body, skipProperties(body, next));
       const end = payloadAt + 2 + body.getUint16(payloadAt);
       const payload = new TextDecoder().decode(bytesFrom(body, payloadAt + 2, end));
       will = { topic, payload, retain: (flags & 0x20) !== 0 };
     }
-    log.push(`CONNECT${will ? ` will ${describe(will.topic, will.payload, will.retain)}` : ""}`);
+    record(socket, `CONNECT${will ? ` will ${describe(will.topic, will.payload, will.retain)}` : ""}`);
     if (will && !isTopicName(will.topic)) {
       // A protocol violation: the broker closes the connection unanswered.
       socket.terminate();
@@ -125,7 +198,43 @@ export function startScriptedBroker() {
     }
     socket.data.clientId = clientId;
     socket.data.will = will;
-    socket.send(Uint8Array.of(0x20, 2, 0, 0));
+    // Session present 0, reason "Success", and the properties: none, or
+    // "Subscription Identifiers Available" 0.
+    socket.send(tagging ? Uint8Array.of(0x20, 3, 0, 0, 0) : Uint8Array.of(0x20, 5, 0, 0, 2, 0x29, 0));
+  }
+
+  function onSubscribe(socket: Socket, body: DataView): void {
+    const id = body.getUint16(0);
+    const [subscriptionId, first] = readSubscriptionId(body, 2);
+    if (subscriptionId !== undefined && !tagging) {
+      // A protocol violation: this broker said it takes none.
+      record(socket, "SUBSCRIBE with a subscription identifier");
+      socket.terminate();
+      return;
+    }
+    const codes: number[] = [];
+    const replays: Uint8Array[] = [];
+    for (let at = first; at < body.byteLength; ) {
+      const [topic, next] = readText(body, at);
+      at = next + 1; // the subscription options follow each topic
+      record(socket, `SUBSCRIBE ${topic}`);
+      const accepted = !refused.has(topic);
+      if (accepted) {
+        socket.data.topics.set(topic, subscriptionId);
+        for (const [name, payload] of retained) {
+          if (brokerMatches(topic, name)) {
+            replays.push(publishPacket(name, payload, true, tags([subscriptionId])));
+          }
+        }
+      }
+      codes.push(accepted ? 0 : SUBACK_FAILURE);
+    }
+    // No properties, then a reason code per topic.
+    const suback = Uint8Array.of(0x90, 3 + codes.length, id >> 8, id & 0xff, 0, ...codes);
+    answer(() => {
+      socket.send(suback);
+      for (const replay of replays) socket.send(replay);
+    });
   }
 
   function onPacket(socket: Socket, type: number, flags: number, body: DataView): void {
@@ -135,9 +244,9 @@ export function startScriptedBroker() {
         break;
       case 3: {
         const [topic, at] = readText(body, 0);
-        const payload = new TextDecoder().decode(bytesFrom(body, at));
+        const payload = new TextDecoder().decode(bytesFrom(body, skipProperties(body, at)));
         const retain = (flags & 1) === 1;
-        log.push(`PUBLISH ${describe(topic, payload, retain)}`);
+        record(socket, `PUBLISH ${describe(topic, payload, retain)}`);
         if (!isTopicName(topic)) {
           // A protocol violation: the broker closes the connection.
           socket.terminate();
@@ -146,49 +255,34 @@ export function startScriptedBroker() {
         accept(topic, payload, retain);
         break;
       }
-      case 8: {
-        const id = body.getUint16(0);
-        const codes: number[] = [];
-        const replays: Uint8Array[] = [];
-        for (let at = 2; at < body.byteLength; ) {
-          const [topic, next] = readText(body, at);
-          at = next + 1; // the requested QoS follows each topic
-          log.push(`SUBSCRIBE ${topic}`);
-          const accepted = !refused.has(topic);
-          if (accepted) {
-            socket.data.topics.add(topic);
-            for (const [name, payload] of retained) {
-              if (brokerMatches(topic, name)) replays.push(publishPacket(name, payload, true));
-            }
-          }
-          codes.push(accepted ? 0 : SUBACK_FAILURE);
-        }
-        const suback = Uint8Array.of(0x90, 2 + codes.length, id >> 8, id & 0xff, ...codes);
-        answer(() => {
-          socket.send(suback);
-          for (const replay of replays) socket.send(replay);
-        });
+      case 8:
+        onSubscribe(socket, body);
         break;
-      }
       case 10: {
         const id = body.getUint16(0);
-        for (let at = 2; at < body.byteLength; ) {
+        const codes: number[] = [];
+        for (let at = skipProperties(body, 2); at < body.byteLength; ) {
           const [topic, next] = readText(body, at);
           at = next;
-          log.push(`UNSUBSCRIBE ${topic}`);
+          record(socket, `UNSUBSCRIBE ${topic}`);
           socket.data.topics.delete(topic);
+          codes.push(0);
         }
-        socket.send(Uint8Array.of(0xb0, 2, id >> 8, id & 0xff));
+        socket.send(Uint8Array.of(0xb0, 3 + codes.length, id >> 8, id & 0xff, 0, ...codes));
         break;
       }
       case 12:
         socket.send(Uint8Array.of(0xd0, 0));
         break;
-      case 14:
-        log.push("DISCONNECT");
-        // The client leaves on purpose: its will is not published.
-        socket.data.will = undefined;
+      case 14: {
+        // No reason code is "Normal disconnection" (0x00).
+        const code = body.byteLength > 0 ? body.getUint8(0) : 0;
+        record(socket, code === 0 ? "DISCONNECT" : `DISCONNECT ${code}`);
+        // The client leaves on purpose: its will is not published, unless it
+        // asks for that.
+        if (code !== 0x04) socket.data.will = undefined;
         break;
+      }
     }
   }
 
@@ -199,15 +293,17 @@ export function startScriptedBroker() {
       // Bun answers the `mqtt` subprotocol the client asks for by itself.
       const data: SocketData = {
         pending: new Uint8Array(0),
-        topics: new Set(),
+        topics: new Map(),
         clientId: undefined,
         will: undefined,
+        packets: [],
       };
       return bun.upgrade(request, { data }) ? undefined : new Response(null, { status: 400 });
     },
     websocket: {
       open(socket: Socket) {
         sockets.add(socket);
+        everConnected.push(socket.data.packets);
       },
       message(socket: Socket, message: string | Uint8Array) {
         const chunk = typeof message === "string" ? new TextEncoder().encode(message) : message;
@@ -237,11 +333,24 @@ export function startScriptedBroker() {
     /** Every packet the clients sent, oldest first. */
     packets: (): string[] => [...log],
 
+    /** Per connection there was, open or closed, in the order they opened:
+     *  every packet its client sent, oldest first. Packets on one connection
+     *  reach the broker in the order they were sent; across connections they
+     *  need not. */
+    connectionPackets: (): string[][] => everConnected.map((packets) => [...packets]),
+
     /** How many of the packets sent so far start with `prefix`. */
     count: (prefix: string): number => log.filter((packet) => packet.startsWith(prefix)).length,
 
     /** How many clients have a socket open to the broker right now. */
     connections: (): number => sockets.size,
+
+    /** The wills the broker holds right now, one per open connection that
+     *  carries one, as `topic payload` with ` retain` when retained, sorted. */
+    heldWills: (): string[] =>
+      [...sockets]
+        .flatMap(({ data: { will } }) => (will ? [describe(will.topic, will.payload, will.retain)] : []))
+        .sort(),
 
     /** Answer a SUBSCRIBE for `topic` with the failure code from now on. */
     refuse: (topic: string): void => void refused.add(topic),
@@ -261,9 +370,23 @@ export function startScriptedBroker() {
     },
 
     /** From now on send a message once for every filter of a connection that
-     *  matches it, not once per connection. */
+     *  matches it, each copy with that filter's subscription identifier, not
+     *  once per connection with all of them. */
     copyPerSubscription: (): void => {
       perSubscription = true;
+    },
+
+    /** From now on say in every CONNACK that subscription identifiers are not
+     *  taken, tag no PUBLISH with one, and close the connection of a client
+     *  whose SUBSCRIBE carries one. */
+    withoutSubscriptionIds: (): void => {
+      tagging = false;
+    },
+
+    /** From now on speak MQTT 3.1.1 only: refuse every MQTT 5 CONNECT the
+     *  way `refusal` says, and close its connection. */
+    speakOnly311: (refusal: Mqtt5Refusal): void => {
+      only311 = refusal;
     },
 
     /** Make `payload` the retained message of `topic`, for the SUBSCRIBEs to
@@ -327,27 +450,70 @@ function brokerMatches(filter: string, topic: string): boolean {
   return index === levels.length;
 }
 
-/** A PUBLISH at QoS 0, with or without the RETAIN flag. */
-function publishPacket(topic: string, payload: string, retain: boolean): Uint8Array {
+/** A PUBLISH at QoS 0, with or without the RETAIN flag, carrying `ids` as its
+ *  Subscription Identifier properties (0x0B, one each). */
+function publishPacket(topic: string, payload: string, retain: boolean, ids: number[]): Uint8Array {
   const name = new TextEncoder().encode(topic);
+  const properties = concat(...ids.map((id) => concat(Uint8Array.of(0x0b), varint(id))));
   const body = concat(
     Uint8Array.of(name.length >> 8, name.length & 0xff),
     name,
+    varint(properties.length),
+    properties,
     new TextEncoder().encode(payload),
   );
-  return concat(Uint8Array.of(0x30 | (retain ? 1 : 0)), remainingLength(body.length), body);
+  return concat(Uint8Array.of(0x30 | (retain ? 1 : 0)), varint(body.length), body);
 }
 
-/** The variable-length encoding of a packet's remaining length. */
-function remainingLength(length: number): Uint8Array {
+/** A Variable Byte Integer (MQTT 5 §1.5.5): a remaining length, a property
+ *  length, a subscription identifier. */
+function varint(value: number): Uint8Array {
   const out: number[] = [];
-  let rest = length;
+  let rest = value;
   do {
     const digit = rest % 128;
     rest = Math.floor(rest / 128);
     out.push(rest > 0 ? digit | 0x80 : digit);
   } while (rest > 0);
   return Uint8Array.from(out);
+}
+
+/** The Variable Byte Integer at `at`, and the offset after it. */
+function readVarint(view: DataView, at: number): [number, number] {
+  let value = 0;
+  let next = at;
+  for (let shift = 0; ; shift += 7) {
+    const byte = view.getUint8(next);
+    next += 1;
+    value += (byte & 0x7f) * 2 ** shift;
+    if ((byte & 0x80) === 0) return [value, next];
+  }
+}
+
+/** The offset after the properties (a length, then that many bytes) at `at`. */
+function skipProperties(view: DataView, at: number): number {
+  const [length, start] = readVarint(view, at);
+  return start + length;
+}
+
+/** The Subscription Identifier among the properties at `at` (a SUBSCRIBE's),
+ *  and the offset after the properties. */
+function readSubscriptionId(view: DataView, at: number): [number | undefined, number] {
+  const [length, start] = readVarint(view, at);
+  const end = start + length;
+  let id: number | undefined;
+  for (let next = start; next < end; ) {
+    const property = view.getUint8(next);
+    if (property === 0x0b) {
+      [id, next] = readVarint(view, next + 1);
+    } else if (property === 0x26) {
+      // A User Property: two strings.
+      next = readText(view, readText(view, next + 1)[1])[1];
+    } else {
+      break;
+    }
+  }
+  return [id, end];
 }
 
 /** The first whole packet in `bytes`, or `null` when more bytes are needed. */

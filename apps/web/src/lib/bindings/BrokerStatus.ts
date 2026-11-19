@@ -4,4 +4,10 @@ import type { ConnectionStatus } from "./ConnectionStatus";
 /**
  * Broker status info returned to frontend
  */
-export type BrokerStatus = { id: string, status: ConnectionStatus, };
+export type BrokerStatus = { id: string, status: ConnectionStatus, 
+/**
+ * Why `status` is `error`, when the user can act on it: the words to show
+ * them ([`MQTT5_REQUIRED`](super::broker::MQTT5_REQUIRED)). `null` with
+ * any other status, and for a failure nothing more is known about.
+ */
+problem: string | null, };

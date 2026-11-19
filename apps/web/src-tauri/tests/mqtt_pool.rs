@@ -761,7 +761,7 @@ async fn a_removed_broker_takes_its_console_subscriptions_with_it() {
     assert_eq!(manager.all_broker_ids().await, vec!["b".to_string()]);
     // … until the settings sync removes it.
     manager.remove("b").await.expect("remove");
-    assert!(manager.all_broker_ids().await.is_empty());
+    assert_eq!(manager.all_broker_ids().await, [] as [String; 0]);
 
     // A broker added again under the same id starts clean.
     manager.connect(broker.config()).await.expect("connect again");
@@ -1145,7 +1145,7 @@ async fn a_broker_removed_while_it_is_dialling_stays_out_of_the_pool() {
     assert!(outcome(attempt).await.is_err(), "the attempt was given up");
     broker.answer_again();
     assert_eq!(manager.session("b").await, None, "a removed broker is not in the pool");
-    assert!(manager.all_broker_ids().await.is_empty());
+    assert_eq!(manager.all_broker_ids().await, [] as [String; 0]);
     assert!(broker.seen().is_empty(), "and never had a connection: {:?}", broker.seen());
 }
 
@@ -1353,34 +1353,40 @@ async fn settings_typed_and_deleted_again_leave_the_session_on_them_alone() {
 // end without a goodbye, the broker publishes it: the first of the words is
 // the link's will, and the pool renews a link that is up to carry it.
 
-/// The retained status topic of Bridge ID `u1`, and the topic Studio asks for
+/// The retained status topic of Bridge ID `uid_1`, and the topic Studio asks for
 /// its variables on.
-const BRIDGE_STATUS: &str = "microflow/u1/app/status";
-const BRIDGE_REQUEST: &str = "microflow/u1/app/variables/request";
+const BRIDGE_STATUS: &str = "microflow/uid_1/app/status";
+const BRIDGE_REQUEST: &str = "microflow/uid_1/app/variables/request";
 
-/// A design node's wiring for Bridge ID `u1` on broker `b`.
+/// A design node's wiring for Bridge ID `uid_1` on broker `b`.
 fn bridge_wiring() -> Vec<(String, SubscriberWiring)> {
-    let topic = "microflow/u1/figma/variable/1-2".to_string();
+    let topic = "microflow/uid_1/figma/variable/1-2".to_string();
     vec![("fig".to_string(), SubscriberWiring::TopicAware { broker_id: "b".into(), topic })]
 }
 
-/// What a broker hears on `connection` when Studio is announced for `u1`.
+/// What a broker hears on `connection` when Studio is announced for `uid_1`.
 fn announced_on(connection: usize) -> Vec<Heard> {
     vec![published(connection, BRIDGE_STATUS, "connected", true), published(connection, BRIDGE_REQUEST, "", false)]
 }
 
-/// The `disconnected` of `u1`, heard on `connection`.
+/// The `disconnected` of `uid_1`, heard on `connection`.
 fn goodbye_on(connection: usize) -> Heard {
     published(connection, BRIDGE_STATUS, "disconnected", true)
 }
 
-/// Announce Studio for `u1` on broker `b`, connected on its first link, and
+/// Announce Studio for `uid_1` on broker `b`, connected on its first link, and
 /// wait until the pool has renewed the link to carry the goodbye as its will:
 /// the old link said DISCONNECT, and the broker heard
 /// `[announced_on(1), Disconnected(1)]`. Studio is announced on link 2.
 async fn announce(broker: &FakeBroker, manager: &MqttManager) -> CloudPerformer {
     let performer = performer_on(manager);
+    // The goodbye is left with the pool before Studio is announced, and the
+    // link that is to carry it is opened then. Its CONNECT is held until the
+    // announcement is out, which therefore goes out on link 1 — not on
+    // whichever link is up at the moment it is written.
+    broker.go_silent();
     performer.reconcile(bridge_wiring()).applied().await;
+    broker.answer_again();
     broker.wait_until_heard(3).await;
     assert_eq!(broker.heard(), [announced_on(1), vec![Heard::Disconnected(1)]].concat());
     performer
@@ -1635,10 +1641,12 @@ fn seq_of((_, snapshot): &(String, serde_json::Value)) -> u64 {
 }
 
 /// The brokers of an `mqtt-broker-status` event, with broker `b` in `status`
-/// — or with no broker at all.
+/// and no problem — or with no broker at all.
 fn status_event(status: Option<&str>) -> (String, serde_json::Value) {
-    let brokers: Vec<serde_json::Value> =
-        status.iter().map(|status| serde_json::json!({ "id": "b", "status": status })).collect();
+    let brokers: Vec<serde_json::Value> = status
+        .iter()
+        .map(|status| serde_json::json!({ "id": "b", "status": status, "problem": null }))
+        .collect();
     ("mqtt-broker-status".to_string(), serde_json::Value::Array(brokers))
 }
 

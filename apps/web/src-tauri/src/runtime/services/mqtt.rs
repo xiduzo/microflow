@@ -531,7 +531,7 @@ mod tests {
         brokers.connect("b");
         brokers.script_err(BrokerOp::Subscribe, MqttError::Failed("connection reset".into()));
         assert!(brokers.subscribe("b", "t", ignore()).await.is_err());
-        assert!(brokers.subscriptions("b").is_empty());
+        assert_eq!(brokers.subscriptions("b"), [] as [String; 0]);
         assert!(!brokers.deliver("b", "t", b"x"));
     }
 
@@ -567,7 +567,7 @@ mod tests {
         brokers.connect("b");
         let second = brokers.session("b").await.expect("connected");
         assert_ne!(second.id, first);
-        assert!(brokers.subscriptions("b").is_empty());
+        assert_eq!(brokers.subscriptions("b"), [] as [String; 0]);
     }
 
     #[tokio::test]

@@ -33,29 +33,32 @@
 //! input yields byte-identical output (determinism invariant).
 
 use super::config::FigmaConfig;
-use crate::design_bridge::{self as protocol, DESIGN_TOOLS, STUDIO};
+use crate::design_bridge::{self as protocol, VariableKind, DESIGN_TOOLS, STUDIO};
+use crate::codegen::cloud::payload::{bridge_payload, BRIDGE, NUMBER_TEXT};
 use crate::codegen::cloud::transport::{Subscription, Transport, DEFAULT_PORT};
 use crate::codegen::credentials::{supplied_or, Credentials};
 use crate::codegen::emit::{cpp_string_literal, str_first_non_empty, u16_or_default, NodeEmission, NodeToken};
-use crate::codegen::wire::{CppExpr, NodeInputs, SourceExpr};
+use crate::codegen::wire::{bind_pulses, CppExpr, NodeInputs, SourceExpr};
 use crate::config::{resolve, UnreadableConfig};
 use crate::flow::FlowNode;
 
 /// Emit C++ for a Figma Cloud Node on a networked target.
 ///
-/// The `set` port publishes each new sample of its first wired source back to
-/// Figma on the set topic (the on-device twin of the live set dispatch). The
-/// runtime's other mutation ports (`true`/`false`/`toggle`, the numeric
-/// `increment`/`decrement`/`reset`, and the color channels) manipulate typed
-/// Figma variables the generated sketch does not model; wiring them emits an
-/// explicit note. When unwired, the Node is subscribe-only.
+/// Each pulse on the `set` port (from every source wired into it) is the
+/// on-device twin of one live `set` dispatch: the value is coerced to the
+/// variable's type and, when it fits, published on the set topic with the
+/// payload the live node writes, and the node emits it on `value` and
+/// `change` (the live node emits what it sets). A value that does not fit is
+/// dropped, as live. The runtime's other mutation ports (`true`/`false`/
+/// `toggle`, the numeric `increment`/`decrement`/`reset`, and the color
+/// channels) work on the variable's current value, which the sketch does not
+/// keep; wiring them emits an explicit note. When unwired, the Node is
+/// subscribe-only.
 pub(crate) fn emit(
     node: &FlowNode,
     inputs: &NodeInputs,
     credentials: Option<&Credentials>,
 ) -> Result<NodeEmission, UnreadableConfig> {
-    let driver_source = inputs.first("set");
-    let driver = driver_source.map(|s| s.value.as_string());
     let token = node.id_token();
     let prefix = format!("figma_{token}");
 
@@ -92,6 +95,7 @@ pub(crate) fn emit(
     let plugin_topic = protocol::value_topic(uid, tool, &wire_id);
     let app_topic = protocol::value_topic(uid, STUDIO, &wire_id);
     let set_topic = protocol::set_topic(uid, &wire_id);
+    let kind = VariableKind::of(&config.resolved_type);
 
     // Missing essential connection details → loud placeholder + #warning.
     let credentials_missing = wifi_ssid.is_empty() || broker.is_empty();
@@ -103,7 +107,6 @@ pub(crate) fn emit(
     let value_var = format!("{prefix}_value");
     let received = received_var(&token);
     let callback = format!("{prefix}_on_message");
-    let last_var = driver.as_ref().map(|_| format!("{prefix}_last_published"));
 
     let subscriptions = vec![
         Subscription { topic_var: plugin_topic_var.clone() },
@@ -132,9 +135,6 @@ pub(crate) fn emit(
         format!("String {value_var};"),
         format!("bool {received} = false;"),
     ];
-    if let Some(last) = &last_var {
-        extra_decls.push(format!("String {last};"));
-    }
     extra_decls.push(format!(
         "void {callback}(char* topic, byte* payload, unsigned int length) {{"
     ));
@@ -145,14 +145,8 @@ pub(crate) fn emit(
     extra_decls.push(format!("  {received} = true;"));
     extra_decls.push("}".to_string());
 
-    // Extra sources on `set` and the unmodelled mutation ports are surfaced as
-    // notes rather than silently dropped.
-    if inputs.on("set").len() > 1 {
-        extra_decls.push(format!(
-            "// note: {} additional source(s) wired into 'set' are ignored — generated code follows the first source only",
-            inputs.on("set").len() - 1
-        ));
-    }
+    // The unmodelled mutation ports are surfaced as notes rather than
+    // silently dropped.
     for port in [
         "true", "false", "toggle", "increment", "decrement", "reset", "red", "green", "blue",
         "opacity",
@@ -164,30 +158,45 @@ pub(crate) fn emit(
         }
     }
 
-    // loop() tail: when driven, publish the new value back to Figma on the set
-    // topic — but only when it changed, mirroring the live debounced dispatch
-    // (no host event loop here, so de-dupe on value change instead of time).
-    let mut loop_tail = Vec::new();
-    if let (Some(expr), Some(last)) = (&driver, &last_var) {
-        let mqtt_client = transport.mqtt_client();
-        loop_tail.push(format!("if ({mqtt_client}.connected()) {{"));
-        loop_tail.push(format!("  String {prefix}_next = {expr};"));
-        loop_tail.push(format!("  if ({prefix}_next != {last}) {{"));
-        loop_tail.push(format!("    {mqtt_client}.publish({set_topic_var}, {prefix}_next.c_str());"));
-        loop_tail.push(format!("    {last} = {prefix}_next;"));
+    // loop() tail: each pulse on `set` publishes the value coerced to the
+    // variable's type — the payload the live node writes — and emits it.
+    let sources = inputs.on("set");
+    let binding = bind_pulses(&format!("{prefix}_set"), sources);
+    extra_decls.extend(binding.declarations.iter().cloned());
+    let mut loop_tail = binding.loop_lines.clone();
+    let payload = format!("{prefix}_payload");
+    let mqtt_client = transport.mqtt_client();
+    for (fired, source) in binding.fired.iter().zip(sources) {
+        let Some(fits) = bridge_payload(kind, &source.value, &payload) else {
+            extra_decls.push(
+                "// note: a colour wired into 'set' carries no channels on the board — nothing is published for it"
+                    .to_string(),
+            );
+            continue;
+        };
+        loop_tail.push(format!("if ({fired}) {{"));
+        loop_tail.push(format!("  String {payload};"));
+        loop_tail.push(format!("  if ({fits}) {{"));
+        loop_tail.push(format!("    {mqtt_client}.publish({set_topic_var}, {payload}.c_str());"));
+        loop_tail.push(format!("    {value_var} = {payload};"));
+        loop_tail.push(format!("    {received} = true;"));
         loop_tail.push("  }".to_string());
         loop_tail.push("}".to_string());
-    } else {
+    }
+    if sources.is_empty() {
         loop_tail.push(format!(
             "// Figma Node {token} has no wired input — subscribe-only, nothing to publish"
         ));
     }
 
     // `received` is up on the tick an inbound value arrived (the callback runs
-    // inside the client's `loop()`): the live node emits `value` and `change`
-    // for every one, the same value again included.
+    // inside the client's `loop()`) or a set was published: the live node
+    // emits `value` and `change` for every one, the same value again included.
     let mut e = transport.emission(extra_decls, loop_tail);
     e.loop_body.insert(0, format!("{received} = false;"));
+    if !sources.is_empty() {
+        e.shared_declarations = vec![NUMBER_TEXT.to_string(), BRIDGE.to_string()];
+    }
     Ok(e)
 }
 
@@ -196,18 +205,18 @@ fn received_var(token: &str) -> String {
     format!("figma_{token}_received")
 }
 
-/// What downstream Nodes read from a Figma Node: the latest inbound variable
-/// value — `true`/`false` for a BOOLEAN variable, otherwise parsed as a number
-/// (`toFloat`), the common case for hardware-driving design variables — on
-/// each tick one arrives.
+/// What downstream Nodes read from a Figma Node: the latest variable value
+/// received or set — `true`/`false` for a BOOLEAN variable, otherwise parsed
+/// as a number (`toDouble`), the common case for hardware-driving design
+/// variables — on each tick one arrives or is set.
 #[must_use]
 pub(crate) fn output(node: &FlowNode) -> Option<SourceExpr> {
     let token = node.id_token();
     let config = resolve::<FigmaConfig>(&node.data).ok()?;
-    let value = if config.resolved_type == "BOOLEAN" {
+    let value = if VariableKind::of(&config.resolved_type) == VariableKind::Boolean {
         CppExpr::boolean(format!("(figma_{token}_value == \"true\")"))
     } else {
-        CppExpr::number(format!("figma_{token}_value.toFloat()"))
+        CppExpr::number(format!("figma_{token}_value.toDouble()"))
     };
     Some(SourceExpr::event(value, received_var(&token)))
 }
@@ -287,7 +296,7 @@ mod tests {
         assert!(decls.contains("setCallback") || joined(&e.setup).contains("setCallback"));
         assert_eq!(
             output(&n).map(|s| s.value.code),
-            Some("figma_f_1_value.toFloat()".to_string())
+            Some("figma_f_1_value.toDouble()".to_string())
         );
     }
 
@@ -304,6 +313,36 @@ mod tests {
         assert!(decls.contains("microflow/u/app/variable/1-2/set"), "set topic mirrors live");
         assert!(body.contains("publish(figma_f_1_set_topic"), "publishes to the set topic");
         assert!(body.contains("sensor_s_1_value"), "publishes the driven value");
+    }
+
+    /// Each pulse on `set` publishes — the same value again included — the
+    /// value coerced to the variable's type, and emits it, as each live `set`
+    /// dispatch does.
+    #[test]
+    fn each_set_publishes_the_coerced_value_and_emits_it() {
+        let e = emit_no_creds(
+            &figma("f-1", json!({ "broker": "b", "uniqueId": "u", "variableId": "VariableID:1:2", "resolvedType": "FLOAT", "wifiSsid": "net" })),
+            &set_input("v"),
+        );
+        let body = joined(&e.loop_body);
+        assert!(body.contains("if (mf_bridge_number(1, (double)(v), figma_f_1_payload)) {"), "{body}");
+        assert!(body.contains("figma_f_1_received = true;"), "a set is emitted: {body}");
+        assert!(!body.contains("last_published"), "no de-duplication on the value: {body}");
+        assert_eq!(e.shared_declarations, [NUMBER_TEXT.to_string(), BRIDGE.to_string()]);
+    }
+
+    /// A colour carries no channels on the board, so a colour variable set
+    /// from one is refused in so many words.
+    #[test]
+    fn a_colour_set_on_a_colour_variable_is_refused() {
+        let mut inputs = NodeInputs::default();
+        inputs.add("set", SourceExpr::level(CppExpr::opaque("rgb_version")));
+        let e = emit_no_creds(
+            &figma("f-1", json!({ "uniqueId": "u", "variableId": "VariableID:1:2", "resolvedType": "COLOR" })),
+            &inputs,
+        );
+        assert!(joined(&e.declarations).contains("// note: a colour wired into 'set'"), "{:?}", e.declarations);
+        assert!(!joined(&e.loop_body).contains("publish(figma_f_1_set_topic"), "{:?}", e.loop_body);
     }
 
     /// Unmodelled mutation ports are noted instead of silently dropped.

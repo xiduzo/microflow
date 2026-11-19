@@ -22,7 +22,7 @@ import {
   readHostSnapshot,
 } from "./cloud-capabilities";
 import { settleLlmProviders, useLlmProviderStore, type LlmProviderConfig } from "@/ai/llm-provider";
-import type { LlmProbeOutcome } from "./browser-cloud-probe";
+import type { BrokerProbe, LlmProbeOutcome } from "./browser-cloud-probe";
 import { startCloudCapabilitySync } from "./cloud-capability-sync";
 import {
   resolveStoredBroker,
@@ -31,6 +31,7 @@ import {
   type ConnectionStatus,
   type MqttBrokerConfig,
 } from "./mqtt-broker";
+import { MQTT5_REQUIRED } from "./mqtt-refusal";
 
 const LAB: MqttBrokerConfig = { id: "lab", name: "Lab", url: "mqtt://lab.example:1883", isDefault: true };
 const HOME: MqttBrokerConfig = { id: "home", name: "Home", url: "mqtt://home.example:1883", isDefault: false };
@@ -40,7 +41,7 @@ const store = () => useMqttBrokerStore.getState();
 const cleanups: Array<() => void> = [];
 
 beforeEach(() => {
-  useMqttBrokerStore.setState({ brokers: [{ ...LAB }, { ...HOME }], unsettled: {}, statuses: {} });
+  useMqttBrokerStore.setState({ brokers: [{ ...LAB }, { ...HOME }], unsettled: {}, statuses: {}, problems: {} });
 });
 
 afterEach(() => {
@@ -178,13 +179,16 @@ describe("a flow update", () => {
 describe("the browser's broker status probe", () => {
   /** A probe whose answers a test gives by hand, in any order. */
   function heldProbe() {
-    const asked: Array<{ url: string; answer: (status: ConnectionStatus) => Promise<void> }> = [];
+    const asked: Array<{
+      url: string;
+      answer: (status: ConnectionStatus, problem?: string) => Promise<void>;
+    }> = [];
     const probe = (broker: MqttBrokerConfig) =>
-      new Promise<ConnectionStatus>((resolve) => {
+      new Promise<BrokerProbe>((resolve) => {
         asked.push({
           url: broker.url,
-          answer: async (status) => {
-            resolve(status);
+          answer: async (status, problem) => {
+            resolve(problem === undefined ? { status } : { status, problem });
             await Promise.resolve();
           },
         });
@@ -203,6 +207,17 @@ describe("the browser's broker status probe", () => {
     await asked[0]?.answer("connected");
     await asked[1]?.answer("error");
     expect([dot("lab"), dot("home")]).toEqual(["connected", "error"]);
+  });
+
+  test("shows why a broker is in error when the probe says", async () => {
+    const { asked, probe } = heldProbe();
+
+    probeBrokerStatuses(probe);
+    await asked[0]?.answer("error", MQTT5_REQUIRED);
+    expect([dot("lab"), store().problems.lab]).toEqual(["error", MQTT5_REQUIRED]);
+
+    probeBrokerStatuses(probe);
+    expect(store().problems.lab).toBeUndefined();
   });
 
   test("drops an answer that arrives after the broker's settings changed again", async () => {
@@ -352,9 +367,9 @@ describe("the desktop's broker status dots", () => {
     };
   }
 
-  const lab = (seq: number, status: ConnectionStatus): BrokerStatuses => ({
+  const lab = (seq: number, status: ConnectionStatus, problem: string | null = null): BrokerStatuses => ({
     seq,
-    brokers: [{ id: "lab", status }],
+    brokers: [{ id: "lab", status, problem }],
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -406,5 +421,15 @@ describe("the desktop's broker status dots", () => {
     await settle();
 
     expect(store().statuses.lab).toBe("connected");
+  });
+
+  test("a broker the host says why it is in error for shows why, until a snapshot without it", async () => {
+    const host = await started();
+
+    host.event(lab(2, "error", MQTT5_REQUIRED));
+    expect([store().statuses.lab, store().problems.lab]).toEqual(["error", MQTT5_REQUIRED]);
+
+    host.event(lab(3, "connecting"));
+    expect([store().statuses.lab, store().problems.lab]).toEqual(["connecting", undefined]);
   });
 });

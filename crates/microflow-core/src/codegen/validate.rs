@@ -43,6 +43,9 @@
 //! - **AVR timer conflict** — a Piezo's `tone()` claims Timer2 on AVR cores,
 //!   disabling PWM on pins 3/11; a Node `analogWrite`-ing either pin alongside
 //!   a Piezo is flagged (both sides).
+//! - **Function code the board cannot run** — a wired Function Node whose code
+//!   (or input) falls outside what the board runs as the live Node does never
+//!   evaluates on the board; the reason is flagged.
 //!
 //! Each problem names the offending Node and the constraint it violates, so the
 //! viewer can surface an actionable message.
@@ -138,6 +141,10 @@ pub fn validate(flow: &FlowUpdate, target: &BoardTarget) -> Vec<ValidationProble
     // pins 3/11 even though every pin individually checks out.
     problems.extend(tone_timer_pwm_conflict_problems(flow, &by_id, target));
 
+    // A Function the board cannot run as the live Node does stays silent on
+    // the board; its input's type is resolved against the Flow.
+    problems.extend(function_refusal_problems(flow, &by_id));
+
     // Identifier collisions: emission derives every C++ symbol from the Node
     // id's sanitized token, so two ids that sanitize identically would emit
     // duplicate globals — an uncompilable Sketch. The one hard error.
@@ -175,6 +182,25 @@ fn token_collision_problems(by_id: &BTreeMap<&str, &FlowNode>) -> Vec<Validation
         }
     }
     problems
+}
+
+/// Flag every wired Function Node whose code the board cannot run the way the
+/// live Node does (`nodes::function::codegen::board_refusal`).
+fn function_refusal_problems(flow: &FlowUpdate, by_id: &BTreeMap<&str, &FlowNode>) -> Vec<ValidationProblem> {
+    let outputs = crate::codegen::Outputs::new(flow);
+    by_id
+        .values()
+        .filter(|node| node.node_type.as_deref() == Some("Function"))
+        .filter_map(|node| {
+            let reason = nodes::function::codegen::board_refusal(node, outputs.fed_by(node, "trigger").as_ref())?;
+            Some(problem(
+                node,
+                "Function",
+                ProblemSeverity::Warning,
+                format!("Node {} (Function): the board cannot run its code as the live node does ({reason}), so on the board it never emits", node.id),
+            ))
+        })
+        .collect()
 }
 
 /// What a Node does with one of its pins — the requirement a board must meet.
