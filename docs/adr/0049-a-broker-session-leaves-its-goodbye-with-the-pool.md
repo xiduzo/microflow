@@ -92,7 +92,12 @@ will link: every will stays in place.
 **D3 — A changed will renews the link, make before break.** When the link
 that is up carries another will, the host opens a new link with a new random
 client id and the new will, moves every subscription there, and then sends
-DISCONNECT on the old link. The connection stays up to its callers throughout.
+DISCONNECT on the old link — only once the broker has answered every SUBSCRIBE
+on the new link with a SUBACK (a refusal counts as an answer), so a message
+published after the old link is gone reaches the new one. The wait is bounded:
+by the link's write timeout on the desktop, by `RENEW_MS` in the browser; when
+it runs out the old link is closed all the same, since nothing reads it and it
+carries the old will. The connection stays up to its callers throughout.
 What each subscription has seen moves with it, so the new link's retained
 replay is not news ([ADR-0048](0048-routing-overlapping-subscriptions.md)). A
 link that is down carries the new will when it is back. On the desktop

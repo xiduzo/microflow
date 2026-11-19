@@ -14,7 +14,11 @@
 //   CONNACK "Unsupported Protocol Version" (reason code 0x84), or by closing
 //   the connection without a CONNACK. It closes the connection after a
 //   CONNACK too.
-// - It routes by its own reading of the topic filters, not the client's.
+// - It routes by its own reading of the topic filters, not the client's, and
+//   at the moment a message is published: to the subscriptions it holds then.
+//   After `answerSubscribesAfter(ms)` it is a broker under load, which takes
+//   a while over each SUBSCRIBE before the subscription exists and its SUBACK
+//   goes out.
 // - It tags every PUBLISH it sends with the subscription identifiers of the
 //   subscriptions it is for (§3.3.4): a SUBSCRIBE that carries one gives its
 //   filter that id, until the filter is subscribed again or unsubscribed.
@@ -61,8 +65,15 @@ type SocketData = {
   /** Every packet its client sent, oldest first. */
   packets: string[];
 };
-/** What the broker uses of a Bun `ServerWebSocket`. */
-type Socket = { data: SocketData; send(bytes: Uint8Array): unknown; terminate(): void };
+/**
+ * What the broker uses of a Bun `ServerWebSocket`.
+ *
+ * `close()` ends the connection with a close frame, after what was sent before
+ * it; `terminate()` cuts it at once, and may drop a frame still on its way out
+ * (Bun 1.3.5 drops the CONNACK of a refusal that way). A broker that answers
+ * and then hangs up closes; one that drops a connection terminates.
+ */
+type Socket = { data: SocketData; send(bytes: Uint8Array): unknown; close(): void; terminate(): void };
 /** What it uses of the Bun server handed to `fetch`. */
 type Upgrader = { upgrade(request: Request, options: { data: SocketData }): boolean };
 
@@ -117,6 +128,8 @@ export function startScriptedBroker() {
   let perSubscription = false;
   let tagging = true;
   let stopping = false;
+  /** How long the broker takes over a SUBSCRIBE, in ms. */
+  let subscribeDelay = 0;
   /** Set while the broker speaks MQTT 3.1.1 only: how it refuses MQTT 5. */
   let only311: Mqtt5Refusal | undefined;
   const heldBack: Array<() => void> = [];
@@ -167,14 +180,14 @@ export function startScriptedBroker() {
       record(socket, `CONNECT level ${level}`);
       // MQTT 3.1.1's CONNACK: "unacceptable protocol version", then closed.
       socket.send(Uint8Array.of(0x20, 2, 0, 0x01));
-      socket.terminate();
+      socket.close();
       return;
     }
     if (only311) {
       record(socket, `CONNECT refused: ${only311}`);
       const connack = REFUSALS[only311];
       if (connack) socket.send(connack);
-      socket.terminate();
+      socket.close();
       return;
     }
     const flags = body.getUint8(levelAt + 1);
@@ -212,29 +225,39 @@ export function startScriptedBroker() {
       socket.terminate();
       return;
     }
-    const codes: number[] = [];
-    const replays: Uint8Array[] = [];
+    const topics: string[] = [];
     for (let at = first; at < body.byteLength; ) {
       const [topic, next] = readText(body, at);
       at = next + 1; // the subscription options follow each topic
       record(socket, `SUBSCRIBE ${topic}`);
-      const accepted = !refused.has(topic);
-      if (accepted) {
-        socket.data.topics.set(topic, subscriptionId);
-        for (const [name, payload] of retained) {
-          if (brokerMatches(topic, name)) {
-            replays.push(publishPacket(name, payload, true, tags([subscriptionId])));
+      topics.push(topic);
+    }
+    const take = () => {
+      // The connection ended while the broker was busy with it.
+      if (!sockets.has(socket)) return;
+      const codes: number[] = [];
+      const replays: Uint8Array[] = [];
+      for (const topic of topics) {
+        const accepted = !refused.has(topic);
+        if (accepted) {
+          socket.data.topics.set(topic, subscriptionId);
+          for (const [name, payload] of retained) {
+            if (brokerMatches(topic, name)) {
+              replays.push(publishPacket(name, payload, true, tags([subscriptionId])));
+            }
           }
         }
+        codes.push(accepted ? 0 : SUBACK_FAILURE);
       }
-      codes.push(accepted ? 0 : SUBACK_FAILURE);
-    }
-    // No properties, then a reason code per topic.
-    const suback = Uint8Array.of(0x90, 3 + codes.length, id >> 8, id & 0xff, 0, ...codes);
-    answer(() => {
-      socket.send(suback);
-      for (const replay of replays) socket.send(replay);
-    });
+      // No properties, then a reason code per topic.
+      const suback = Uint8Array.of(0x90, 3 + codes.length, id >> 8, id & 0xff, 0, ...codes);
+      answer(() => {
+        socket.send(suback);
+        for (const replay of replays) socket.send(replay);
+      });
+    };
+    if (subscribeDelay > 0) setTimeout(take, subscribeDelay);
+    else take();
   }
 
   function onPacket(socket: Socket, type: number, flags: number, body: DataView): void {
@@ -361,6 +384,14 @@ export function startScriptedBroker() {
     /** Keep the SUBACKs back until `release()`. */
     holdAnswers: (): void => {
       holding = true;
+    },
+
+    /** From now on take `ms` over each SUBSCRIBE, as a broker under load
+     *  does: its subscriptions exist, and its SUBACK goes out, only after
+     *  that. A message published meanwhile does not reach them. What else the
+     *  client sends is taken at once. */
+    answerSubscribesAfter: (ms: number): void => {
+      subscribeDelay = ms;
     },
 
     /** Send the SUBACKs kept back, and answer at once from now on. */

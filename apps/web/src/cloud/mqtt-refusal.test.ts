@@ -59,6 +59,37 @@ describe("a broker that speaks only MQTT 3.1.1", () => {
     expect(await probeBroker(config(scripted.url), connect)).toEqual({ status: "error" });
   });
 
+  test("a refusal and the close that follows it in the same turn: the refusal is told", async () => {
+    // The tightest a browser can deliver them: the CONNACK's message event and
+    // the close event back to back, with nothing run between. `mqtt.js` parses
+    // the bytes as they are pushed, so the refusal is read before the close.
+    class RefusingSocket extends EventTarget {
+      readonly OPEN = 1;
+      readyState = 0;
+      binaryType = "blob";
+      bufferedAmount = 0;
+      constructor() {
+        super();
+        queueMicrotask(() => {
+          this.readyState = 1;
+          this.dispatchEvent(new Event("open"));
+        });
+      }
+      send() {
+        queueMicrotask(() => {
+          this.dispatchEvent(new MessageEvent("message", { data: Uint8Array.of(0x20, 3, 0, 0x84, 0).buffer }));
+          this.readyState = 3;
+          this.dispatchEvent(new CloseEvent("close"));
+        });
+      }
+      close() {}
+    }
+    const refusing = ((url: string, options: mqtt.IClientOptions) =>
+      connect(url, { ...options, createWebsocket: () => new RefusingSocket() })) as typeof mqtt.connect;
+
+    expect(await probeBroker(config("ws://127.0.0.1:1"), refusing)).toEqual({ status: "error", problem: MQTT5_REQUIRED });
+  });
+
   test("a broker that speaks MQTT 5 is connected to", async () => {
     const scripted = broker();
 

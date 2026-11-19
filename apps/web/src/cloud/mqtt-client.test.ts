@@ -55,9 +55,15 @@ class StubClient implements MqttClientLike {
     if (event === "connect") this.connectListeners.push(handler as () => void);
     if (event === "message") this.messageListeners.push(handler as never);
   }
+  /** While set, the broker keeps its SUBACKs back here, unsent. */
+  heldAnswers: Array<() => void> | undefined;
   subscribe(topic: string, id: number | undefined, callback: (error?: Error | null) => void): void {
-    this.filters.set(topic, id);
-    callback(null);
+    const answer = () => {
+      this.filters.set(topic, id);
+      callback(null);
+    };
+    if (this.heldAnswers) this.heldAnswers.push(answer);
+    else answer();
   }
   unsubscribe(topic: string): void {
     this.filters.delete(topic);
@@ -294,6 +300,56 @@ describe("a message reaches each subscription it is for once", () => {
     const renewed = links[1];
     renewed.connect();
     expect([...renewed.filters]).toEqual(before);
+  });
+});
+
+describe("a renewed link's old link", () => {
+  test("says DISCONNECT once the broker answered every SUBSCRIBE of the new link", () => {
+    const { made, links, client, subscribe } = setup();
+    subscribe("a");
+    subscribe("b");
+    made.setWills("b", [{ topic: "app/status", payload: "gone", retain: true }]);
+    const renewed = links[1];
+    renewed.heldAnswers = [];
+    renewed.connect();
+
+    const [first, second] = renewed.heldAnswers;
+    first();
+    expect(client.ended).toBe(false);
+    second();
+    expect(client.saidDisconnect).toBe(true);
+  });
+
+  test("says DISCONNECT all the same when the broker does not answer within RENEW_MS", () => {
+    const warn = spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { made, links, client, timers, subscribe } = setup();
+      subscribe("a");
+      made.setWills("b", [{ topic: "app/status", payload: "gone", retain: true }]);
+      const renewed = links[1];
+      renewed.heldAnswers = [];
+      renewed.connect();
+
+      timers.advance(RENEW_MS - 1);
+      expect(client.ended).toBe(false);
+      timers.advance(1);
+      expect(client.saidDisconnect).toBe(true);
+      expect(warn).toHaveBeenCalledTimes(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  test("says DISCONNECT when the connection is closed before the broker answered", () => {
+    const { made, links, client, subscribe } = setup();
+    subscribe("a");
+    made.setWills("b", [{ topic: "app/status", payload: "gone", retain: true }]);
+    const renewed = links[1];
+    renewed.heldAnswers = [];
+    renewed.connect();
+
+    made.configure("b", undefined);
+    expect(client.saidDisconnect).toBe(true);
   });
 });
 

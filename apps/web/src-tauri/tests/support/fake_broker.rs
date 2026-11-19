@@ -10,7 +10,7 @@
 use app_lib::mqtt::broker::BrokerConfig;
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -63,8 +63,9 @@ pub fn published(connection: usize, topic: &str, payload: &str, retain: bool) ->
 /// matches, flagged; a live publish goes out unflagged. A client's PUBLISH with
 /// RETAIN sets its topic's retained message, an empty one clears it.
 ///
-/// A live publish goes to every open connection that holds a filter matching
-/// its topic, tagged with the subscription identifiers of those filters
+/// A live publish goes to every open connection that held a filter matching
+/// its topic at the moment it was published — a subscription the broker takes
+/// after that moment does not get it — tagged with the subscription identifiers of those filters
 /// (MQTT 5 §3.3.4) — by default one copy carrying all of them, as `HiveMQ`
 /// does; after [`copy_per_subscription`](Self::copy_per_subscription) one copy
 /// per matching filter, each carrying its own identifier, as mosquitto 2 does;
@@ -79,6 +80,10 @@ pub fn published(connection: usize, topic: &str, payload: &str, retain: bool) ->
 /// A client that publishes on a topic that is not a topic name (a wildcard in
 /// it, or empty) has its connection closed, as a broker must (MQTT 5 §4.13).
 ///
+/// After [`answer_subscribes_after`](Self::answer_subscribes_after) it is a
+/// broker under load: it takes a while over each SUBSCRIBE before the
+/// subscription exists and its SUBACK goes out.
+///
 /// After [`speak_only_3_1_1`](Self::speak_only_3_1_1) it is a broker that speaks
 /// MQTT 3.1.1 only, and refuses every MQTT 5 CONNECT the way a [`Refusal`]
 /// says.
@@ -88,8 +93,13 @@ pub struct FakeBroker {
     heard: Arc<Mutex<Vec<Heard>>>,
     /// Bumped to make every open connection close.
     cut: watch::Sender<u64>,
-    /// `(topic, payload)` to send to every open connection.
-    outbound: broadcast::Sender<(String, Vec<u8>)>,
+    /// `(topic, payload, moment)` to send to every open connection.
+    outbound: broadcast::Sender<Outbound>,
+    /// The broker's clock: the moment a live publish is published, and the
+    /// moment a subscription comes to be, are read from it.
+    clock: Arc<AtomicU64>,
+    /// How long the broker takes over a SUBSCRIBE.
+    subscribe_delay: watch::Sender<Duration>,
     /// How a live publish is sent to a connection with matching filters.
     copies: watch::Sender<Delivery>,
     /// Every SUBSCRIBE: `(connection, filter, subscription identifier)`.
@@ -137,6 +147,9 @@ impl FakeBroker {
             (Arc::clone(&ids), Arc::clone(&wills_held), Arc::clone(&wills_said));
         let (let_through, _) = watch::channel(BTreeSet::new());
         let (deaf, _) = watch::channel(false);
+        let clock = Arc::new(AtomicU64::new(0));
+        let (subscribe_delay, _) = watch::channel(Duration::ZERO);
+        let (accept_clock, accept_subscribe_delay) = (Arc::clone(&clock), subscribe_delay.clone());
         let open = Arc::new(AtomicUsize::new(0));
         let waiting = Arc::new(AtomicUsize::new(0));
         let held = Arc::new(AtomicUsize::new(0));
@@ -159,6 +172,8 @@ impl FakeBroker {
                     retained: Arc::clone(&accept_retained),
                     cut: accept_cut.subscribe(),
                     outbound: accept_outbound.subscribe(),
+                    clock: Arc::clone(&accept_clock),
+                    subscribe_delay: accept_subscribe_delay.subscribe(),
                     copies: accept_copies.subscribe(),
                     ids: Arc::clone(&accept_ids),
                     wills_held: Arc::clone(&accept_wills_held),
@@ -183,6 +198,8 @@ impl FakeBroker {
             heard,
             cut,
             outbound,
+            clock,
+            subscribe_delay,
             copies,
             ids,
             wills_held,
@@ -210,6 +227,13 @@ impl FakeBroker {
     /// subscription identifier at all.
     pub fn tag_nothing(&self) {
         self.copies.send_replace(Delivery::Untagged);
+    }
+
+    /// From here on, take `delay` over each SUBSCRIBE: the subscription
+    /// exists, and its SUBACK goes out, only after it. A live publish meanwhile
+    /// does not reach it.
+    pub fn answer_subscribes_after(&self, delay: Duration) {
+        self.subscribe_delay.send_replace(delay);
     }
 
     /// Every SUBSCRIBE so far: `(connection, filter, subscription identifier)`.
@@ -351,9 +375,11 @@ impl FakeBroker {
         }
     }
 
-    /// A live publish on `topic`: unflagged, to every open connection.
+    /// A live publish on `topic`: unflagged, to every open connection that
+    /// holds a matching filter now.
     pub fn publish(&self, topic: &str, payload: &[u8]) {
-        let _ = self.outbound.send((topic.to_string(), payload.to_vec()));
+        let now = self.clock.fetch_add(1, Ordering::SeqCst);
+        let _ = self.outbound.send((topic.to_string(), payload.to_vec(), now));
     }
 
     /// Make `payload` the retained message of `topic`, for the SUBSCRIBEs to
@@ -408,6 +434,9 @@ impl Refusal {
     }
 }
 
+/// A live publish to pass on: `(topic, payload, the moment it was published)`.
+type Outbound = (String, Vec<u8>, u64);
+
 /// Every SUBSCRIBE a broker read: `(connection, filter, subscription identifier)`.
 type SubscriptionIds = Arc<Mutex<Vec<(usize, String, Option<u32>)>>>;
 
@@ -429,7 +458,9 @@ struct Link {
     heard: Arc<Mutex<Vec<Heard>>>,
     retained: Arc<Mutex<BTreeMap<String, Vec<u8>>>>,
     cut: watch::Receiver<u64>,
-    outbound: broadcast::Receiver<(String, Vec<u8>)>,
+    outbound: broadcast::Receiver<Outbound>,
+    clock: Arc<AtomicU64>,
+    subscribe_delay: watch::Receiver<Duration>,
     copies: watch::Receiver<Delivery>,
     ids: SubscriptionIds,
     wills_held: Arc<Mutex<BTreeMap<usize, Will>>>,
@@ -439,8 +470,8 @@ struct Link {
     /// The client said DISCONNECT.
     goodbye: bool,
     /// The topic filters this connection subscribed and still holds, with
-    /// their subscription identifiers.
-    filters: BTreeMap<String, Option<u32>>,
+    /// their subscription identifiers and the moment each came to be.
+    filters: BTreeMap<String, (Option<u32>, u64)>,
     silent: watch::Receiver<bool>,
     refusal: watch::Receiver<Option<Refusal>>,
     let_through: watch::Receiver<BTreeSet<usize>>,
@@ -488,9 +519,8 @@ impl Link {
                 _ = self.cut.changed() => return,
                 _ = self.deaf.changed() => continue,
                 message = self.outbound.recv() => {
-                    let Ok((topic, payload)) = message else { return };
-                    let packets = self.deliveries(&topic, &payload);
-                    if stream.write_all(&packets).await.is_err() {
+                    let Ok(message) = message else { return };
+                    if stream.write_all(&self.deliveries(&message)).await.is_err() {
                         return;
                     }
                     continue;
@@ -558,8 +588,12 @@ impl Link {
                     continue;
                 }
                 // SUBSCRIBE → SUBACK (packet id, no properties, granted QoS 0),
-                // then the retained messages the filter matches, flagged.
-                0x80 => reply.extend(self.subscribe(&body)),
+                // then the retained messages the filter matches, flagged —
+                // after the broker's delay over a SUBSCRIBE.
+                0x80 => match self.subscribe(&body).await {
+                    Some(answer) => reply.extend(answer),
+                    None => return,
+                },
                 // UNSUBSCRIBE → UNSUBACK.
                 0xA0 => {
                     let filter = first_topic(&body);
@@ -583,10 +617,18 @@ impl Link {
         }
     }
 
-    /// Take the SUBSCRIBE in `body`: the SUBACK, then the retained messages
-    /// its filter matches, flagged and tagged with its subscription
-    /// identifier.
-    fn subscribe(&mut self, body: &[u8]) -> Vec<u8> {
+    /// Take the SUBSCRIBE in `body`, after the broker's delay over one: the
+    /// SUBACK, then the retained messages its filter matches, flagged and
+    /// tagged with its subscription identifier. `None` when the links are cut
+    /// meanwhile.
+    async fn subscribe(&mut self, body: &[u8]) -> Option<Vec<u8>> {
+        let delay = *self.subscribe_delay.borrow();
+        if !delay.is_zero() {
+            tokio::select! {
+                _ = self.cut.changed() => return None,
+                () = tokio::time::sleep(delay) => {}
+            }
+        }
         let (filter, id) = subscription(body);
         let mut reply = vec![0x90, 0x04, body[0], body[1], 0x00, 0x00];
         let ids: Vec<u32> = id.into_iter().collect();
@@ -595,18 +637,28 @@ impl Link {
                 reply.extend(publish_packet(topic, payload, true, &ids));
             }
         }
-        self.filters.insert(filter.clone(), id);
+        // A filter subscribed again is the subscription it was, replaced.
+        let since = self
+            .filters
+            .get(&filter)
+            .map_or_else(|| self.clock.fetch_add(1, Ordering::SeqCst), |(_, since)| *since);
+        self.filters.insert(filter.clone(), (id, since));
         self.ids.lock().unwrap().push((self.connection, filter.clone(), id));
         self.see(Seen::Subscribed { connection: self.connection, topic: filter });
-        reply
+        Some(reply)
     }
 
-    /// What a live publish of `payload` on `topic` sends this connection:
-    /// nothing when none of its filters match, otherwise the copies
+    /// What a live publish sends this connection: nothing when none of the
+    /// filters it held at the moment of the publish match, otherwise the copies
     /// [`Delivery`] says, tagged as it says.
-    fn deliveries(&self, topic: &str, payload: &[u8]) -> Vec<u8> {
-        let matching: Vec<Option<u32>> =
-            self.filters.iter().filter(|(filter, _)| filter_matches(filter, topic)).map(|(_, id)| *id).collect();
+    fn deliveries(&self, (topic, payload, published): &Outbound) -> Vec<u8> {
+        let (topic, published) = (topic.as_str(), *published);
+        let matching: Vec<Option<u32>> = self
+            .filters
+            .iter()
+            .filter(|(filter, (_, since))| *since < published && filter_matches(filter, topic))
+            .map(|(_, (id, _))| *id)
+            .collect();
         if matching.is_empty() {
             return Vec::new();
         }

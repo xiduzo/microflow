@@ -64,7 +64,9 @@ export const OPENING_PUBLISH_MS = 5000;
  * How long a link opened to carry a new will ({@link BrokerConnections.setWills})
  * may take to connect. One that has not by then is closed, and the link that
  * is up keeps the will it has until the will changes again or that link is
- * repaired.
+ * repaired. Also how long, once the new link connected, the link it replaces
+ * waits for the broker to answer the new link's SUBSCRIBEs before it says
+ * DISCONNECT all the same.
  */
 export const RENEW_MS = 5000;
 
@@ -305,6 +307,9 @@ type Session = {
   wills: Will[];
   /** A client opened beside `client` to carry the first will. */
   renewal: Renewal<Will | undefined> | undefined;
+  /** Each link a renewal took over from that waits for the broker to answer
+   *  the new link's SUBSCRIBEs before it closes: called, it closes now. */
+  leaving: Set<() => void>;
   /** The will links, by the topic of their will. */
   willLinks: Map<string, WillLink>;
   /** The number of the link in use: one higher each time `client` connects.
@@ -378,7 +383,8 @@ const reason = (error: unknown): string => (error instanceof Error ? error.messa
  * and a will link of its own carries each other one. A link that is up and
  * carries another will is **renewed**: a new link is opened beside it, takes
  * over (the connection's link: every subscription), and the old one then says
- * DISCONNECT, which drops the old will. To the callers the connection stays up
+ * DISCONNECT, which drops the old will: the connection's old link once the
+ * broker answered the new link's SUBSCRIBEs ({@link RENEW_MS} at most). To the callers the connection stays up
  * throughout: no watcher is called with `false`, and a subscription is not
  * handed a retained message again that it had.
  *
@@ -400,8 +406,8 @@ export class BrokerConnections {
     private readonly beforeLeaving: (brokerId: string) => void = () => {},
     /** What the waits of a connection run on: the one for it to open
      *  ({@link OPENING_PUBLISH_MS}), the one for a link to close
-     *  ({@link CLOSE_GRACE_MS}) and the one for a link renewed for a will to
-     *  connect ({@link RENEW_MS}). */
+     *  ({@link CLOSE_GRACE_MS}) and the ones for a link renewed for a will to
+     *  connect and to have its SUBSCRIBEs answered ({@link RENEW_MS}). */
     private readonly timers: Timers = realTimers,
   ) {}
 
@@ -644,6 +650,7 @@ export class BrokerConnections {
       carried: undefined,
       wills: [],
       renewal: undefined,
+      leaving: new Set(),
       willLinks: new Map(),
       link: 0,
       topics: new Map(),
@@ -796,14 +803,19 @@ export class BrokerConnections {
    * the link in use, under the same link number. It subscribes every topic
    * the session holds or is asking for, under the same subscription
    * identifiers, leaving what each subscription has had as it is, so the
-   * broker's retained replay is not news to one that had it. Then the old
-   * link says DISCONNECT, so the broker drops the old will.
+   * broker's retained replay is not news to one that had it. Once the broker
+   * has answered every one of those SUBSCRIBEs, the old link says DISCONNECT,
+   * so the broker drops the old will: until a SUBACK the subscription does
+   * not exist on the new link, and a message published then goes to the old
+   * link only. A refusal is an answer too (it is logged), and so is the new
+   * link closing before the broker answered.
    *
    * The old link stops delivering here; a message sent in the moment between
    * this and the new link's SUBACK is lost, as one sent while a link is down
-   * is. When the old link dropped meanwhile the new one is closed, with a
-   * DISCONNECT, and the old one is renewed once it is repaired: what it
-   * stored for its link is sent when it is.
+   * is. One sent after the old link closed is not. When the old link dropped
+   * meanwhile the new one is closed, with a DISCONNECT, and the old one is
+   * renewed once it is repaired: what it stored for its link is sent when it
+   * is.
    */
   private takeOver(brokerId: string, session: Session): void {
     const renewal = session.renewal;
@@ -817,12 +829,13 @@ export class BrokerConnections {
     }
     session.client = renewal.client;
     session.carried = renewal.will;
+    const release = this.releaseAfterAnswers(brokerId, session, old);
     for (const [topic, subscription] of session.topics) {
       // A SUBSCRIBE still out on the old link is answered there, unheard.
       subscription.asked = false;
-      this.request(brokerId, session, topic, subscription, false);
+      this.request(brokerId, session, topic, subscription, false, release.awaiting());
     }
-    this.disconnect(old);
+    release.armed();
     // The will changed again while this link was opened.
     this.renew(brokerId, session);
     // A will link kept until this link carried its will is not needed now.
@@ -924,6 +937,64 @@ export class BrokerConnections {
     this.listenWillLink(brokerId, session, link, client);
   }
 
+  /**
+   * Let go of `old`, the link a renewal took over from, once the broker has
+   * answered every SUBSCRIBE the new link sends for it: each `awaiting()` is
+   * one SUBSCRIBE, and what it returns is called on its answer; `armed()`
+   * says every SUBSCRIBE was counted. The wait lasts {@link RENEW_MS} at most
+   * and ends early when the session is closed.
+   *
+   * On a timeout `old` is let go of all the same: it delivers nothing any
+   * more, and it carries the will that is no longer wanted, which the broker
+   * would publish should it drop. A subscription the broker answers late
+   * works from then on. `old` says DISCONNECT when it is up, and is cut when
+   * it dropped meanwhile.
+   */
+  private releaseAfterAnswers(
+    brokerId: string,
+    session: Session,
+    old: MqttClientLike,
+  ): { awaiting(): () => void; armed(): void } {
+    let owed = 0;
+    let counted = false;
+    let released = false;
+    const release = (late: boolean) => {
+      if (released) return;
+      released = true;
+      this.timers.clear(timeout);
+      session.leaving.delete(now);
+      if (late) {
+        console.warn(
+          `[mqtt] broker ${brokerId}: the renewed link's subscriptions were not all answered within ${RENEW_MS} ms; the old link is closed all the same`,
+        );
+      }
+      if (old.connected) this.disconnect(old);
+      else old.end(true);
+    };
+    const now = () => release(false);
+    const timeout = this.timers.set(() => release(true), RENEW_MS);
+    session.leaving.add(now);
+    const settle = () => {
+      if (counted && owed === 0) release(false);
+    };
+    return {
+      awaiting: () => {
+        owed += 1;
+        let answered = false;
+        return () => {
+          if (answered) return;
+          answered = true;
+          owed -= 1;
+          settle();
+        };
+      },
+      armed: () => {
+        counted = true;
+        settle();
+      },
+    };
+  }
+
   /** `link`'s renewal connected: it carries the will from now on, and the
    *  client it replaces says DISCONNECT, or is cut when it is down. */
   private takeOverWillLink(link: WillLink): void {
@@ -1004,6 +1075,9 @@ export class BrokerConnections {
         // A link that is up says DISCONNECT, so its will is dropped.
         client.end(!client.connected);
       }
+      // A link a renewal took over from, still waiting for the new link's
+      // SUBACKs: its will is not wanted, and nothing is delivered any more.
+      for (const leave of session.leaving) leave();
       const willLinks = [...session.willLinks.values()];
       session.willLinks.clear();
       const closeWillLinks = (said: boolean) => {
@@ -1020,21 +1094,28 @@ export class BrokerConnections {
   /** Send the SUBSCRIBE for `topic` on the link in use, unless the link is
    *  down or one is already waiting for its answer. `fresh` for a new link,
    *  whose broker answers it with the filter's retained messages as news;
-   *  not for a link that takes over from one that held the topic. */
+   *  not for a link that takes over from one that held the topic. `answered`
+   *  is called once: when the SUBSCRIBE has its answer, or at once when none
+   *  is sent. */
   private request(
     brokerId: string,
     session: Session,
     topic: string,
     subscription: Subscription,
     fresh = true,
+    answered: () => void = () => {},
   ): void {
     const { client } = session;
-    if (!client.connected || subscription.asked) return;
+    if (!client.connected || subscription.asked) {
+      answered();
+      return;
+    }
     subscription.asked = true;
     if (fresh) subscription.seen.clear();
     // A broker that takes no subscription identifiers closes the link of a
     // client that sends one.
     client.subscribe(topic, client.subscriptionIds ? subscription.id : undefined, (error) => {
+      answered();
       // An answer on a link that was since renewed: the SUBSCRIBE on the link
       // in use is answered there.
       if (session.client !== client) return;

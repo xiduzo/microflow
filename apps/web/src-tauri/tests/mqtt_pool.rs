@@ -1426,6 +1426,34 @@ async fn a_link_on_which_studio_is_announced_carries_its_goodbye_as_its_will() {
 }
 
 #[tokio::test]
+async fn a_renewed_link_lets_go_of_the_old_one_only_once_the_broker_took_its_subscriptions() {
+    let broker = FakeBroker::start().await;
+    let manager = MqttManager::new();
+    manager.connect(broker.config()).await.expect("connect");
+    let console = Inbox::default();
+    manager.subscribe("b", "t", Subscriber::Console, console.callback()).await.expect("subscribe");
+    // As `announce`: the new link's CONNECT is held until Studio is announced
+    // on the old one, which has subscribed the design node's topic by then.
+    let performer = performer_on(&manager);
+    broker.go_silent();
+    performer.reconcile(bridge_wiring()).applied().await;
+    broker.wait_until_seen(3).await;
+    // From here on the broker is under load: a subscription comes to be well
+    // after its SUBSCRIBE was written. Only the new link subscribes.
+    broker.answer_subscribes_after(Duration::from_millis(300));
+    broker.answer_again();
+    broker.wait_until_heard(3).await;
+    assert_eq!(broker.heard(), [announced_on(1), vec![Heard::Disconnected(1)]].concat());
+
+    // The old link is gone, so the new one holds `t` at the broker: a message
+    // published now reaches the console.
+    broker.wait_until_open(1).await;
+    broker.publish("t", b"22");
+    console.wait_for(1).await;
+    assert_eq!(console.received(), texts(&["22"]));
+}
+
+#[tokio::test]
 async fn a_removed_broker_is_told_that_studio_left_before_its_link_is_closed() {
     let broker = FakeBroker::start().await;
     let manager = MqttManager::new();

@@ -423,6 +423,25 @@ describe("BrokerConnections over the real mqtt.js client", () => {
     expect(outcomes).toEqual(["a held", "a held"]);
   });
 
+  test("a renewed link lets go of the old one only once the broker took its SUBSCRIBEs: a publish right after is delivered", async () => {
+    const mosquitto = broker();
+    const { made, outcomes, received, subscribe } = connections();
+    made.configure("b", { id: "b", url: mosquitto.url });
+    subscribe("a");
+    await until(() => outcomes.length === 1);
+
+    // A broker under load: the new link's subscription exists only a while
+    // after its SUBSCRIBE.
+    mosquitto.answerSubscribesAfter(150);
+    made.setWills("b", [{ topic: "app/status", payload: "disconnected", retain: true }]);
+    await until(() => mosquitto.count("DISCONNECT") === 1 && mosquitto.connections() === 1);
+    mosquitto.publish("a", "right after");
+
+    await until(() => received.length === 1);
+    expect(received).toEqual(["a right after"]);
+    expect(outcomes).toEqual(["a held", "a held"]);
+  });
+
   test("a link that ends without a DISCONNECT leaves its will with the broker; one that says DISCONNECT does not", async () => {
     const lost = broker();
     const left = broker();

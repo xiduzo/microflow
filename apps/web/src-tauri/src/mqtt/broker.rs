@@ -4,11 +4,12 @@
 
 use mqtt_endpoint_tokio::mqtt_ep;
 use mqtt_endpoint_tokio::mqtt_ep::packet::{Property, SubscriptionIdentifier};
+use mqtt_endpoint_tokio::mqtt_ep::result_code::SubackReasonCode;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, oneshot, RwLock};
 
 /// Configuration for MQTT reconnection with exponential backoff
 #[derive(Debug, Clone)]
@@ -31,7 +32,8 @@ pub struct ReconnectConfig {
     /// a PUBLISH, the DISCONNECT — may take (default: [`WRITE_TIMEOUT`]). A
     /// write that is not through by then has failed, and its link is treated
     /// as dropped: the client is `Disconnected` and repairs it by the backoff
-    /// above.
+    /// above. It also bounds how long a link renewed for a will waits for the
+    /// broker to answer its SUBSCRIBEs ([`MqttBroker::renew_link`]).
     pub write_timeout: Duration,
 }
 
@@ -564,6 +566,17 @@ impl BrokerState {
     }
 }
 
+/// The SUBACKs awaited on one link, by the packet identifier of the SUBSCRIBE
+/// each answers: the filter it was for, and who is told when it is in. The
+/// link's receive loop tells them; when the loop ends the map is emptied, and
+/// whoever still waits is told — by a dropped sender — that no answer comes.
+type Subacks = Arc<Mutex<HashMap<u16, (String, oneshot::Sender<()>)>>>;
+
+/// `subacks`, locked: it is never held across an `await`.
+fn awaited(subacks: &Subacks) -> std::sync::MutexGuard<'_, HashMap<u16, (String, oneshot::Sender<()>)>> {
+    subacks.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
 /// Why a receive loop is told to stop.
 enum Stop {
     /// The client was disconnected: it is finished.
@@ -579,6 +592,9 @@ pub struct MqttBroker {
     state: Arc<RwLock<BrokerState>>,
     endpoint: Option<Arc<ClientEndpoint>>,
     shutdown_tx: Option<mpsc::Sender<Stop>>,
+    /// The SUBACKs awaited on the link that is up: the map its receive loop
+    /// answers from.
+    subacks: Subacks,
     /// Configuration for automatic reconnection with exponential backoff
     reconnect_config: ReconnectConfig,
     /// Called when the reconnect loop has brought a dropped link back up and
@@ -609,6 +625,7 @@ impl MqttBroker {
             })),
             endpoint: None,
             shutdown_tx: None,
+            subacks: Subacks::default(),
             reconnect_config,
             link_restored: None,
         }
@@ -685,12 +702,30 @@ impl MqttBroker {
     /// and then the old one says DISCONNECT — which tells the broker to drop
     /// the old will, not publish it. The client stays `Connected` throughout.
     ///
-    /// The receive loop of the old link stops before the new one starts, so
-    /// nothing arrives twice; a message published in that moment is lost, as
-    /// one published while a link is down is. Every filter is subscribed on
-    /// the new link with the subscription identifier it had. A subscriber is
-    /// not handed a retained message again that it has had: the new link's
+    /// Every filter is subscribed on the new link with the subscription
+    /// identifier it had, and the old link says DISCONNECT only once the
+    /// broker has answered each of those SUBSCRIBEs: a SUBACK is what says the
+    /// subscription exists, and a message published before it goes to the old
+    /// link only. A SUBACK that refuses the filter is an answer too (it is
+    /// logged). The receive loop of the old link stops before the new one
+    /// starts, so nothing arrives twice; a message published between that
+    /// moment and the SUBACK of its filter is lost, as one published while a
+    /// link is down is. One published after the renewal is not. A subscriber
+    /// is not handed a retained message again that it has had: the new link's
     /// replay of it is not news.
+    ///
+    /// The wait for the SUBACKs is bounded by the write timeout
+    /// ([`ReconnectConfig::write_timeout`]), with the client's lock released:
+    /// each link answers only its own SUBSCRIBEs, so a client that subscribes,
+    /// renews or ends meanwhile does not disturb it. It ends early when the
+    /// new link's receive loop ends — the link dropped (its repair subscribes
+    /// again), or the client moved on from it. Then, and when the broker has
+    /// not answered in time, the old link says DISCONNECT all the same: nobody
+    /// reads it any more, so keeping it open delivers nothing, and it leaves
+    /// the will that was wanted before with the broker. Going back to it
+    /// instead would put that will back, and a broker too slow to answer now
+    /// would be as slow for the next renewal. A subscription the broker
+    /// answers late works from then on.
     ///
     /// Gives up, and leaves the old link as it is, when the new one cannot be
     /// opened, when the old one dropped meanwhile (its repair carries the
@@ -723,12 +758,26 @@ impl MqttBroker {
         client.state.write().await.tagged = opened.tagged;
         let old = client.endpoint.replace(Arc::new(opened.endpoint));
         client.start_receive_loop(broker.clone());
-        if let Err(e) = client.subscribe_held().await {
+        let answers = client.subscribe_held().await.unwrap_or_else(|e| {
             log::warn!("[MQTT] Broker {}: the renewed link did not take every subscription: {e}", client.config.id);
-        }
+            Vec::new()
+        });
         let write_timeout = client.reconnect_config.write_timeout;
         let id = client.config.id.clone();
         drop(client);
+
+        // Make before break: the new link holds every filter at the broker
+        // before the old one goes.
+        let answered = tokio::time::timeout(write_timeout, async {
+            for answer in answers {
+                let _ = answer.await;
+            }
+        });
+        if answered.await.is_err() {
+            log::warn!(
+                "[MQTT] Broker {id}: the renewed link's subscriptions were not all answered within {write_timeout:?}; letting go of the old link all the same"
+            );
+        }
 
         if let Some(old) = old {
             say_disconnect(&old, write_timeout).await;
@@ -770,7 +819,15 @@ impl MqttBroker {
         };
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
         self.shutdown_tx = Some(shutdown_tx);
-        spawn_receive_loop(endpoint, self.state.clone(), shutdown_rx, broker, self.reconnect_config.clone());
+        self.subacks = Subacks::default();
+        spawn_receive_loop(
+            endpoint,
+            self.state.clone(),
+            Arc::clone(&self.subacks),
+            shutdown_rx,
+            broker,
+            self.reconnect_config.clone(),
+        );
     }
 }
 
@@ -1001,6 +1058,7 @@ impl MqttBroker {
     async fn receive_loop(
         endpoint: Arc<ClientEndpoint>,
         state: Arc<RwLock<BrokerState>>,
+        subacks: &Subacks,
         mut shutdown_rx: mpsc::Receiver<Stop>,
         broker: Arc<RwLock<MqttBroker>>,
         reconnect_config: ReconnectConfig,
@@ -1016,7 +1074,7 @@ impl MqttBroker {
                 },
                 result = endpoint.recv() => match result {
                     Ok(packet) => {
-                        Self::handle_packet(packet, &state).await;
+                        Self::handle_packet(packet, &state, subacks).await;
                         continue;
                     }
                     Err(e) => e.to_string(),
@@ -1072,7 +1130,7 @@ impl MqttBroker {
         }
     }
 
-    async fn handle_packet(packet: mqtt_ep::packet::Packet, state: &Arc<RwLock<BrokerState>>) {
+    async fn handle_packet(packet: mqtt_ep::packet::Packet, state: &Arc<RwLock<BrokerState>>, subacks: &Subacks) {
         match packet {
             mqtt_ep::packet::Packet::V5_0Publish(publish) => {
                 let message = MqttMessage {
@@ -1116,6 +1174,14 @@ impl MqttBroker {
             }
             mqtt_ep::packet::Packet::V5_0Suback(suback) => {
                 log::debug!("[MQTT] Received SUBACK: {suback:?}");
+                let waiting = awaited(subacks).remove(&suback.packet_id());
+                let topic = waiting.as_ref().map_or("a topic", |(topic, _)| topic.as_str());
+                for code in suback.reason_codes().into_iter().filter(SubackReasonCode::is_failure) {
+                    log::warn!("[MQTT] The broker refused the subscription to {topic}: {code:?}");
+                }
+                if let Some((_, answered)) = waiting {
+                    let _ = answered.send(());
+                }
             }
             mqtt_ep::packet::Packet::V5_0Unsuback(unsuback) => {
                 log::debug!("[MQTT] Received UNSUBACK: {unsuback:?}");
@@ -1380,13 +1446,20 @@ impl MqttBroker {
     /// subscription identifier when the link's broker gives them. The
     /// callbacks are not its concern: a new subscription stores one after
     /// this, a reconnection already holds them.
-    async fn send_subscribe(&self, topic: &str, id: u32) -> Result<(), String> {
+    ///
+    /// Returns what resolves once the broker answered it with its SUBACK, and
+    /// fails when the link's receive loop ends first. Whoever does not wait
+    /// for the answer drops it.
+    async fn send_subscribe(&self, topic: &str, id: u32) -> Result<oneshot::Receiver<()>, String> {
         let endpoint = self.link().await?;
         let tagged = self.state.read().await.tagged;
+        let (answered, answer) = oneshot::channel();
 
         self.write(async {
             // Acquire packet ID from the endpoint's internal pool
             let packet_id = endpoint.acquire_packet_id().await.map_err(Self::format_connection_error)?;
+            // Awaited before it goes out: the SUBACK cannot come first.
+            awaited(&self.subacks).insert(packet_id, (topic.to_string(), answered));
 
             let sub_entry = mqtt_ep::packet::SubEntry::new(topic, mqtt_ep::packet::SubOpts::new())
                 .map_err(|e| format!("Invalid topic: {e:?}"))?;
@@ -1400,7 +1473,8 @@ impl MqttBroker {
 
             endpoint.send(subscribe).await.map_err(Self::format_connection_error)
         })
-        .await
+        .await?;
+        Ok(answer)
     }
 
     /// Subscribe every topic filter the client holds again — once per filter,
@@ -1412,19 +1486,21 @@ impl MqttBroker {
         for held in self.state.write().await.subscriptions.holds_mut() {
             held.seen.clear();
         }
-        self.subscribe_held().await
+        self.subscribe_held().await.map(drop)
     }
 
     /// Subscribe every topic filter the client holds on the link, once per
     /// filter and with the subscription identifier it has, leaving what each
-    /// subscriber has had as it is.
-    async fn subscribe_held(&self) -> Result<(), String> {
+    /// subscriber has had as it is. Returns what resolves on the broker's
+    /// answer to each SUBSCRIBE ([`Self::send_subscribe`]).
+    async fn subscribe_held(&self) -> Result<Vec<oneshot::Receiver<()>>, String> {
         let filters = self.state.read().await.subscriptions.ids();
+        let mut answers = Vec::with_capacity(filters.len());
         for (topic, id) in filters {
-            self.send_subscribe(&topic, id).await?;
+            answers.push(self.send_subscribe(&topic, id).await?);
             log::info!("[MQTT] Resubscribed to topic: {topic}");
         }
-        Ok(())
+        Ok(answers)
     }
 
     /// Reconnection loop with exponential backoff
@@ -1576,12 +1652,16 @@ pub(super) async fn say_word(endpoint: &ClientEndpoint, word: &LastWord) -> Resu
 fn spawn_receive_loop(
     endpoint: Arc<ClientEndpoint>,
     state: Arc<RwLock<BrokerState>>,
+    subacks: Subacks,
     shutdown_rx: mpsc::Receiver<Stop>,
     broker: Arc<RwLock<MqttBroker>>,
     reconnect_config: ReconnectConfig,
 ) {
     tokio::spawn(async move {
-        MqttBroker::receive_loop(endpoint, state, shutdown_rx, broker, reconnect_config).await;
+        MqttBroker::receive_loop(endpoint, state, &subacks, shutdown_rx, broker, reconnect_config).await;
+        // No SUBACK comes in on this link any more: whoever waits for one is
+        // told.
+        awaited(&subacks).clear();
     });
 }
 
