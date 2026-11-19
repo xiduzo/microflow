@@ -22,8 +22,15 @@
 use crate::codegen::wire::{CppExpr, CppType};
 use crate::design_bridge::VariableKind;
 
-/// `mf_number_text` and `mf_payload_number` (see the module docs).
-pub const NUMBER_TEXT: &str = r#"// x (not negative) as d.ddd...e+x with `precision` digits after the point:
+/// `mf_number_text` and `mf_payload_number` (see the module docs). The block
+/// includes the C headers it uses (`snprintf`, `strtod`, `memcmp`) itself:
+/// `Arduino.h` happens to pull them in on the boards, a plain C++ toolchain
+/// does not.
+pub const NUMBER_TEXT: &str = r#"#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// x (not negative) as d.ddd...e+x with `precision` digits after the point:
 // its digits into `digits`, its decimal exponent returned.
 int mf_scientific(double x, int precision, char* digits) {
   char text[64];

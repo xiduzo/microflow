@@ -16,6 +16,10 @@
 const char* wifi_ssid = "golden-net";
 const char* wifi_password = "golden-pass";
 // shared across nodes (deduplicated)
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 // x (not negative) as d.ddd...e+x with `precision` digits after the point:
 // its digits into `digits`, its decimal exponent returned.
 int mf_scientific(double x, int precision, char* digits) {
