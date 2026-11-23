@@ -34,7 +34,7 @@ GlobalRegistrator.register();
 // React only permits `act` when the environment opts in.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { NodeContainerContext } from "@/nodes/_base/node-context";
@@ -83,6 +83,13 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+});
+
+// Bun runs every test file in one process. happy-dom's globals include a
+// `WritableStream` without `getWriter`, so left registered they break every
+// later file that opens a fake serial port (board-link, web-serial).
+afterAll(async () => {
+  await GlobalRegistrator.unregister();
 });
 
 // ---------------------------------------------------------------------------
