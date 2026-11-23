@@ -30,6 +30,8 @@ env:
   SMOKE_BASE_URL: ${{ inputs.base_url || 'https://microflow.tech' }}
   SMOKE_SERVER_URL: ${{ inputs.server_url || 'https://server.microflow.tech' }}
   SMOKE_DOCS_URL: ${{ inputs.docs_url || 'https://docs.microflow.tech' }}
+  # Lets the runner past Cloudflare's bot challenge (e2e/bypass.ts).
+  SMOKE_BYPASS_TOKEN: ${{ secrets.SMOKE_BYPASS_TOKEN }}
 
 jobs:
   smoke-live:
