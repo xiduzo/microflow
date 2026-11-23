@@ -2,11 +2,13 @@ name: Smoke (live)
 
 # Post-rollout smoke suite (`bun run smoke:live` in apps/web): the `@live`
 # browser flows and the read-only server checks, against the deployed site.
-# Run it by hand after a deploy; the daily run catches a broken production
-# between deploys.
+# Run it locally after a deploy (see the release notes).
+#
+# No schedule: Cloudflare's Bot Fight Mode (Free plan) challenges GitHub's
+# runners, and no rule can exempt them, so against microflow.tech this
+# workflow fails before it reaches the app. Dispatch it by hand only against
+# URLs that are not behind Bot Fight Mode.
 on:
-  schedule:
-    - cron: '47 6 * * *'
   workflow_dispatch:
     inputs:
       base_url:
@@ -30,8 +32,6 @@ env:
   SMOKE_BASE_URL: ${{ inputs.base_url || 'https://microflow.tech' }}
   SMOKE_SERVER_URL: ${{ inputs.server_url || 'https://server.microflow.tech' }}
   SMOKE_DOCS_URL: ${{ inputs.docs_url || 'https://docs.microflow.tech' }}
-  # Lets the runner past Cloudflare's bot challenge (e2e/bypass.ts).
-  SMOKE_BYPASS_TOKEN: ${{ secrets.SMOKE_BYPASS_TOKEN }}
 
 jobs:
   smoke-live:

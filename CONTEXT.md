@@ -917,7 +917,7 @@ Four end-to-end flows that prove the built web app works in a real browser engin
 
 ## Live smoke suite
 
-The post-rollout check against the deployed site (`bun run smoke:live`, `apps/web/playwright.live.config.ts`). It runs the browser smoke flows tagged `@live` against microflow.tech, with the deployed server reachable, plus read-only server checks in `apps/web/e2e/*.live.ts`: the server answers, auth returns a signed-out session, CORS allows the web origin and both desktop webview origins, the supporters list loads, the room gate closes a signed-out socket with 1008, and the docs site is up. Nothing in it signs in or writes to the database. `SMOKE_BASE_URL`, `SMOKE_SERVER_URL` and `SMOKE_DOCS_URL` point it elsewhere. Runs on demand and daily (`.github/workflows/smoke-live.yml`).
+The post-rollout check against the deployed site (`bun run smoke:live`, `apps/web/playwright.live.config.ts`). It runs the browser smoke flows tagged `@live` against microflow.tech, with the deployed server reachable, plus read-only server checks in `apps/web/e2e/*.live.ts`: the server answers, auth returns a signed-out session, CORS allows the web origin and both desktop webview origins, the supporters list loads, the room gate closes a signed-out socket with 1008, and the docs site is up. Nothing in it signs in or writes to the database. `SMOKE_BASE_URL`, `SMOKE_SERVER_URL` and `SMOKE_DOCS_URL` point it elsewhere. Run it locally after a deploy. It does not run on GitHub's runners against microflow.tech, because Cloudflare's Bot Fight Mode challenges them and cannot be skipped on the Free plan; `.github/workflows/smoke-live.yml` is a manual dispatch for URLs outside it.
 
 ## Hardware smoke suite
 

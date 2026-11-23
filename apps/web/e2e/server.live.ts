@@ -4,7 +4,6 @@
 // These use Playwright's plain `test` (no browser): only the request client
 // and Node's WebSocket.
 import { expect, test } from "@playwright/test";
-import { bypassHeaders } from "./bypass";
 
 const SERVER_URL = process.env.SMOKE_SERVER_URL ?? "https://server.microflow.tech";
 const DOCS_URL = process.env.SMOKE_DOCS_URL ?? "https://docs.microflow.tech";
@@ -52,8 +51,7 @@ test("the collaboration room gate refuses a signed-out socket", LIVE, async () =
   // looks the flow up, so this touches no flow and no database row.
   const url = `${SERVER_URL.replace(/^http/, "ws")}/yjs/smoke-${crypto.randomUUID()}`;
   const closed = await new Promise<{ code: number; reason: string }>((resolve, reject) => {
-    // `headers` is Node's (undici) extension to the WebSocket constructor.
-    const socket = new WebSocket(url, { headers: bypassHeaders() } as unknown as string[]);
+    const socket = new WebSocket(url);
     const timer = setTimeout(() => reject(new Error(`no close from ${url} within 15s`)), 15_000);
     socket.addEventListener("close", (event) => {
       clearTimeout(timer);

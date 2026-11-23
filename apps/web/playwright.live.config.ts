@@ -9,11 +9,7 @@
 //   SMOKE_BASE_URL    the web app   (default https://microflow.tech)
 //   SMOKE_SERVER_URL  the server    (default https://server.microflow.tech)
 //   SMOKE_DOCS_URL    the docs site (default https://docs.microflow.tech)
-//   SMOKE_BYPASS_TOKEN  optional; sent as the `x-microflow-smoke` header (see
-//                     e2e/bypass.ts), which a Cloudflare rule lets past its
-//                     bot challenge. GitHub's runners get the challenge.
 import { defineConfig } from "@playwright/test";
-import { bypassHeaders } from "./e2e/bypass";
 import type { SmokeOptions } from "./e2e/fixtures";
 
 const BASE_URL = process.env.SMOKE_BASE_URL ?? "https://microflow.tech";
@@ -40,8 +36,5 @@ export default defineConfig<SmokeOptions>({
     navigationTimeout: 45_000,
     // The deployed app talks to its real server (auth session, supporters).
     allowedOrigins: [new URL(SERVER_URL).origin],
-    // Obscura sends these on page loads and same-origin requests, not on
-    // cross-origin fetches; only the pages are challenged.
-    extraHTTPHeaders: bypassHeaders(),
   },
 });
